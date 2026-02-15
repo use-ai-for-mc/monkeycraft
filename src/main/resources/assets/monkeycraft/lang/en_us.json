@@ -1,0 +1,18 @@
+{
+	"config.monkeycraft.title": "Monkeycraft Configuration",
+	"config.monkeycraft.category.general": "General",
+	"config.monkeycraft.option.enabled": "Enable the mod",
+	"config.monkeycraft.option.enabled.tooltip": "Enable or disable Monkeycraft functionality",
+	"config.monkeycraft.option.autoLaunch": "Auto-launch Server",
+	"config.monkeycraft.option.autoLaunch.tooltip": "Automatically start the WebSocket server when joining a game",
+	"config.monkeycraft.option.port": "Port Number",
+	"config.monkeycraft.option.port.tooltip": "The port number for the Monkeycraft server (1-65535)",
+	"config.monkeycraft.option.password": "Password",
+	"config.monkeycraft.option.password.tooltip": "Password for authentication (leave empty to keep current)",
+	"monkeycraft.server.started": "Monkeycraft server started on port %s",
+	"monkeycraft.server.stopped": "Monkeycraft server stopped",
+	"monkeycraft.server.port_unavailable": "Monkeycraft: Port %s is unavailable. Server not started.",
+	"monkeycraft.server.disabled": "Monkeycraft: Mod is disabled in config",
+	"monkeycraft.server.autolaunch": "Monkeycraft: Auto-launching server...",
+	"monkeycraft.command.help": "Monkeycraft Commands:\n/monkeycraft start - Start server\n/monkeycraft stop - Stop server\n/monkeycraft config - Open settings"
+}

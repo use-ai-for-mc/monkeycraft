@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "com.chenweikeng.monkeycraft.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"MinecraftMixin",
+		"MouseHandlerInvoker",
+		"NativeImageAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
