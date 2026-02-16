@@ -59,8 +59,8 @@ public class MonkeycraftClient implements ClientModInitializer {
             isConnectedToClient = true;
             if (client.mouseHandler.isMouseGrabbed()) {
               client.mouseHandler.releaseMouse();
-              automaticallyReleasedCursor = true;
             }
+            automaticallyReleasedCursor = true;
           }
           if (!connectedNow) {
             isConnectedToClient = false;
@@ -74,7 +74,7 @@ public class MonkeycraftClient implements ClientModInitializer {
             client.mouseHandler.releaseMouse();
           }
 
-          if (isConnectedToClient && client.screen != null) {
+          if (WebSocketServerHandler.getInstance().isStreaming() && client.screen != null) {
             client.setScreen(null);
           }
 
