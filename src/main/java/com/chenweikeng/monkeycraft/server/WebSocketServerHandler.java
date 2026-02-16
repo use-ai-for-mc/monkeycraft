@@ -1,9 +1,10 @@
 package com.chenweikeng.monkeycraft.server;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
+import com.chenweikeng.monkeycraft.api.v1.CommandExecutionResult;
 import com.chenweikeng.monkeycraft.api.v1.MonkeycraftApi;
 import com.chenweikeng.monkeycraft.config.ModConfig;
-import com.chenweikeng.monkeycraft.mixin.MouseHandlerInvoker;
+import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -13,12 +14,10 @@ import java.net.ServerSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.network.chat.Component;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
-import org.lwjgl.glfw.GLFW;
 
 public class WebSocketServerHandler {
   private static WebSocketServerHandler instance;
@@ -54,7 +53,7 @@ public class WebSocketServerHandler {
     public int width = 360;
     public int height = 640;
     public int colorMode = 0;
-    public int fps = 20;
+    public int fps = 10;
   }
 
   private WebSocketServerHandler() {}
@@ -89,7 +88,6 @@ public class WebSocketServerHandler {
       server.start();
       currentPort = port;
       running.set(true);
-      MonkeycraftClient.LOGGER.info("WebSocket server started on port {}", port);
       return true;
     } catch (Exception e) {
       MonkeycraftClient.LOGGER.error("Failed to start WebSocket server on port {}", port, e);
@@ -107,7 +105,6 @@ public class WebSocketServerHandler {
     if (server != null) {
       try {
         server.stop();
-        MonkeycraftClient.LOGGER.info("WebSocket server stopped");
       } catch (Exception e) {
         MonkeycraftClient.LOGGER.error("Error stopping WebSocket server", e);
       } finally {
@@ -223,6 +220,21 @@ public class WebSocketServerHandler {
     }
   }
 
+  public int startServerWithPortRange(int preferredPort) {
+    int startPort = Math.max(9600, Math.min(9700, preferredPort));
+    for (int port = startPort; port <= 9700; port++) {
+      if (startServer(port)) {
+        return port;
+      }
+    }
+    for (int port = 9600; port < startPort; port++) {
+      if (startServer(port)) {
+        return port;
+      }
+    }
+    return -1;
+  }
+
   private class MonkeycraftWebSocketServer extends WebSocketServer {
     private WebSocket authenticatedSession;
 
@@ -232,8 +244,12 @@ public class WebSocketServerHandler {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-      MonkeycraftClient.LOGGER.info(
-          "New WebSocket connection from {}", conn.getRemoteSocketAddress());
+      String serverSalt = CryptoUtils.generateSalt();
+      conn.setAttachment(serverSalt);
+      JsonObject hello = new JsonObject();
+      hello.addProperty("type", "HELLO");
+      hello.addProperty("salt", serverSalt);
+      conn.send(GSON.toJson(hello));
     }
 
     @Override
@@ -242,9 +258,7 @@ public class WebSocketServerHandler {
         authenticatedSession = null;
         isStreaming = false;
         MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
-        MonkeycraftClient.LOGGER.info("Authenticated session closed");
       }
-      MonkeycraftClient.LOGGER.info("WebSocket connection closed: {} - {}", code, reason);
     }
 
     @Override
@@ -277,7 +291,7 @@ public class WebSocketServerHandler {
             } else if ("HIBERNATION_PING".equals(type)) {
               handleHibernationPing(conn);
             } else if ("RUN_COMMAND".equals(type)) {
-              handleRunCommand(json);
+              handleRunCommand(conn, json);
             } else if ("CLICK".equals(type)) {
               handleClick(json);
             } else if ("HOTBAR_SELECT".equals(type)) {
@@ -293,20 +307,22 @@ public class WebSocketServerHandler {
     }
 
     private void handleClick(JsonObject json) {
+      int button = json.has("button") ? json.get("button").getAsInt() : 0;
       Minecraft mc = Minecraft.getInstance();
       mc.execute(
           () -> {
             try {
-              MouseHandlerInvoker mouse = (MouseHandlerInvoker) (Object) mc.mouseHandler;
-              long windowHandle = mc.getWindow().handle();
-              if (MonkeycraftClient.pendingRightClickReleaseTicks > 0) {
-                mouse.monkeycraft$onButton(
-                    windowHandle, new MouseButtonInfo(1, 0), GLFW.GLFW_RELEASE);
-                MonkeycraftClient.pendingRightClickReleaseTicks = 0;
+              if (MonkeycraftClient.pendingMouseReleaseTicks > 0) {
+                if (MonkeycraftClient.pendingMouseButton == 1) mc.options.keyUse.setDown(false);
+                if (MonkeycraftClient.pendingMouseButton == 0) mc.options.keyAttack.setDown(false);
+                MonkeycraftClient.pendingMouseReleaseTicks = 0;
               }
 
-              mouse.monkeycraft$onButton(windowHandle, new MouseButtonInfo(1, 0), GLFW.GLFW_PRESS);
-              MonkeycraftClient.pendingRightClickReleaseTicks = 1;
+              if (button == 1) mc.options.keyUse.setDown(true);
+              if (button == 0) mc.options.keyAttack.setDown(true);
+
+              MonkeycraftClient.pendingMouseButton = button;
+              MonkeycraftClient.pendingMouseReleaseTicks = 2;
             } catch (Exception e) {
               MonkeycraftClient.LOGGER.warn("Failed to synthesize click", e);
             }
@@ -332,7 +348,7 @@ public class WebSocketServerHandler {
           });
     }
 
-    private void handleRunCommand(JsonObject json) {
+    private void handleRunCommand(WebSocket conn, JsonObject json) {
       if (!json.has("command")) return;
       String raw = json.get("command").getAsString();
       if (raw == null) return;
@@ -341,6 +357,27 @@ public class WebSocketServerHandler {
       if (!raw.startsWith("/")) return;
       final String command = raw;
       final String cmd = raw.substring(1);
+
+      ModConfig config = ModConfig.getInstance();
+
+      CommandExecutionResult apiResult =
+          MonkeycraftApi.COMMAND_EXECUTION.invoker().onCommandExecution(command);
+
+      if (apiResult == CommandExecutionResult.DENY || config.isCommandDenied(command)) {
+        sendCommandDenied(conn, command);
+        return;
+      }
+
+      if (apiResult != CommandExecutionResult.ALLOW) {
+        if (config.isCommandAllowed(command)) {
+          // Allowed by allowlist
+        } else if (config.isCommandPermittedByDefault()) {
+          // Allowed by default behavior
+        } else {
+          sendCommandDenied(conn, command);
+          return;
+        }
+      }
 
       Minecraft mc = Minecraft.getInstance();
       mc.execute(
@@ -355,6 +392,13 @@ public class WebSocketServerHandler {
               MonkeycraftClient.LOGGER.warn("Failed to run command {}", command, e);
             }
           });
+    }
+
+    private void sendCommandDenied(WebSocket conn, String command) {
+      JsonObject response = new JsonObject();
+      response.addProperty("type", "COMMAND_DENIED");
+      response.addProperty("command", command);
+      conn.send(GSON.toJson(response));
     }
 
     private void handleHibernationPing(WebSocket conn) {
@@ -530,13 +574,25 @@ public class WebSocketServerHandler {
     }
 
     private void handleAuth(WebSocket conn, JsonObject json) {
-      if (!json.has("password")) {
-        sendAuthResponse(conn, false, "Missing password");
+      String serverSalt = conn.getAttachment();
+      if (serverSalt == null) {
+        conn.close();
         return;
       }
 
-      String password = json.get("password").getAsString();
-      if (password.equals(ModConfig.getInstance().getPassword())) {
+      if (!json.has("salt") || !json.has("signature")) {
+        sendAuthResponse(conn, false, "Missing salt or signature");
+        conn.close();
+        return;
+      }
+
+      String clientSalt = json.get("salt").getAsString();
+      String clientSignature = json.get("signature").getAsString();
+      String password = ModConfig.getInstance().getPassword();
+
+      String expectedSignature = CryptoUtils.computeHmac(password, serverSalt + clientSalt);
+
+      if (expectedSignature.equals(clientSignature)) {
         if (authenticatedSession != null && authenticatedSession != conn) {
           if (authenticatedSession.isOpen()) {
             sendAuthResponse(authenticatedSession, false, "Logged in from another location");
@@ -544,7 +600,13 @@ public class WebSocketServerHandler {
           }
         }
         authenticatedSession = conn;
-        sendAuthResponse(conn, true, "Authenticated");
+
+        String serverSignature = CryptoUtils.computeHmac(password, clientSalt + serverSalt);
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "AUTH_OK");
+        response.addProperty("signature", serverSignature);
+        conn.send(GSON.toJson(response));
+
         MonkeycraftApi.CONNECTION.invoker().onConnected(conn.getRemoteSocketAddress().toString());
         if (isHibernating) {
           JsonObject msg = new JsonObject();
@@ -556,7 +618,7 @@ public class WebSocketServerHandler {
             Component.literal(
                 "Monkeycraft: New client authenticated from " + conn.getRemoteSocketAddress()));
       } else {
-        sendAuthResponse(conn, false, "Invalid password");
+        sendAuthResponse(conn, false, "Invalid signature");
         conn.close();
       }
     }
@@ -593,8 +655,6 @@ public class WebSocketServerHandler {
     }
 
     @Override
-    public void onStart() {
-      MonkeycraftClient.LOGGER.info("WebSocket server started successfully");
-    }
+    public void onStart() {}
   }
 }

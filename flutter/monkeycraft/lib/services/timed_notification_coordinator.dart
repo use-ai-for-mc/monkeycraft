@@ -21,7 +21,7 @@ class TimedNotificationCoordinator {
     if (!ok) return;
     await scheduler.schedule(
       fireAt,
-      notification.title ?? 'Monkeycraft',
+      notification.title ?? 'MonkeyCraft',
       notification.body ?? '',
       notification.sound,
     );

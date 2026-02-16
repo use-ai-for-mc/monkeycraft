@@ -43,6 +43,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
   StreamSubscription<TimedNotification>? _timedSub;
   StreamSubscription<NudgeNotification>? _nudgeSub;
   StreamSubscription<HibernationEvent>? _hibernationSub;
+  StreamSubscription<CommandDeniedEvent>? _commandDeniedSub;
   int? _textureId;
   StreamSubscription<Uint8List>? _accessUnitSub;
   Timer? _hibernationPingTimer;
@@ -77,7 +78,13 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     _attachProxyStreams();
     _loadReconnectCredentials();
     if (_supportedPlatform) {
-      _initHardwareDecoder();
+      _initHardwareDecoder().then((_) {
+        if (mounted) _restartStream();
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _restartStream();
+      });
     }
   }
 
@@ -88,6 +95,18 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     _nudgeSub = widget.proxy.nudges.listen(_handleNudge);
     _hibernationSub?.cancel();
     _hibernationSub = widget.proxy.hibernationEvents.listen(_handleHibernationEvent);
+    _commandDeniedSub?.cancel();
+    _commandDeniedSub = widget.proxy.commandDeniedEvents.listen(_handleCommandDenied);
+  }
+
+  void _handleCommandDenied(CommandDeniedEvent event) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Command not allowed: ${event.command}'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _handleHibernationEvent(HibernationEvent event) {
@@ -169,7 +188,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
 
   void _handleNudge(NudgeNotification nudge) {
     if (!_foreground) return;
-    final title = nudge.title ?? 'Monkeycraft';
+    final title = nudge.title ?? 'MonkeyCraft';
     final body = nudge.body ?? '';
     if (nudge.sound) {
       SystemSound.play(SystemSoundType.alert);
@@ -204,6 +223,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     _timedSub?.cancel();
     _nudgeSub?.cancel();
     _hibernationSub?.cancel();
+    _commandDeniedSub?.cancel();
     _hibernationPingTimer?.cancel();
     _decoder?.dispose().catchError((_) {});
     widget.proxy.stop();
@@ -657,7 +677,11 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                     'pitch': pitch,
                   }),
                   onTap: (pos) {
-                    widget.proxy.sendCommand({'type': 'CLICK'});
+                    widget.proxy.sendCommand({'type': 'CLICK', 'button': 0});
+                  },
+                  onLongPress: (pos) {
+                    HapticFeedback.heavyImpact();
+                    widget.proxy.sendCommand({'type': 'CLICK', 'button': 1});
                   },
                 ),
               if (showTouchControls)

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'package:monkeycraft_client/services/hibernation_models.dart';
@@ -20,6 +21,7 @@ class StreamProxy {
   StreamController<TimedNotification>? _timedNotificationController;
   StreamController<NudgeNotification>? _nudgeNotificationController;
   StreamController<HibernationEvent>? _hibernationController;
+  StreamController<CommandDeniedEvent>? _commandDeniedController;
   int _fps = 20;
   int _frameIndex = 0;
   int _port = 0;
@@ -35,6 +37,8 @@ class StreamProxy {
       _nudgeNotificationController?.stream ?? const Stream.empty();
   Stream<HibernationEvent> get hibernationEvents =>
       _hibernationController?.stream ?? const Stream.empty();
+  Stream<CommandDeniedEvent> get commandDeniedEvents =>
+      _commandDeniedController?.stream ?? const Stream.empty();
 
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
@@ -46,6 +50,17 @@ class StreamProxy {
       }
     }
     return false;
+  }
+
+  String _generateSalt() {
+    final random = List.generate(16, (_) => DateTime.now().microsecondsSinceEpoch ^ (Object().hashCode));
+    return base64Encode(random.map((e) => e & 0xFF).toList());
+  }
+
+  String _computeHmac(String key, String data) {
+    final hmac = Hmac(sha256, utf8.encode(key));
+    final digest = hmac.convert(utf8.encode(data));
+    return base64Encode(digest.bytes);
   }
 
   Future<void> start(
@@ -63,6 +78,7 @@ class StreamProxy {
     _timedNotificationController = StreamController<TimedNotification>.broadcast();
     _nudgeNotificationController = StreamController<NudgeNotification>.broadcast();
     _hibernationController = StreamController<HibernationEvent>.broadcast();
+    _commandDeniedController = StreamController<CommandDeniedEvent>.broadcast();
 
     // 1. Start Local TCP Server
     _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
@@ -95,6 +111,7 @@ class StreamProxy {
       }
 
       // 3. Listen for messages (including AUTH_RESPONSE)
+      String? serverSalt;
       _wsChannel!.stream.listen(
         (message) {
           if (message is List<int>) {
@@ -136,7 +153,26 @@ class StreamProxy {
             // Text Message
             try {
               final data = jsonDecode(message);
-              if (data['type'] == 'AUTH_RESPONSE') {
+              if (data['type'] == 'HELLO') {
+                serverSalt = data['salt']?.toString();
+                if (serverSalt != null) {
+                  final clientSalt = _generateSalt();
+                  final signature = _computeHmac(password, '$serverSalt$clientSalt');
+                  final authMsg = jsonEncode({
+                    'type': 'AUTH',
+                    'salt': clientSalt,
+                    'signature': signature,
+                  });
+                  _wsChannel!.sink.add(authMsg);
+                } else {
+                  completeAuthError(Exception('Server did not provide salt'));
+                }
+              } else if (data['type'] == 'AUTH_OK') {
+                _authenticated = true;
+                if (!authCompleter.isCompleted) {
+                  authCompleter.complete();
+                }
+              } else if (data['type'] == 'AUTH_RESPONSE') {
                 final success = data['success'] == true;
                 if (success) {
                   _authenticated = true;
@@ -164,6 +200,11 @@ class StreamProxy {
                     PlayerPose(yaw: yaw.toDouble(), pitch: pitch.toDouble()),
                   );
                 }
+              } else if (data['type'] == 'COMMAND_DENIED') {
+                final command = data['command']?.toString() ?? '';
+                _commandDeniedController?.add(
+                  CommandDeniedEvent(command: command),
+                );
               } else {
                 final timed = timedFromJson(data);
                 if (timed != null) {
@@ -201,9 +242,6 @@ class StreamProxy {
         },
       );
 
-      // 4. Authenticate and wait for AUTH_RESPONSE
-      final authMsg = jsonEncode({'type': 'AUTH', 'password': password});
-      _wsChannel!.sink.add(authMsg);
       await authCompleter.future.timeout(authTimeout);
     } catch (e) {
       await stop();
@@ -254,7 +292,14 @@ class StreamProxy {
   }
 
   Future<void> stop() async {
-    await _wsChannel?.sink.close(status.normalClosure);
+    final ws = _wsChannel;
+    if (ws != null) {
+      try {
+        await ws.sink
+            .close(status.normalClosure)
+            .timeout(const Duration(seconds: 1));
+      } catch (_) {}
+    }
     _wsChannel = null;
     _authenticated = false;
     await _accessUnitsController?.close();
@@ -267,6 +312,8 @@ class StreamProxy {
     _nudgeNotificationController = null;
     await _hibernationController?.close();
     _hibernationController = null;
+    await _commandDeniedController?.close();
+    _commandDeniedController = null;
     
     for (final client in _activeClients) {
       client.destroy();
@@ -288,6 +335,12 @@ class PlayerPose {
   final double pitch;
 
   const PlayerPose({required this.yaw, required this.pitch});
+}
+
+class CommandDeniedEvent {
+  final String command;
+
+  const CommandDeniedEvent({required this.command});
 }
 
 class _MpegTsMuxer {

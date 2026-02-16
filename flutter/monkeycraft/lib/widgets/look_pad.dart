@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:monkeycraft_client/services/look_delta_coalescer.dart';
 
 typedef LookDeltaSender = void Function(double yawDelta, double pitchDelta);
 typedef TapSender = void Function(Offset localPosition);
+typedef LongPressSender = void Function(Offset localPosition);
 
 class LookPad extends StatefulWidget {
   final List<Rect> excludedRegions;
@@ -11,6 +13,7 @@ class LookPad extends StatefulWidget {
   final bool invertY;
   final LookDeltaSender onDelta;
   final TapSender? onTap;
+  final LongPressSender? onLongPress;
 
   const LookPad({
     super.key,
@@ -20,6 +23,7 @@ class LookPad extends StatefulWidget {
     this.sensitivityY = 0.12,
     this.invertY = false,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -34,6 +38,9 @@ class _LookPadState extends State<LookPad> {
   double _maxMoveSq = 0;
   LookDeltaCoalescer? _coalescer;
 
+  Timer? _longPressTimer;
+  bool _longPressTriggered = false;
+
   void _startCoalescer() {
     _coalescer ??= LookDeltaCoalescer(onFlush: widget.onDelta);
     _coalescer!.start();
@@ -45,6 +52,7 @@ class _LookPadState extends State<LookPad> {
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     _stopCoalescer();
     super.dispose();
   }
@@ -61,6 +69,12 @@ class _LookPadState extends State<LookPad> {
         _downAt = event.localPosition;
         _downTime = DateTime.now();
         _maxMoveSq = 0;
+        _longPressTriggered = false;
+        _longPressTimer?.cancel();
+        _longPressTimer = Timer(const Duration(milliseconds: 500), () {
+          _longPressTriggered = true;
+          widget.onLongPress?.call(event.localPosition);
+        });
         _startCoalescer();
       },
       onPointerMove: (event) {
@@ -77,6 +91,9 @@ class _LookPadState extends State<LookPad> {
           final my = current.dy - downAt.dy;
           final d2 = (mx * mx) + (my * my);
           if (d2 > _maxMoveSq) _maxMoveSq = d2;
+          if (_maxMoveSq > 100) {
+            _longPressTimer?.cancel();
+          }
         }
 
         final yaw = dx * widget.sensitivityX;
@@ -85,10 +102,11 @@ class _LookPadState extends State<LookPad> {
         _coalescer?.add(yaw: yaw, pitch: pitch);
       },
       onPointerUp: (event) {
+        _longPressTimer?.cancel();
         if (_pointerId != event.pointer) return;
         final downTime = _downTime;
         final downAt = _downAt;
-        if (downTime != null && downAt != null && widget.onTap != null) {
+        if (downTime != null && downAt != null && widget.onTap != null && !_longPressTriggered) {
           final elapsed = DateTime.now().difference(downTime);
           const maxMove = 10.0;
           final maxMoveSq = maxMove * maxMove;
@@ -105,6 +123,7 @@ class _LookPadState extends State<LookPad> {
         _stopCoalescer();
       },
       onPointerCancel: (event) {
+        _longPressTimer?.cancel();
         if (_pointerId != event.pointer) return;
         _pointerId = null;
         _last = null;

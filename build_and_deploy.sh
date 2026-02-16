@@ -5,11 +5,11 @@ set -e
 PROJECT_DIR="/Users/cusgadmin/if/remotecraft-template-1.21.11"
 TARGET_DIR="/Users/cusgadmin/hmcl/.minecraft/versions/ImagineFun/mods"
 
-JAR_NAME="remotecraft-1.0.0.jar"
+JAR_NAME="monkeycraft-1.0.0.jar"
 SOURCE_JAR="${PROJECT_DIR}/build/libs/${JAR_NAME}"
 TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 
-echo "Building Remotecraft mod..."
+echo "Building Monkeycraft mod..."
 cd "${PROJECT_DIR}"
 ./gradlew spotlessApply
 ./gradlew clean build

@@ -1,5 +1,7 @@
 package com.chenweikeng.monkeycraft.config;
 
+import java.util.Arrays;
+import java.util.List;
 import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
@@ -52,15 +54,50 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(portEntry);
 
+    String randomPassword = ModConfig.generateRandomPassword();
     AbstractConfigListEntry<String> passwordEntry =
         entryBuilder
             .startStrField(
                 Component.translatable("config.monkeycraft.option.password"), config.getPassword())
-            .setDefaultValue("")
+            .setDefaultValue(randomPassword)
             .setTooltip(Component.translatable("config.monkeycraft.option.password.tooltip"))
             .setSaveConsumer(config::setPassword)
             .build();
     general.addEntry(passwordEntry);
+
+    AbstractConfigListEntry<List<String>> allowlistEntry =
+        entryBuilder
+            .startStrList(
+                Component.translatable("config.monkeycraft.option.commandAllowlist"),
+                config.getCommandAllowlist())
+            .setDefaultValue(Arrays.asList("*"))
+            .setTooltip(
+                Component.translatable("config.monkeycraft.option.commandAllowlist.tooltip"))
+            .setSaveConsumer(config::setCommandAllowlist)
+            .build();
+    general.addEntry(allowlistEntry);
+
+    AbstractConfigListEntry<List<String>> denylistEntry =
+        entryBuilder
+            .startStrList(
+                Component.translatable("config.monkeycraft.option.commandDenylist"),
+                config.getCommandDenylist())
+            .setDefaultValue(Arrays.asList("op *", "deop *"))
+            .setTooltip(Component.translatable("config.monkeycraft.option.commandDenylist.tooltip"))
+            .setSaveConsumer(config::setCommandDenylist)
+            .build();
+    general.addEntry(denylistEntry);
+
+    AbstractConfigListEntry<String> defaultBehaviorEntry =
+        entryBuilder
+            .startStrField(
+                Component.translatable("config.monkeycraft.option.defaultBehavior"),
+                config.getDefaultBehavior())
+            .setDefaultValue("ALLOW")
+            .setTooltip(Component.translatable("config.monkeycraft.option.defaultBehavior.tooltip"))
+            .setSaveConsumer(config::setDefaultBehavior)
+            .build();
+    general.addEntry(defaultBehaviorEntry);
 
     builder.setSavingRunnable(config::save);
     return builder.build();

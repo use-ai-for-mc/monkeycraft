@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
 import net.fabricmc.loader.api.FabricLoader;
 
 public class ModConfig {
@@ -24,6 +26,9 @@ public class ModConfig {
   private boolean autoLaunch = false;
   private int port = 9600;
   private String password;
+  private List<String> commandAllowlist = new ArrayList<>(List.of("*"));
+  private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
+  private String defaultBehavior = "ALLOW";
 
   public static ModConfig getInstance() {
     if (INSTANCE == null) {
@@ -64,6 +69,83 @@ public class ModConfig {
     this.password = password;
   }
 
+  public List<String> getCommandAllowlist() {
+    if (commandAllowlist == null) {
+      commandAllowlist = new ArrayList<>(List.of("*"));
+    }
+    return commandAllowlist;
+  }
+
+  public void setCommandAllowlist(List<String> allowlist) {
+    this.commandAllowlist =
+        allowlist != null ? new ArrayList<>(allowlist) : new ArrayList<>(List.of("*"));
+  }
+
+  public List<String> getCommandDenylist() {
+    if (commandDenylist == null) {
+      commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
+    }
+    return commandDenylist;
+  }
+
+  public void setCommandDenylist(List<String> denylist) {
+    this.commandDenylist =
+        denylist != null ? new ArrayList<>(denylist) : new ArrayList<>(List.of("op *", "deop *"));
+  }
+
+  public String getDefaultBehavior() {
+    if (defaultBehavior == null || defaultBehavior.isEmpty()) {
+      defaultBehavior = "ALLOW";
+    }
+    return defaultBehavior;
+  }
+
+  public void setDefaultBehavior(String behavior) {
+    if ("ALLOW".equalsIgnoreCase(behavior) || "DENY".equalsIgnoreCase(behavior)) {
+      this.defaultBehavior = behavior.toUpperCase();
+    } else {
+      this.defaultBehavior = "ALLOW";
+    }
+  }
+
+  private boolean matchesPattern(String command, List<String> patterns) {
+    if (patterns == null || patterns.isEmpty()) {
+      return false;
+    }
+    String cmd = command.startsWith("/") ? command.substring(1) : command;
+    String cmdLower = cmd.toLowerCase();
+    for (String pattern : patterns) {
+      if (pattern == null || pattern.isEmpty()) continue;
+      String patternLower = pattern.toLowerCase().trim();
+      if (patternLower.equals("*")) {
+        return true;
+      }
+      if (patternLower.endsWith(" *")) {
+        String prefix = patternLower.substring(0, patternLower.length() - 2);
+        if (cmdLower.startsWith(prefix)) {
+          return true;
+        }
+      } else {
+        if (cmdLower.equals(patternLower)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  public boolean isCommandDenied(String command) {
+    return matchesPattern(command, getCommandDenylist());
+  }
+
+  public boolean isCommandAllowed(String command) {
+    return matchesPattern(command, getCommandAllowlist());
+  }
+
+  public boolean isCommandPermittedByDefault() {
+    return "ALLOW".equalsIgnoreCase(getDefaultBehavior());
+  }
+
   public void save() {
     try {
       Files.writeString(CONFIG_PATH, GSON.toJson(this));
@@ -81,6 +163,15 @@ public class ModConfig {
           config.password = generateRandomPassword();
           config.save();
         }
+        if (config.commandAllowlist == null) {
+          config.commandAllowlist = new ArrayList<>(List.of("*"));
+        }
+        if (config.commandDenylist == null) {
+          config.commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
+        }
+        if (config.defaultBehavior == null || config.defaultBehavior.isEmpty()) {
+          config.defaultBehavior = "ALLOW";
+        }
         return config;
       } catch (IOException e) {
         throw new RuntimeException("Failed to load config", e);
@@ -93,7 +184,7 @@ public class ModConfig {
     }
   }
 
-  private static String generateRandomPassword() {
+  public static String generateRandomPassword() {
     SecureRandom random = new SecureRandom();
     StringBuilder sb = new StringBuilder(DEFAULT_PASSWORD_LENGTH);
     for (int i = 0; i < DEFAULT_PASSWORD_LENGTH; i++) {

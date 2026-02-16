@@ -14,8 +14,8 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Monkeycraft'), findsOneWidget);
-    expect(find.text('Host IP'), findsOneWidget);
+    expect(find.text('MonkeyCraft'), findsOneWidget);
+    expect(find.text('Host (IP or domain)'), findsOneWidget);
     expect(find.text('Port'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Connect'), findsOneWidget);

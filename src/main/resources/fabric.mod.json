@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "monkeycraft",
 	"version": "${version}",
-	"name": "Monkeycraft",
+	"name": "MonkeyCraft",
 	"description": "This is an example description! Tell everyone what your mod is about!",
 	"authors": [
 		"Me!"

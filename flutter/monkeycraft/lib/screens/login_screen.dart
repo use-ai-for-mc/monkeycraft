@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:monkeycraft_client/screens/qr_scan_screen.dart';
 import 'package:monkeycraft_client/screens/stream_screen.dart';
 import 'package:monkeycraft_client/services/stream_proxy.dart';
 
@@ -20,6 +22,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passController = TextEditingController();
   bool _isLoading = false;
   bool _connectInFlight = false;
+  int _connectAttempt = 0;
+  StreamProxy? _inFlightProxy;
   DateTime _lastConnectTapAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
@@ -55,6 +59,32 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString('password', _passController.text);
   }
 
+  void _cancelConnect() {
+    _connectAttempt += 1;
+    _connectInFlight = false;
+    setState(() => _isLoading = false);
+    final proxy = _inFlightProxy;
+    _inFlightProxy = null;
+    if (proxy != null) {
+      unawaited(proxy.stop().catchError((_) {}));
+    }
+  }
+
+  void _exitApp() {
+    if (Platform.isAndroid) {
+      SystemNavigator.pop();
+      return;
+    }
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Exit is not supported on this platform')),
+    );
+  }
+
   Future<void> _connect() async {
     final now = DateTime.now();
     if (_connectInFlight) return;
@@ -65,16 +95,26 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     _connectInFlight = true;
+    _connectAttempt += 1;
+    final attempt = _connectAttempt;
     setState(() => _isLoading = true);
     await _saveCredentials();
 
     final proxy = StreamProxy();
+    _inFlightProxy = proxy;
     try {
       await proxy.start(
         _hostController.text,
         int.parse(_portController.text),
         _passController.text,
-      );
+        connectTimeout: const Duration(seconds: 5),
+        authTimeout: const Duration(seconds: 5),
+      ).timeout(const Duration(seconds: 7));
+
+      if (attempt != _connectAttempt) {
+        await proxy.stop();
+        return;
+      }
 
       if (mounted) {
         await Navigator.of(context).push(
@@ -85,6 +125,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       await proxy.stop();
+      if (attempt != _connectAttempt) {
+        return;
+      }
       if (mounted) {
         final msg = e is TimeoutException
             ? 'Connection timed out. Check host/port and try again.'
@@ -94,8 +137,11 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } finally {
-      _connectInFlight = false;
-      if (mounted) setState(() => _isLoading = false);
+      if (attempt == _connectAttempt) {
+        _connectInFlight = false;
+        _inFlightProxy = null;
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -112,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Monkeycraft'),
+        title: const Text('MonkeyCraft'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -124,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 TextFormField(
                   controller: _hostController,
-                  decoration: const InputDecoration(labelText: 'Host IP'),
+                  decoration: const InputDecoration(labelText: 'Host (IP or domain)'),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
@@ -137,49 +183,98 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passController,
-                  decoration: const InputDecoration(labelText: 'Password'),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    suffixIcon: IconButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              try {
+                                final scanned = await Navigator.of(context).push<String>(
+                                  MaterialPageRoute(
+                                    builder: (context) => const QrScanScreen(),
+                                  ),
+                                );
+                                if (!mounted) return;
+                                if (scanned == null) return;
+                                setState(() => _passController.text = scanned);
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Scan failed: $e')),
+                                );
+                              }
+                            },
+                      icon: const Icon(Icons.qr_code_scanner),
+                      tooltip: 'Scan QR code',
+                    ),
+                  ),
                   obscureText: true,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 32),
                 if (isPortrait) ...[
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _connect,
+                    onPressed: _isLoading ? _cancelConnect : _connect,
                     child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                        ? const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              SizedBox(width: 10),
+                              Text('Cancel'),
+                            ],
                           )
                         : const Text('Connect'),
                   ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () => SystemNavigator.pop(),
-                    child: const Text('Exit'),
-                  ),
+                  if (Platform.isAndroid) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () {
+                        if (_isLoading) _cancelConnect();
+                        _exitApp();
+                      },
+                      child: const Text('Exit'),
+                    ),
+                  ],
                 ] else ...[
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _connect,
+                          onPressed: _isLoading ? _cancelConnect : _connect,
                           child: _isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                              ? const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text('Cancel'),
+                                  ],
                                 )
                               : const Text('Connect'),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => SystemNavigator.pop(),
-                          child: const Text('Exit'),
+                      if (Platform.isAndroid) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              if (_isLoading) _cancelConnect();
+                              _exitApp();
+                            },
+                            child: const Text('Exit'),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],

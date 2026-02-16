@@ -27,6 +27,20 @@ public final class MonkeycraftApi {
                 }
               });
 
+  public static final Event<MonkeycraftCommandExecutionListener> COMMAND_EXECUTION =
+      EventFactory.createArrayBacked(
+          MonkeycraftCommandExecutionListener.class,
+          (listeners) ->
+              (command) -> {
+                for (MonkeycraftCommandExecutionListener listener : listeners) {
+                  CommandExecutionResult result = listener.onCommandExecution(command);
+                  if (result != CommandExecutionResult.PASS) {
+                    return result;
+                  }
+                }
+                return CommandExecutionResult.PASS;
+              });
+
   public static void setTimedNotification(
       Long fireAtEpochMs, String title, String body, boolean sound) {
     WebSocketServerHandler.getInstance().sendTimedNotification(fireAtEpochMs, title, body, sound);

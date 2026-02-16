@@ -2,9 +2,10 @@ package com.chenweikeng.monkeycraft;
 
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
-import com.chenweikeng.monkeycraft.mixin.MouseHandlerInvoker;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
+import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
 import com.chenweikeng.monkeycraft.utils.ImageUtils;
+import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -14,7 +15,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +25,8 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static volatile boolean wasConnectedToClient = false;
   public static volatile boolean isConnectedToClient = false;
   public static volatile boolean automaticallyReleasedCursor = false;
-  public static volatile int pendingRightClickReleaseTicks = 0;
+  public static volatile int pendingMouseReleaseTicks = 0;
+  public static volatile int pendingMouseButton = 0;
   private long lastCaptureTime = 0;
 
   @Override
@@ -35,20 +36,20 @@ public class MonkeycraftClient implements ClientModInitializer {
     ClientCommandRegistrationCallback.EVENT.register(this::registerCommands);
     registerConnectionEvents();
     registerTickEvents();
+    PasswordQrOverlay.register();
   }
 
   private void registerTickEvents() {
     ClientTickEvents.END_CLIENT_TICK.register(
         client -> {
-          if (pendingRightClickReleaseTicks > 0) {
-            pendingRightClickReleaseTicks -= 1;
-            if (pendingRightClickReleaseTicks == 0) {
+          if (pendingMouseReleaseTicks > 0) {
+            pendingMouseReleaseTicks -= 1;
+            if (pendingMouseReleaseTicks == 0) {
               try {
-                long windowHandle = client.getWindow().handle();
-                MouseHandlerInvoker mouse = (MouseHandlerInvoker) (Object) client.mouseHandler;
-                mouse.monkeycraft$onButton(windowHandle, new MouseButtonInfo(1, 0), 0);
+                if (pendingMouseButton == 1) client.options.keyUse.setDown(false);
+                if (pendingMouseButton == 0) client.options.keyAttack.setDown(false);
               } catch (Exception e) {
-                LOGGER.warn("Failed to release right click", e);
+                LOGGER.warn("Failed to release mouse button", e);
               }
             }
           }
@@ -158,8 +159,15 @@ public class MonkeycraftClient implements ClientModInitializer {
           ModConfig config = ModConfig.getInstance();
           if (config.isEnabled() && config.isAutoLaunch()) {
             LOGGER.info("Auto-launching Monkeycraft server...");
-            startServer(config.getPort());
-            sendSystemMessage(Component.translatable("monkeycraft.server.autolaunch"));
+            int actualPort = startServerWithPortRange(config.getPort());
+            if (actualPort > 0) {
+              sendSystemMessage(Component.translatable("monkeycraft.server.autolaunch"));
+              printLocalIps(actualPort);
+            } else {
+              sendSystemMessage(
+                  Component.literal(
+                      "Monkeycraft: Failed to start server (no available port 9600-9700)"));
+            }
           }
         });
 
@@ -176,7 +184,7 @@ public class MonkeycraftClient implements ClientModInitializer {
       CommandDispatcher<FabricClientCommandSource> dispatcher,
       net.minecraft.commands.CommandBuildContext registryAccess) {
     dispatcher.register(
-        ClientCommandManager.literal("monkeycraft")
+        ClientCommandManager.literal("mkc")
             .executes(
                 context -> {
                   sendSystemMessage(Component.translatable("monkeycraft.command.help"));
@@ -206,7 +214,12 @@ public class MonkeycraftClient implements ClientModInitializer {
                                 Component.translatable("monkeycraft.server.disabled"));
                             return 0;
                           }
-                          startServer(config.getPort());
+                          int actualPort = startServerWithPortRange(config.getPort());
+                          if (actualPort > 0) {
+                            printLocalIps(actualPort);
+                          } else {
+                            sendSystemMessage(Component.translatable("monkeycraft.server.failed"));
+                          }
                           return 1;
                         }))
             .then(
@@ -214,6 +227,19 @@ public class MonkeycraftClient implements ClientModInitializer {
                     .executes(
                         context -> {
                           stopServer();
+                          return 1;
+                        }))
+            .then(
+                ClientCommandManager.literal("ip")
+                    .executes(
+                        context -> {
+                          WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+                          if (!handler.isRunning()) {
+                            sendSystemMessage(
+                                Component.literal("Server is not running. Use /mkc start first."));
+                            return 0;
+                          }
+                          printLocalIps(handler.getCurrentPort());
                           return 1;
                         })));
   }
@@ -225,6 +251,23 @@ public class MonkeycraftClient implements ClientModInitializer {
       sendSystemMessage(Component.translatable("monkeycraft.server.started", port));
     } else {
       sendSystemMessage(Component.translatable("monkeycraft.server.port_unavailable", port));
+    }
+  }
+
+  public static int startServerWithPortRange(int preferredPort) {
+    WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+    return handler.startServerWithPortRange(preferredPort);
+  }
+
+  public static void printLocalIps(int port) {
+    java.util.List<String> ips = NetworkUtils.getLocalIpAddressesWithPort(port);
+    if (ips.isEmpty()) {
+      sendSystemMessage(Component.literal("No local IP addresses found"));
+    } else {
+      sendSystemMessage(Component.literal("Local IP addresses:"));
+      for (String ip : ips) {
+        sendSystemMessage(Component.literal("  " + ip));
+      }
     }
   }
 
