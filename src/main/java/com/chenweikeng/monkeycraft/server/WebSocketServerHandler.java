@@ -211,6 +211,55 @@ public class WebSocketServerHandler {
     conn.send(GSON.toJson(msg));
   }
 
+  public void setHibernationMessage(String message) {
+    if (!isHibernating) return;
+    hibernationMessage = message == null ? "" : message;
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "HIBERNATION_MESSAGE");
+    msg.addProperty("message", hibernationMessage);
+    conn.send(GSON.toJson(msg));
+  }
+
+  public void disconnectClient() {
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "DISCONNECT");
+    msg.addProperty("reason", "server_disconnect");
+    conn.send(GSON.toJson(msg));
+    conn.close();
+  }
+
+  public void sendChatMessage(String jsonMessage) {
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    conn.send(jsonMessage);
+  }
+
+  public void enterChatMode() {
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    isStreaming = false;
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "CHAT_MODE_STARTED");
+    conn.send(GSON.toJson(msg));
+  }
+
+  public void exitChatMode() {
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "CHAT_MODE_ENDED");
+    conn.send(GSON.toJson(msg));
+  }
+
   private boolean isPortAvailable(int port) {
     try (ServerSocket socket = new ServerSocket(port)) {
       socket.setReuseAddress(true);
@@ -296,6 +345,14 @@ public class WebSocketServerHandler {
               handleClick(json);
             } else if ("HOTBAR_SELECT".equals(type)) {
               handleHotbarSelect(json);
+            } else if ("REQUEST_KEYFRAME".equals(type)) {
+              handleRequestKeyframe();
+            } else if ("SEND_CHAT".equals(type)) {
+              handleSendChat(conn, json);
+            } else if ("ENTER_CHAT".equals(type)) {
+              handleEnterChat(conn);
+            } else if ("EXIT_CHAT".equals(type)) {
+              handleExitChat(conn);
             } else {
               MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
@@ -409,6 +466,45 @@ public class WebSocketServerHandler {
         response.addProperty("message", hibernationMessage);
       }
       conn.send(GSON.toJson(response));
+    }
+
+    private void handleRequestKeyframe() {
+      if (streamer != null) {
+        streamer.resetBackpressure();
+      }
+    }
+
+    private void handleSendChat(WebSocket conn, JsonObject json) {
+      if (!json.has("message")) return;
+      String message = json.get("message").getAsString();
+      if (message == null || message.trim().isEmpty()) return;
+      if (message.startsWith("/")) {
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "CHAT_DENIED");
+        response.addProperty("reason", "Commands must use RUN_COMMAND");
+        conn.send(GSON.toJson(response));
+        return;
+      }
+
+      Minecraft mc = Minecraft.getInstance();
+      mc.execute(
+          () -> {
+            boolean success = ChatHandler.getInstance().handleOutgoingChat(message);
+            if (!success) {
+              JsonObject response = new JsonObject();
+              response.addProperty("type", "CHAT_DENIED");
+              response.addProperty("reason", "Failed to send message");
+              conn.send(GSON.toJson(response));
+            }
+          });
+    }
+
+    private void handleEnterChat(WebSocket conn) {
+      enterChatMode();
+    }
+
+    private void handleExitChat(WebSocket conn) {
+      exitChatMode();
     }
 
     private void handleInput(JsonObject json) {

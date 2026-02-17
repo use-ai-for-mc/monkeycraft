@@ -33,4 +33,12 @@ class IosTimedNotificationScheduler implements TimedNotificationScheduler {
   Future<void> cancel() {
     return _service.cancelTimed();
   }
+
+  Future<void> showImmediate(String title, String body, bool sound) {
+    return _service.showImmediate(title: title, body: body, sound: sound);
+  }
+
+  Future<void> playNotificationSound() {
+    return _service.playNotificationSound();
+  }
 }

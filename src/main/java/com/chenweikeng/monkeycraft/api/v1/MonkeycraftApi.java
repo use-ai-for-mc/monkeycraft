@@ -41,6 +41,34 @@ public final class MonkeycraftApi {
                 return CommandExecutionResult.PASS;
               });
 
+  public static final Event<MonkeycraftChatListener> INCOMING_CHAT =
+      EventFactory.createArrayBacked(
+          MonkeycraftChatListener.class,
+          (listeners) ->
+              (context) -> {
+                for (MonkeycraftChatListener listener : listeners) {
+                  ChatMessageResult result = listener.onChatMessage(context);
+                  if (result != ChatMessageResult.PASS) {
+                    return result;
+                  }
+                }
+                return ChatMessageResult.PASS;
+              });
+
+  public static final Event<MonkeycraftChatListener> OUTGOING_CHAT =
+      EventFactory.createArrayBacked(
+          MonkeycraftChatListener.class,
+          (listeners) ->
+              (context) -> {
+                for (MonkeycraftChatListener listener : listeners) {
+                  ChatMessageResult result = listener.onChatMessage(context);
+                  if (result != ChatMessageResult.PASS) {
+                    return result;
+                  }
+                }
+                return ChatMessageResult.PASS;
+              });
+
   public static void setTimedNotification(
       Long fireAtEpochMs, String title, String body, boolean sound) {
     WebSocketServerHandler.getInstance().sendTimedNotification(fireAtEpochMs, title, body, sound);
@@ -56,6 +84,10 @@ public final class MonkeycraftApi {
 
   public static void startHibernation(String message) {
     WebSocketServerHandler.getInstance().startHibernation(message);
+  }
+
+  public static void setHibernationMessage(String message) {
+    WebSocketServerHandler.getInstance().setHibernationMessage(message);
   }
 
   public static void endHibernation() {

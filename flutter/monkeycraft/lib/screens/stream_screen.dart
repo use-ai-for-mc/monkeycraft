@@ -15,6 +15,7 @@ import 'package:monkeycraft_client/services/stream_settings.dart';
 import 'package:monkeycraft_client/services/timed_notification_coordinator.dart';
 import 'package:monkeycraft_client/services/timed_notification_service.dart';
 import 'package:monkeycraft_client/screens/stream_settings_screen.dart';
+import 'package:monkeycraft_client/screens/chat_screen.dart';
 import 'package:monkeycraft_client/widgets/hotbar_selector.dart';
 import 'package:monkeycraft_client/widgets/jump_button.dart';
 import 'package:monkeycraft_client/widgets/look_pad.dart';
@@ -44,6 +45,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
   StreamSubscription<NudgeNotification>? _nudgeSub;
   StreamSubscription<HibernationEvent>? _hibernationSub;
   StreamSubscription<CommandDeniedEvent>? _commandDeniedSub;
+  StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSub;
   int? _textureId;
   StreamSubscription<Uint8List>? _accessUnitSub;
   Timer? _hibernationPingTimer;
@@ -57,6 +59,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
   String? _host;
   int? _port;
   String? _password;
+  bool? _forcedOrientation;
+  int _streamWidth = 0;
+  int _streamHeight = 0;
 
   bool get _supportedPlatform => Platform.isIOS || Platform.isAndroid;
 
@@ -90,13 +95,33 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
 
   void _attachProxyStreams() {
     _timedSub?.cancel();
-    _timedSub = widget.proxy.timedNotifications.listen(_timedCoordinator.handle);
+    _timedSub = widget.proxy.timedNotifications.listen(_handleTimedNotification);
     _nudgeSub?.cancel();
     _nudgeSub = widget.proxy.nudges.listen(_handleNudge);
     _hibernationSub?.cancel();
     _hibernationSub = widget.proxy.hibernationEvents.listen(_handleHibernationEvent);
     _commandDeniedSub?.cancel();
     _commandDeniedSub = widget.proxy.commandDeniedEvents.listen(_handleCommandDenied);
+    _serverDisconnectSub?.cancel();
+    _serverDisconnectSub = widget.proxy.serverDisconnectEvents.listen(_handleServerDisconnect);
+  }
+
+  void _handleTimedNotification(TimedNotification notification) {
+    _timedCoordinator.handle(notification);
+    if (!_foreground) return;
+    final title = notification.title ?? 'MonkeyCraft';
+    final body = notification.body ?? '';
+    final text = body.isEmpty ? title : '$title\n$body';
+    if (notification.sound) {
+      _timedScheduler.playNotificationSound();
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   void _handleCommandDenied(CommandDeniedEvent event) {
@@ -107,6 +132,17 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  void _handleServerDisconnect(ServerDisconnectEvent event) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Disconnected by server'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Navigator.of(context).pop();
   }
 
   void _handleHibernationEvent(HibernationEvent event) {
@@ -120,11 +156,22 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
       } else {
         _exitHibernation();
       }
+    } else if (event is HibernationMessage) {
+      _updateHibernationMessage(event.message);
     }
   }
 
   void _sendHibernationPing() {
     widget.proxy.sendCommand({'type': 'HIBERNATION_PING'});
+  }
+
+  void _updateHibernationMessage(String message) {
+    if (!_hibernating) return;
+    if (message == _hibernationMessage) return;
+    _hibernationMessage = message;
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _enterHibernation(String message) async {
@@ -153,6 +200,29 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     if (mounted) {
       setState(() => _hibernating = false);
     }
+    await _restartStream();
+    _refreshVideo();
+  }
+
+  void _refreshVideo() {
+    _decoder?.reset();
+    widget.proxy.requestKeyframe();
+  }
+
+  Future<void> _openChatScreen() async {
+    _input.releaseAll();
+    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
+    await _accessUnitSub?.cancel();
+    _accessUnitSub = null;
+    
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(proxy: widget.proxy),
+      ),
+    );
+    
+    if (!mounted) return;
     await _restartStream();
   }
 
@@ -190,8 +260,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     if (!_foreground) return;
     final title = nudge.title ?? 'MonkeyCraft';
     final body = nudge.body ?? '';
+    _timedScheduler.showImmediate(title, body, nudge.sound);
     if (nudge.sound) {
-      SystemSound.play(SystemSoundType.alert);
+      _timedScheduler.playNotificationSound();
     }
     if (!mounted) return;
     final text = body.isEmpty ? title : '$title\n$body';
@@ -224,9 +295,11 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     _nudgeSub?.cancel();
     _hibernationSub?.cancel();
     _commandDeniedSub?.cancel();
+    _serverDisconnectSub?.cancel();
     _hibernationPingTimer?.cancel();
     _decoder?.dispose().catchError((_) {});
     widget.proxy.stop();
+    SystemChrome.setPreferredOrientations([]);
     super.dispose();
   }
 
@@ -297,6 +370,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
 
     _input.releaseAll();
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
+    SystemChrome.setPreferredOrientations([]);
 
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
@@ -327,6 +401,38 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     );
   }
 
+  Widget _buildTextureWithAspectRatio(EdgeInsets pad) {
+    if (_streamWidth <= 0 || _streamHeight <= 0) {
+      return Padding(
+        padding: pad,
+        child: SizedBox.expand(child: Texture(textureId: _textureId!)),
+      );
+    }
+    final mq = MediaQuery.of(context);
+    final availableWidth = mq.size.width - pad.left - pad.right;
+    final availableHeight = mq.size.height - pad.top - pad.bottom;
+    final streamAspect = _streamWidth / _streamHeight;
+    final availableAspect = availableWidth / availableHeight;
+    double displayWidth, displayHeight;
+    if (availableAspect > streamAspect) {
+      displayHeight = availableHeight;
+      displayWidth = displayHeight * streamAspect;
+    } else {
+      displayWidth = availableWidth;
+      displayHeight = displayWidth / streamAspect;
+    }
+    return Padding(
+      padding: pad,
+      child: Center(
+        child: SizedBox(
+          width: displayWidth,
+          height: displayHeight,
+          child: Texture(textureId: _textureId!),
+        ),
+      ),
+    );
+  }
+
   Future<void> _restartStream() async {
     if (_restarting) return;
     if (_hibernating) return;
@@ -342,6 +448,8 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     }
     await Future<void>.delayed(const Duration(milliseconds: 50));
     final target = _currentTargetResolution();
+    _streamWidth = target.width;
+    _streamHeight = target.height;
     debugPrint(
       'Stream target ${target.width}x${target.height} '
       'fps=${_settings.fps} colorMode=${_settings.colorMode} preset=${_settings.resolutionPreset.name}',
@@ -370,6 +478,21 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     if (mounted) {
       await _resumeIfNeeded();
     }
+  }
+
+  void _toggleOrientation() {
+    setState(() {
+      _forcedOrientation = _forcedOrientation == null
+          ? true
+          : (_forcedOrientation == true ? false : null);
+      if (_forcedOrientation == true) {
+        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+      } else if (_forcedOrientation == false) {
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      } else {
+        SystemChrome.setPreferredOrientations([]);
+      }
+    });
   }
 
   Future<void> _openCommandPalette() async {
@@ -441,6 +564,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                             autofocus: true,
                             textInputAction: TextInputAction.send,
                             style: const TextStyle(color: Colors.white),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[ -~]')),
+                            ],
                             decoration: InputDecoration(
                               hintText: '/warp home',
                               hintStyle: const TextStyle(color: Colors.white38),
@@ -579,6 +705,12 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
           48,
           48,
         );
+        final rotateRectSafe = Rect.fromLTWH(
+          screenSize.width - (pad.right + 176 + 48),
+          topBarY,
+          48,
+          48,
+        );
 
         final hotbarToggleRect = Rect.fromLTWH(
           pad.left + 20,
@@ -621,10 +753,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
               Center(
                 child: _textureId == null
                     ? const SizedBox.shrink()
-                    : Padding(
-                        padding: pad,
-                        child: SizedBox.expand(child: Texture(textureId: _textureId!)),
-                      ),
+                    : _buildTextureWithAspectRatio(pad),
               ),
               if (_hibernating)
                 Positioned.fill(
@@ -637,15 +766,18 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Text(
-                              'Hibernation',
+                              'Hypersleep',
                               style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              _hibernationMessage,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
-                              textAlign: TextAlign.center,
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: _hibernationMessage.split('\n').map((line) => Text(
+                                line,
+                                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                textAlign: TextAlign.center,
+                              )).toList(),
                             ),
                             const SizedBox(height: 16),
                             OutlinedButton(
@@ -670,6 +802,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                     closeRectSafe,
                     settingsRectSafe,
                     commandRectSafe,
+                    rotateRectSafe,
                   ],
                   onDelta: (yaw, pitch) => widget.proxy.sendCommand({
                     'type': 'LOOK_DELTA',
@@ -684,7 +817,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                     widget.proxy.sendCommand({'type': 'CLICK', 'button': 1});
                   },
                 ),
-              if (showTouchControls)
+              if (showTouchControls && !_hibernating)
                 Positioned(
                   top: topBarY,
                   left: pad.left + 20,
@@ -696,7 +829,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                     },
                   ),
                 ),
-              if (showTouchControls && _hotbarExpanded)
+              if (showTouchControls && _hotbarExpanded && !_hibernating)
                 Positioned(
                   top: topBarY + hotbarToggleSize + 8,
                   left: pad.left + 20,
@@ -738,7 +871,36 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                   onPressed: _openCommandPalette,
                 ),
               ),
-              if (showTouchControls)
+              Positioned(
+                top: topBarY,
+                right: pad.right + 176,
+                child: IconButton(
+                  icon: Icon(
+                    _forcedOrientation == true
+                        ? Icons.stay_current_portrait
+                        : (_forcedOrientation == false ? Icons.stay_current_landscape : Icons.screen_rotation),
+                    color: Colors.white,
+                  ),
+                  onPressed: _toggleOrientation,
+                ),
+              ),
+              Positioned(
+                top: topBarY,
+                right: pad.right + 228,
+                child: IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  onPressed: _refreshVideo,
+                ),
+              ),
+              Positioned(
+                top: topBarY,
+                right: pad.right + 280,
+                child: IconButton(
+                  icon: const Icon(Icons.chat, color: Colors.white),
+                  onPressed: _openChatScreen,
+                ),
+              ),
+              if (showTouchControls && !_hibernating)
                 SafeArea(
                   child: Stack(
                     children: [

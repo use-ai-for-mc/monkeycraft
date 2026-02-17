@@ -8,6 +8,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'package:monkeycraft_client/services/hibernation_models.dart';
 import 'package:monkeycraft_client/services/notification_models.dart';
+import 'package:monkeycraft_client/services/chat_models.dart';
 
 class StreamProxy {
   ServerSocket? _serverSocket;
@@ -22,6 +23,11 @@ class StreamProxy {
   StreamController<NudgeNotification>? _nudgeNotificationController;
   StreamController<HibernationEvent>? _hibernationController;
   StreamController<CommandDeniedEvent>? _commandDeniedController;
+  StreamController<ServerDisconnectEvent>? _serverDisconnectController;
+  StreamController<ChatMessage>? _chatMessageController;
+  StreamController<ChatDeniedEvent>? _chatDeniedController;
+  StreamController<ChatModeEvent>? _chatModeController;
+  final List<ChatMessageListener> _outgoingChatListeners = [];
   int _fps = 20;
   int _frameIndex = 0;
   int _port = 0;
@@ -39,6 +45,14 @@ class StreamProxy {
       _hibernationController?.stream ?? const Stream.empty();
   Stream<CommandDeniedEvent> get commandDeniedEvents =>
       _commandDeniedController?.stream ?? const Stream.empty();
+  Stream<ServerDisconnectEvent> get serverDisconnectEvents =>
+      _serverDisconnectController?.stream ?? const Stream.empty();
+  Stream<ChatMessage> get chatMessages =>
+      _chatMessageController?.stream ?? const Stream.empty();
+  Stream<ChatDeniedEvent> get chatDeniedEvents =>
+      _chatDeniedController?.stream ?? const Stream.empty();
+  Stream<ChatModeEvent> get chatModeEvents =>
+      _chatModeController?.stream ?? const Stream.empty();
 
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
@@ -79,6 +93,10 @@ class StreamProxy {
     _nudgeNotificationController = StreamController<NudgeNotification>.broadcast();
     _hibernationController = StreamController<HibernationEvent>.broadcast();
     _commandDeniedController = StreamController<CommandDeniedEvent>.broadcast();
+    _serverDisconnectController = StreamController<ServerDisconnectEvent>.broadcast();
+    _chatMessageController = StreamController<ChatMessage>.broadcast();
+    _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
+    _chatModeController = StreamController<ChatModeEvent>.broadcast();
 
     // 1. Start Local TCP Server
     _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
@@ -205,6 +223,17 @@ class StreamProxy {
                 _commandDeniedController?.add(
                   CommandDeniedEvent(command: command),
                 );
+              } else if (data['type'] == 'DISCONNECT') {
+                final reason = data['reason']?.toString() ?? '';
+                _serverDisconnectController?.add(
+                  ServerDisconnectEvent(reason: reason),
+                );
+              } else if (data['type'] == 'CHAT_MESSAGE') {
+                _chatMessageController?.add(ChatMessage.fromJson(data));
+              } else if (data['type'] == 'CHAT_DENIED') {
+                _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
+              } else if (data['type'] == 'CHAT_MODE_STARTED' || data['type'] == 'CHAT_MODE_ENDED') {
+                _chatModeController?.add(ChatModeEvent.fromJson(data));
               } else {
                 final timed = timedFromJson(data);
                 if (timed != null) {
@@ -226,6 +255,10 @@ class StreamProxy {
                 if (status != null) {
                   _hibernationController?.add(status);
                 }
+                final msg = hibernationMessageFromJson(data);
+                if (msg != null) {
+                  _hibernationController?.add(msg);
+                }
               }
             } catch (_) {}
           }
@@ -233,11 +266,27 @@ class StreamProxy {
         onError: (e, st) {
           _wsChannel = null;
           _authenticated = false;
+          if (_timedNotificationController != null && !_timedNotificationController!.isClosed) {
+            _timedNotificationController!.add(TimedNotification(
+              fireAtEpochMs: null,
+              title: null,
+              body: null,
+              sound: false,
+            ));
+          }
           completeAuthError(e, st);
         },
         onDone: () {
           _wsChannel = null;
           _authenticated = false;
+          if (_timedNotificationController != null && !_timedNotificationController!.isClosed) {
+            _timedNotificationController!.add(TimedNotification(
+              fireAtEpochMs: null,
+              title: null,
+              body: null,
+              sound: false,
+            ));
+          }
           completeAuthError(StateError('WebSocket closed'));
         },
       );
@@ -291,6 +340,50 @@ class StreamProxy {
     trySendRunCommand(command);
   }
 
+  void requestKeyframe() {
+    trySendCommand({'type': 'REQUEST_KEYFRAME'});
+  }
+
+  bool trySendChatMessage(String message) {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.startsWith('/')) return false;
+    
+    for (final listener in _outgoingChatListeners) {
+      final result = listener(ChatMessage(
+        sender: 'Me',
+        message: trimmed,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        isOutgoing: true,
+      ));
+      if (result == ChatMessageResult.deny) {
+        return false;
+      }
+    }
+    
+    return trySendCommand({'type': 'SEND_CHAT', 'message': trimmed});
+  }
+
+  void sendChatMessage(String message) {
+    trySendChatMessage(message);
+  }
+
+  void enterChatMode() {
+    trySendCommand({'type': 'ENTER_CHAT'});
+  }
+
+  void exitChatMode() {
+    trySendCommand({'type': 'EXIT_CHAT'});
+  }
+
+  void addOutgoingChatListener(ChatMessageListener listener) {
+    _outgoingChatListeners.add(listener);
+  }
+
+  void removeOutgoingChatListener(ChatMessageListener listener) {
+    _outgoingChatListeners.remove(listener);
+  }
+
   Future<void> stop() async {
     final ws = _wsChannel;
     if (ws != null) {
@@ -306,6 +399,14 @@ class StreamProxy {
     _accessUnitsController = null;
     await _playerPoseController?.close();
     _playerPoseController = null;
+    if (_timedNotificationController != null && !_timedNotificationController!.isClosed) {
+      _timedNotificationController!.add(TimedNotification(
+        fireAtEpochMs: null,
+        title: null,
+        body: null,
+        sound: false,
+      ));
+    }
     await _timedNotificationController?.close();
     _timedNotificationController = null;
     await _nudgeNotificationController?.close();
@@ -314,6 +415,14 @@ class StreamProxy {
     _hibernationController = null;
     await _commandDeniedController?.close();
     _commandDeniedController = null;
+    await _serverDisconnectController?.close();
+    _serverDisconnectController = null;
+    await _chatMessageController?.close();
+    _chatMessageController = null;
+    await _chatDeniedController?.close();
+    _chatDeniedController = null;
+    await _chatModeController?.close();
+    _chatModeController = null;
     
     for (final client in _activeClients) {
       client.destroy();
@@ -341,6 +450,12 @@ class CommandDeniedEvent {
   final String command;
 
   const CommandDeniedEvent({required this.command});
+}
+
+class ServerDisconnectEvent {
+  final String reason;
+
+  const ServerDisconnectEvent({required this.reason});
 }
 
 class _MpegTsMuxer {

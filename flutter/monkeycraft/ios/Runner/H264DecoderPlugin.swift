@@ -4,7 +4,7 @@ import VideoToolbox
 import CoreMedia
 import CoreVideo
 import UserNotifications
-import Darwin
+import AudioToolbox
 
 final class H264DecoderPlugin: NSObject, FlutterPlugin {
   private let textureRegistry: FlutterTextureRegistry
@@ -122,6 +122,35 @@ final class NotificationsPlugin: NSObject, FlutterPlugin {
       let center = UNUserNotificationCenter.current()
       center.removePendingNotificationRequests(withIdentifiers: [identifier])
       center.removeDeliveredNotifications(withIdentifiers: [identifier])
+      result(nil)
+    case "showImmediate":
+      guard let args = call.arguments as? [String: Any] else {
+        result(FlutterError(code: "bad_args", message: "Missing args", details: nil))
+        return
+      }
+      let title = args["title"] as? String ?? "MonkeyCraft"
+      let body = args["body"] as? String ?? ""
+      let soundEnabled = args["sound"] as? Bool ?? true
+
+      let content = UNMutableNotificationContent()
+      content.title = title
+      content.body = body
+      if soundEnabled {
+        content.sound = .default
+      }
+
+      let identifier = "immediate_\(Date().timeIntervalSince1970)"
+      let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+      let center = UNUserNotificationCenter.current()
+      center.add(request) { error in
+        if let error {
+          result(FlutterError(code: "show_failed", message: error.localizedDescription, details: nil))
+        } else {
+          result(nil)
+        }
+      }
+    case "playNotificationSound":
+      AudioServicesPlaySystemSound(1007)
       result(nil)
     default:
       result(FlutterMethodNotImplemented)

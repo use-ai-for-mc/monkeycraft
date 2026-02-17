@@ -42,6 +42,11 @@ public class MonkeycraftClient implements ClientModInitializer {
   private void registerTickEvents() {
     ClientTickEvents.END_CLIENT_TICK.register(
         client -> {
+          boolean connectedNow = WebSocketServerHandler.getInstance().isClientConnected();
+          if (connectedNow && client.options.keyDrop.isDown()) {
+            WebSocketServerHandler.getInstance().disconnectClient();
+          }
+
           if (pendingMouseReleaseTicks > 0) {
             pendingMouseReleaseTicks -= 1;
             if (pendingMouseReleaseTicks == 0) {
@@ -54,7 +59,6 @@ public class MonkeycraftClient implements ClientModInitializer {
             }
           }
 
-          boolean connectedNow = WebSocketServerHandler.getInstance().isClientConnected();
           if (!wasConnectedToClient && connectedNow) {
             isConnectedToClient = true;
             if (client.mouseHandler.isMouseGrabbed()) {
@@ -68,7 +72,7 @@ public class MonkeycraftClient implements ClientModInitializer {
           }
           wasConnectedToClient = connectedNow;
 
-          if (automaticallyReleasedCursor
+          if (connectedNow
               && client.mouseHandler.isRightPressed()
               && client.mouseHandler.isMouseGrabbed()) {
             client.mouseHandler.releaseMouse();

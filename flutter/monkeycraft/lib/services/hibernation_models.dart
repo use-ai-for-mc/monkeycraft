@@ -19,6 +19,12 @@ class HibernationStatus extends HibernationEvent {
   const HibernationStatus({required this.active, required this.message});
 }
 
+class HibernationMessage extends HibernationEvent {
+  final String message;
+
+  const HibernationMessage({required this.message});
+}
+
 HibernationStart? hibernationStartFromJson(dynamic json) {
   if (json is! Map) return null;
   if (json['type'] != 'HIBERNATION_START') return null;
@@ -39,4 +45,11 @@ HibernationStatus? hibernationStatusFromJson(dynamic json) {
   final message = json['message'];
   if (active is! bool) return null;
   return HibernationStatus(active: active, message: message is String ? message : null);
+}
+
+HibernationMessage? hibernationMessageFromJson(dynamic json) {
+  if (json is! Map) return null;
+  if (json['type'] != 'HIBERNATION_MESSAGE') return null;
+  final message = json['message'];
+  return HibernationMessage(message: message is String ? message : '');
 }

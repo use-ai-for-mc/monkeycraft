@@ -33,4 +33,22 @@ class TimedNotificationService {
     if (!Platform.isIOS) return;
     await _channel.invokeMethod<void>('cancelTimed', {'id': timedId});
   }
+
+  Future<void> showImmediate({
+    required String title,
+    required String body,
+    required bool sound,
+  }) async {
+    if (!Platform.isIOS) return;
+    await _channel.invokeMethod<void>('showImmediate', {
+      'title': title,
+      'body': body,
+      'sound': sound,
+    });
+  }
+
+  Future<void> playNotificationSound() async {
+    if (!Platform.isIOS && !Platform.isAndroid) return;
+    await _channel.invokeMethod<void>('playNotificationSound');
+  }
 }
