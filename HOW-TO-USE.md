@@ -68,6 +68,25 @@ dependencies {
 
 This avoids copying jars and makes it easy to reuse Monkeycraft across many projects on your machine.
 
+### 1b) Using JitPack (Remote Dependency)
+
+For teams or CI, use JitPack to pull directly from GitHub releases:
+
+```gradle
+repositories {
+  mavenCentral()
+  maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+  compileOnly('com.github.weikengchen:monkeycraft:v1.0.0') {
+    transitive = false
+  }
+}
+```
+
+Available versions correspond to git tags (e.g., `v1.0.0`, `v1.0.1`). JitPack builds on first request and caches the artifact.
+
 ### 2) Mark It Optional in fabric.mod.json
 
 Do not add Monkeycraft to `depends`.
