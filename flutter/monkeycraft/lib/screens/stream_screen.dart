@@ -32,7 +32,8 @@ class StreamScreen extends StatefulWidget {
   State<StreamScreen> createState() => _StreamScreenState();
 }
 
-class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver {
+class _StreamScreenState extends State<StreamScreen>
+    with WidgetsBindingObserver {
   HardwareH264Decoder? _decoder;
   late final GameInputController _input;
   late final TimedNotificationCoordinator _timedCoordinator;
@@ -62,6 +63,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
   bool? _forcedOrientation;
   int _streamWidth = 0;
   int _streamHeight = 0;
+  StreamResolution? _pendingResolution;
 
   bool get _supportedPlatform => Platform.isIOS || Platform.isAndroid;
 
@@ -77,7 +79,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
       }),
     );
     _timedScheduler = IosTimedNotificationScheduler(TimedNotificationService());
-    _timedCoordinator = TimedNotificationCoordinator(scheduler: _timedScheduler);
+    _timedCoordinator = TimedNotificationCoordinator(
+      scheduler: _timedScheduler,
+    );
     _settingsStore = StreamSettingsStore();
     _loadStreamSettings();
     _attachProxyStreams();
@@ -95,15 +99,23 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
 
   void _attachProxyStreams() {
     _timedSub?.cancel();
-    _timedSub = widget.proxy.timedNotifications.listen(_handleTimedNotification);
+    _timedSub = widget.proxy.timedNotifications.listen(
+      _handleTimedNotification,
+    );
     _nudgeSub?.cancel();
     _nudgeSub = widget.proxy.nudges.listen(_handleNudge);
     _hibernationSub?.cancel();
-    _hibernationSub = widget.proxy.hibernationEvents.listen(_handleHibernationEvent);
+    _hibernationSub = widget.proxy.hibernationEvents.listen(
+      _handleHibernationEvent,
+    );
     _commandDeniedSub?.cancel();
-    _commandDeniedSub = widget.proxy.commandDeniedEvents.listen(_handleCommandDenied);
+    _commandDeniedSub = widget.proxy.commandDeniedEvents.listen(
+      _handleCommandDenied,
+    );
     _serverDisconnectSub?.cancel();
-    _serverDisconnectSub = widget.proxy.serverDisconnectEvents.listen(_handleServerDisconnect);
+    _serverDisconnectSub = widget.proxy.serverDisconnectEvents.listen(
+      _handleServerDisconnect,
+    );
   }
 
   void _handleTimedNotification(TimedNotification notification) {
@@ -117,10 +129,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text),
-        duration: const Duration(seconds: 3),
-      ),
+      SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
     );
   }
 
@@ -184,7 +193,10 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     }
 
     _hibernationPingTimer?.cancel();
-    _hibernationPingTimer = Timer.periodic(const Duration(seconds: 15), (_) => _sendHibernationPing());
+    _hibernationPingTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _sendHibernationPing(),
+    );
     _sendHibernationPing();
 
     _input.releaseAll();
@@ -214,14 +226,12 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
-    
+
     if (!mounted) return;
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(proxy: widget.proxy),
-      ),
+      MaterialPageRoute(builder: (context) => ChatScreen(proxy: widget.proxy)),
     );
-    
+
     if (!mounted) return;
     await _restartStream();
   }
@@ -267,10 +277,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     if (!mounted) return;
     final text = body.isEmpty ? title : '$title\n$body';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text),
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(text), duration: const Duration(seconds: 2)),
     );
   }
 
@@ -308,7 +315,8 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
     if (state == AppLifecycleState.resumed) {
       _foreground = true;
       _resumeIfNeeded();
-    } else if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _foreground = false;
       _pauseStreaming();
     }
@@ -363,7 +371,7 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
       _reconnecting = false;
     }
   }
-  
+
   Future<void> _closeScreen() async {
     if (_closing) return;
     _closing = true;
@@ -434,7 +442,11 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
   }
 
   Future<void> _restartStream() async {
-    if (_restarting) return;
+    final target = _currentTargetResolution();
+    if (_restarting) {
+      _pendingResolution = target;
+      return;
+    }
     if (_hibernating) return;
     _restarting = true;
     _input.releaseAll();
@@ -447,7 +459,6 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
       }
     }
     await Future<void>.delayed(const Duration(milliseconds: 50));
-    final target = _currentTargetResolution();
     _streamWidth = target.width;
     _streamHeight = target.height;
     debugPrint(
@@ -461,6 +472,13 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
       'colorMode': _settings.colorMode,
       'fps': _settings.fps,
     });
+    final pending = _pendingResolution;
+    _pendingResolution = null;
+    if (pending != null) {
+      _restarting = false;
+      await _restartStream();
+      return;
+    }
     _restarting = false;
   }
 
@@ -486,7 +504,10 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
           ? true
           : (_forcedOrientation == true ? false : null);
       if (_forcedOrientation == true) {
-        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
       } else if (_forcedOrientation == false) {
         SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
       } else {
@@ -510,9 +531,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
       final sent = widget.proxy.trySendRunCommand(text);
       if (!sent) {
         if (!ctx.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Not connected')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Not connected')));
         return;
       }
       if (!ctx.mounted) return;
@@ -530,7 +551,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
           child: Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Material(
@@ -556,7 +579,11 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                           const SizedBox(height: 12),
                           const Text(
                             'Command',
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           TextField(
@@ -565,13 +592,17 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                             textInputAction: TextInputAction.send,
                             style: const TextStyle(color: Colors.white),
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[ -~]')),
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[ -~]'),
+                              ),
                             ],
                             decoration: InputDecoration(
                               hintText: '/warp home',
                               hintStyle: const TextStyle(color: Colors.white38),
                               helperText: 'Must start with /',
-                              helperStyle: const TextStyle(color: Colors.white54),
+                              helperStyle: const TextStyle(
+                                color: Colors.white54,
+                              ),
                               filled: true,
                               fillColor: const Color(0x33111111),
                               border: OutlineInputBorder(
@@ -626,7 +657,11 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                 children: [
                   const Text(
                     'Unsupported platform',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
@@ -654,20 +689,31 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
         final mq = MediaQuery.of(context);
         final screenSize = mq.size;
         final pad = mq.padding;
-        final safeW = (screenSize.width - pad.left - pad.right).clamp(0.0, double.infinity);
-        final safeH = (screenSize.height - pad.top - pad.bottom).clamp(0.0, double.infinity);
+        final safeW = (screenSize.width - pad.left - pad.right).clamp(
+          0.0,
+          double.infinity,
+        );
+        final safeH = (screenSize.height - pad.top - pad.bottom).clamp(
+          0.0,
+          double.infinity,
+        );
         final shortSide = safeW < safeH ? safeW : safeH;
-        final joystickSize =
-            isPortrait ? shortSide.clamp(140.0, 190.0) : (shortSide * 0.65).clamp(110.0, 150.0);
-        final jumpSize =
-            isPortrait ? (shortSide * 0.42).clamp(74.0, 104.0) : (shortSide * 0.42).clamp(62.0, 86.0);
+        final joystickSize = isPortrait
+            ? shortSide.clamp(140.0, 190.0)
+            : (shortSide * 0.65).clamp(110.0, 150.0);
+        final jumpSize = isPortrait
+            ? (shortSide * 0.42).clamp(74.0, 104.0)
+            : (shortSide * 0.42).clamp(62.0, 86.0);
         final shiftSize = jumpSize;
         const buttonGap = 12.0;
         const hotbarToggleSize = 48.0;
         const hotbarGap = 8.0;
         final hotbarButtonSize = isPortrait
             ? 44.0
-            : (((safeW - (20 * 2) - 16) - (hotbarGap * 8)) / 9.0).clamp(28.0, 40.0);
+            : (((safeW - (20 * 2) - 16) - (hotbarGap * 8)) / 9.0).clamp(
+                28.0,
+                40.0,
+              );
         final joystickRect = Rect.fromLTWH(
           pad.left + 16,
           screenSize.height - (pad.bottom + 16 + joystickSize),
@@ -676,7 +722,8 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
         );
         final jumpRect = Rect.fromLTWH(
           screenSize.width - (pad.right + 16 + jumpSize),
-          screenSize.height - (pad.bottom + 16 + shiftSize + buttonGap + jumpSize),
+          screenSize.height -
+              (pad.bottom + 16 + shiftSize + buttonGap + jumpSize),
           jumpSize,
           jumpSize,
         );
@@ -718,9 +765,12 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
           hotbarToggleSize,
           hotbarToggleSize,
         );
-        final hotbarPanelWidth =
-            isPortrait ? ((hotbarButtonSize * 3) + (hotbarGap * 2) + 16) : ((hotbarButtonSize * 9) + (hotbarGap * 8) + 16);
-        final hotbarPanelHeight = isPortrait ? hotbarPanelWidth : (hotbarButtonSize + 16);
+        final hotbarPanelWidth = isPortrait
+            ? ((hotbarButtonSize * 3) + (hotbarGap * 2) + 16)
+            : ((hotbarButtonSize * 9) + (hotbarGap * 8) + 16);
+        final hotbarPanelHeight = isPortrait
+            ? hotbarPanelWidth
+            : (hotbarButtonSize + 16);
         final hotbarPanelRect = Rect.fromLTWH(
           pad.left + 20,
           topBarY + hotbarToggleSize + 8,
@@ -731,13 +781,22 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
         final safeAreaExclusions = <Rect>[
           if (pad.top > 0) Rect.fromLTWH(0, 0, screenSize.width, pad.top),
           if (pad.bottom > 0)
-            Rect.fromLTWH(0, screenSize.height - pad.bottom, screenSize.width, pad.bottom),
+            Rect.fromLTWH(
+              0,
+              screenSize.height - pad.bottom,
+              screenSize.width,
+              pad.bottom,
+            ),
           if (pad.left > 0) Rect.fromLTWH(0, 0, pad.left, screenSize.height),
           if (pad.right > 0)
-            Rect.fromLTWH(screenSize.width - pad.right, 0, pad.right, screenSize.height),
+            Rect.fromLTWH(
+              screenSize.width - pad.right,
+              0,
+              pad.right,
+              screenSize.height,
+            ),
         ];
 
-        
         final shouldSend = _lastIsPortrait != isPortrait;
         _lastIsPortrait = isPortrait;
         if (shouldSend && !_hibernating) {
@@ -767,17 +826,29 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                           children: [
                             const Text(
                               'Hypersleep',
-                              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 12),
                             Column(
                               mainAxisSize: MainAxisSize.min,
-                              children: _hibernationMessage.split('\n').map((line) => Text(
-                                line,
-                                style: const TextStyle(color: Colors.white70, fontSize: 14),
-                                textAlign: TextAlign.center,
-                              )).toList(),
+                              children: _hibernationMessage
+                                  .split('\n')
+                                  .map(
+                                    (line) => Text(
+                                      line,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  )
+                                  .toList(),
                             ),
                             const SizedBox(height: 16),
                             OutlinedButton(
@@ -843,7 +914,10 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                         _selectedHotbarSlot = slot;
                         _hotbarExpanded = false;
                       });
-                      widget.proxy.sendCommand({'type': 'HOTBAR_SELECT', 'slot': slot});
+                      widget.proxy.sendCommand({
+                        'type': 'HOTBAR_SELECT',
+                        'slot': slot,
+                      });
                     },
                   ),
                 ),
@@ -878,7 +952,9 @@ class _StreamScreenState extends State<StreamScreen> with WidgetsBindingObserver
                   icon: Icon(
                     _forcedOrientation == true
                         ? Icons.stay_current_portrait
-                        : (_forcedOrientation == false ? Icons.stay_current_landscape : Icons.screen_rotation),
+                        : (_forcedOrientation == false
+                              ? Icons.stay_current_landscape
+                              : Icons.screen_rotation),
                     color: Colors.white,
                   ),
                   onPressed: _toggleOrientation,
