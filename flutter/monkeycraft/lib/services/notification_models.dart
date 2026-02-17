@@ -27,7 +27,23 @@ class NudgeNotification {
 TimedNotification? timedFromJson(dynamic json) {
   if (json is! Map) return null;
   final type = json['type'];
-  if (type != 'TIMED') return null;
+  if (type != 'TIMED' && type != 'TIMED_STATUS') return null;
+  final fireAt = json['fireAtEpochMs'];
+  final title = json['title'];
+  final body = json['body'];
+  final sound = json['sound'];
+  return TimedNotification(
+    fireAtEpochMs: fireAt is num ? fireAt.toInt() : null,
+    title: title is String ? title : null,
+    body: body is String ? body : null,
+    sound: sound is bool ? sound : true,
+  );
+}
+
+TimedNotification? timedStatusFromJson(dynamic json) {
+  if (json is! Map) return null;
+  final type = json['type'];
+  if (type != 'TIMED_STATUS') return null;
   final fireAt = json['fireAtEpochMs'];
   final title = json['title'];
   final body = json['body'];
@@ -53,4 +69,3 @@ NudgeNotification? nudgeFromJson(dynamic json) {
     sound: sound is bool ? sound : true,
   );
 }
-

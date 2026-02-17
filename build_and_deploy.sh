@@ -12,7 +12,6 @@ TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 echo "Building Monkeycraft mod..."
 cd "${PROJECT_DIR}"
 ./gradlew spotlessApply
-./gradlew publishToMavenLocal
 ./gradlew clean build
 
 if [ ! -f "${SOURCE_JAR}" ]; then

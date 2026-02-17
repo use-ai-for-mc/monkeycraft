@@ -31,10 +31,11 @@ class StreamProxy {
   int _fps = 20;
   int _frameIndex = 0;
   int _port = 0;
-  
+
   // Get the local proxy URL
   String get url => 'tcp://127.0.0.1:$_port';
-  Stream<Uint8List> get accessUnits => _accessUnitsController?.stream ?? const Stream.empty();
+  Stream<Uint8List> get accessUnits =>
+      _accessUnitsController?.stream ?? const Stream.empty();
   Stream<PlayerPose> get playerPose =>
       _playerPoseController?.stream ?? const Stream.empty();
   Stream<TimedNotification> get timedNotifications =>
@@ -57,8 +58,11 @@ class StreamProxy {
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
     for (int i = 0; i < data.length - 4; i++) {
-      if (data[i] == 0 && data[i+1] == 0 && data[i+2] == 0 && data[i+3] == 1) {
-        final type = data[i+4] & 0x1F;
+      if (data[i] == 0 &&
+          data[i + 1] == 0 &&
+          data[i + 2] == 0 &&
+          data[i + 3] == 1) {
+        final type = data[i + 4] & 0x1F;
         if (type == 5) return true;
         i += 4;
       }
@@ -67,7 +71,10 @@ class StreamProxy {
   }
 
   String _generateSalt() {
-    final random = List.generate(16, (_) => DateTime.now().microsecondsSinceEpoch ^ (Object().hashCode));
+    final random = List.generate(
+      16,
+      (_) => DateTime.now().microsecondsSinceEpoch ^ (Object().hashCode),
+    );
     return base64Encode(random.map((e) => e & 0xFF).toList());
   }
 
@@ -89,11 +96,14 @@ class StreamProxy {
     _authenticated = false;
     _accessUnitsController = StreamController<Uint8List>.broadcast();
     _playerPoseController = StreamController<PlayerPose>.broadcast();
-    _timedNotificationController = StreamController<TimedNotification>.broadcast();
-    _nudgeNotificationController = StreamController<NudgeNotification>.broadcast();
+    _timedNotificationController =
+        StreamController<TimedNotification>.broadcast();
+    _nudgeNotificationController =
+        StreamController<NudgeNotification>.broadcast();
     _hibernationController = StreamController<HibernationEvent>.broadcast();
     _commandDeniedController = StreamController<CommandDeniedEvent>.broadcast();
-    _serverDisconnectController = StreamController<ServerDisconnectEvent>.broadcast();
+    _serverDisconnectController =
+        StreamController<ServerDisconnectEvent>.broadcast();
     _chatMessageController = StreamController<ChatMessage>.broadcast();
     _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
     _chatModeController = StreamController<ChatModeEvent>.broadcast();
@@ -104,20 +114,22 @@ class StreamProxy {
 
     _serverSocket!.listen((client) {
       _pendingClients.add(client);
-      
-      client.done.then((_) {
-        _pendingClients.remove(client);
-        _activeClients.remove(client);
-      }).catchError((_) {
-        _pendingClients.remove(client);
-        _activeClients.remove(client);
-        client.destroy();
-      });
+
+      client.done
+          .then((_) {
+            _pendingClients.remove(client);
+            _activeClients.remove(client);
+          })
+          .catchError((_) {
+            _pendingClients.remove(client);
+            _activeClients.remove(client);
+            client.destroy();
+          });
     });
 
     // 2. Connect to WebSocket
     final wsUrl = Uri.parse('ws://$host:$port');
-    
+
     try {
       _wsChannel = WebSocketChannel.connect(wsUrl);
       await _wsChannel!.ready.timeout(connectTimeout);
@@ -138,7 +150,7 @@ class StreamProxy {
             _accessUnitsController?.add(Uint8List.fromList(message));
             // ACK immediately
             _wsChannel!.sink.add(jsonEncode({'type': 'ACK'}));
-            
+
             if (_isIdrFrame(message)) {
               for (final c in _pendingClients) {
                 _ts.writeTables(c);
@@ -154,8 +166,10 @@ class StreamProxy {
               return;
             }
 
-            final tsPackets =
-                _ts.muxH264AccessUnit(Uint8List.fromList(message), pts90k);
+            final tsPackets = _ts.muxH264AccessUnit(
+              Uint8List.fromList(message),
+              pts90k,
+            );
 
             for (final client in _activeClients.toList()) {
               try {
@@ -175,7 +189,10 @@ class StreamProxy {
                 serverSalt = data['salt']?.toString();
                 if (serverSalt != null) {
                   final clientSalt = _generateSalt();
-                  final signature = _computeHmac(password, '$serverSalt$clientSalt');
+                  final signature = _computeHmac(
+                    password,
+                    '$serverSalt$clientSalt',
+                  );
                   final authMsg = jsonEncode({
                     'type': 'AUTH',
                     'salt': clientSalt,
@@ -232,32 +249,25 @@ class StreamProxy {
                 _chatMessageController?.add(ChatMessage.fromJson(data));
               } else if (data['type'] == 'CHAT_DENIED') {
                 _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
-              } else if (data['type'] == 'CHAT_MODE_STARTED' || data['type'] == 'CHAT_MODE_ENDED') {
+              } else if (data['type'] == 'CHAT_MODE_STARTED' ||
+                  data['type'] == 'CHAT_MODE_ENDED') {
                 _chatModeController?.add(ChatModeEvent.fromJson(data));
               } else {
                 final timed = timedFromJson(data);
                 if (timed != null) {
                   _timedNotificationController?.add(timed);
                 }
+                final timedStatus = timedStatusFromJson(data);
+                if (timedStatus != null) {
+                  _timedNotificationController?.add(timedStatus);
+                }
                 final nudge = nudgeFromJson(data);
                 if (nudge != null) {
                   _nudgeNotificationController?.add(nudge);
                 }
-                final start = hibernationStartFromJson(data);
-                if (start != null) {
-                  _hibernationController?.add(start);
-                }
-                final end = hibernationEndFromJson(data);
-                if (end != null) {
-                  _hibernationController?.add(end);
-                }
                 final status = hibernationStatusFromJson(data);
                 if (status != null) {
                   _hibernationController?.add(status);
-                }
-                final msg = hibernationMessageFromJson(data);
-                if (msg != null) {
-                  _hibernationController?.add(msg);
                 }
               }
             } catch (_) {}
@@ -266,26 +276,32 @@ class StreamProxy {
         onError: (e, st) {
           _wsChannel = null;
           _authenticated = false;
-          if (_timedNotificationController != null && !_timedNotificationController!.isClosed) {
-            _timedNotificationController!.add(TimedNotification(
-              fireAtEpochMs: null,
-              title: null,
-              body: null,
-              sound: false,
-            ));
+          if (_timedNotificationController != null &&
+              !_timedNotificationController!.isClosed) {
+            _timedNotificationController!.add(
+              TimedNotification(
+                fireAtEpochMs: null,
+                title: null,
+                body: null,
+                sound: false,
+              ),
+            );
           }
           completeAuthError(e, st);
         },
         onDone: () {
           _wsChannel = null;
           _authenticated = false;
-          if (_timedNotificationController != null && !_timedNotificationController!.isClosed) {
-            _timedNotificationController!.add(TimedNotification(
-              fireAtEpochMs: null,
-              title: null,
-              body: null,
-              sound: false,
-            ));
+          if (_timedNotificationController != null &&
+              !_timedNotificationController!.isClosed) {
+            _timedNotificationController!.add(
+              TimedNotification(
+                fireAtEpochMs: null,
+                title: null,
+                body: null,
+                sound: false,
+              ),
+            );
           }
           completeAuthError(StateError('WebSocket closed'));
         },
@@ -348,19 +364,21 @@ class StreamProxy {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return false;
     if (trimmed.startsWith('/')) return false;
-    
+
     for (final listener in _outgoingChatListeners) {
-      final result = listener(ChatMessage(
-        sender: 'Me',
-        message: trimmed,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        isOutgoing: true,
-      ));
+      final result = listener(
+        ChatMessage(
+          sender: 'Me',
+          message: trimmed,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          isOutgoing: true,
+        ),
+      );
       if (result == ChatMessageResult.deny) {
         return false;
       }
     }
-    
+
     return trySendCommand({'type': 'SEND_CHAT', 'message': trimmed});
   }
 
@@ -399,13 +417,16 @@ class StreamProxy {
     _accessUnitsController = null;
     await _playerPoseController?.close();
     _playerPoseController = null;
-    if (_timedNotificationController != null && !_timedNotificationController!.isClosed) {
-      _timedNotificationController!.add(TimedNotification(
-        fireAtEpochMs: null,
-        title: null,
-        body: null,
-        sound: false,
-      ));
+    if (_timedNotificationController != null &&
+        !_timedNotificationController!.isClosed) {
+      _timedNotificationController!.add(
+        TimedNotification(
+          fireAtEpochMs: null,
+          title: null,
+          body: null,
+          sound: false,
+        ),
+      );
     }
     await _timedNotificationController?.close();
     _timedNotificationController = null;
@@ -423,17 +444,17 @@ class StreamProxy {
     _chatDeniedController = null;
     await _chatModeController?.close();
     _chatModeController = null;
-    
+
     for (final client in _activeClients) {
       client.destroy();
     }
     _activeClients.clear();
-    
+
     for (final client in _pendingClients) {
       client.destroy();
     }
     _pendingClients.clear();
-    
+
     await _serverSocket?.close();
     _serverSocket = null;
   }
@@ -606,7 +627,8 @@ class _MpegTsMuxer {
     if (remaining > 0) {
       adaptationControl = 3;
       final adaptationLen = remaining - 1;
-      packet[3] = ((adaptationControl & 0x03) << 4) | (continuityCounter & 0x0F);
+      packet[3] =
+          ((adaptationControl & 0x03) << 4) | (continuityCounter & 0x0F);
       packet[4] = adaptationLen & 0xFF;
       headerIndex = 5;
       if (adaptationLen > 0) {
@@ -617,7 +639,8 @@ class _MpegTsMuxer {
         headerIndex = 5 + adaptationLen;
       }
     } else {
-      packet[3] = ((adaptationControl & 0x03) << 4) | (continuityCounter & 0x0F);
+      packet[3] =
+          ((adaptationControl & 0x03) << 4) | (continuityCounter & 0x0F);
     }
 
     packet.setRange(headerIndex, headerIndex + payload.length, payload);

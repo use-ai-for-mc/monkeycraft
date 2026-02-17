@@ -49,7 +49,8 @@ class _StreamScreenState extends State<StreamScreen>
   StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSub;
   int? _textureId;
   StreamSubscription<Uint8List>? _accessUnitSub;
-  Timer? _hibernationPingTimer;
+  TimedNotification? _pendingNotification;
+  Timer? _notificationCheckTimer;
   bool? _lastIsPortrait;
   bool _restarting = false;
   bool _closing = false;
@@ -86,6 +87,12 @@ class _StreamScreenState extends State<StreamScreen>
     _loadStreamSettings();
     _attachProxyStreams();
     _loadReconnectCredentials();
+
+    // Start notification checker timer (runs every second)
+    _notificationCheckTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _checkNotificationTime();
+    });
+
     if (_supportedPlatform) {
       _initHardwareDecoder().then((_) {
         if (mounted) _restartStream();
@@ -119,14 +126,39 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   void _handleTimedNotification(TimedNotification notification) {
+    // This handles both TIMED and TIMED_STATUS messages
+    // Store notification (replacing any previous one)
+    _pendingNotification = notification;
+
+    // Schedule with OS for when app is inactive
     _timedCoordinator.handle(notification);
-    if (!_foreground) return;
+
+    // Check immediately if it should have already fired
+    _checkNotificationTime();
+  }
+
+  void _checkNotificationTime() {
+    if (!_foreground) return; // Only check when app is active
+
+    final pending = _pendingNotification;
+    if (pending == null || pending.fireAtEpochMs == null) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (pending.fireAtEpochMs! <= now) {
+      _showNotificationNow(pending);
+      _pendingNotification = null; // Clear pending notification
+    }
+  }
+
+  void _showNotificationNow(TimedNotification notification) {
     final title = notification.title ?? 'MonkeyCraft';
     final body = notification.body ?? '';
     final text = body.isEmpty ? title : '$title\n$body';
+
     if (notification.sound) {
       _timedScheduler.playNotificationSound();
     }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
@@ -155,31 +187,12 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   void _handleHibernationEvent(HibernationEvent event) {
-    if (event is HibernationStart) {
-      _enterHibernation(event.message);
-    } else if (event is HibernationEnd) {
-      _exitHibernation();
-    } else if (event is HibernationStatus) {
+    if (event is HibernationStatus) {
       if (event.active) {
         _enterHibernation(event.message ?? _hibernationMessage);
       } else {
         _exitHibernation();
       }
-    } else if (event is HibernationMessage) {
-      _updateHibernationMessage(event.message);
-    }
-  }
-
-  void _sendHibernationPing() {
-    widget.proxy.sendCommand({'type': 'HIBERNATION_PING'});
-  }
-
-  void _updateHibernationMessage(String message) {
-    if (!_hibernating) return;
-    if (message == _hibernationMessage) return;
-    _hibernationMessage = message;
-    if (mounted) {
-      setState(() {});
     }
   }
 
@@ -192,13 +205,6 @@ class _StreamScreenState extends State<StreamScreen>
       setState(() {});
     }
 
-    _hibernationPingTimer?.cancel();
-    _hibernationPingTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => _sendHibernationPing(),
-    );
-    _sendHibernationPing();
-
     _input.releaseAll();
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
 
@@ -207,8 +213,6 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _exitHibernation() async {
     if (!_hibernating) return;
-    _hibernationPingTimer?.cancel();
-    _hibernationPingTimer = null;
     if (mounted) {
       setState(() => _hibernating = false);
     }
@@ -303,7 +307,7 @@ class _StreamScreenState extends State<StreamScreen>
     _hibernationSub?.cancel();
     _commandDeniedSub?.cancel();
     _serverDisconnectSub?.cancel();
-    _hibernationPingTimer?.cancel();
+    _notificationCheckTimer?.cancel();
     _decoder?.dispose().catchError((_) {});
     widget.proxy.stop();
     SystemChrome.setPreferredOrientations([]);
@@ -315,6 +319,8 @@ class _StreamScreenState extends State<StreamScreen>
     if (state == AppLifecycleState.resumed) {
       _foreground = true;
       _resumeIfNeeded();
+      // Check immediately when app resumes (in case notification fired while in background)
+      _checkNotificationTime();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
       _foreground = false;
@@ -335,8 +341,6 @@ class _StreamScreenState extends State<StreamScreen>
     _nudgeSub = null;
     await _hibernationSub?.cancel();
     _hibernationSub = null;
-    _hibernationPingTimer?.cancel();
-    _hibernationPingTimer = null;
 
     final decoder = _decoder;
     _decoder = null;
@@ -357,7 +361,6 @@ class _StreamScreenState extends State<StreamScreen>
     try {
       await widget.proxy.start(host, port, password);
       _attachProxyStreams();
-      _sendHibernationPing();
       if (_supportedPlatform) {
         await _initHardwareDecoder();
       }
@@ -849,11 +852,6 @@ class _StreamScreenState extends State<StreamScreen>
                                     ),
                                   )
                                   .toList(),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton(
-                              onPressed: _sendHibernationPing,
-                              child: const Text('Refresh'),
                             ),
                           ],
                         ),

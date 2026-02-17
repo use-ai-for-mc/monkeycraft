@@ -41,51 +41,22 @@ API package (versioned):
 
 Goal: your mod should work even if Monkeycraft is not installed.
 
-### 1) Compile Against Monkeycraft Locally
+### 1) Using JitPack (Remote Dependency)
 
-Use Maven Local (recommended).
-
-Current coordinates (this repo):
-
-- groupId: `com.chenweikeng.monkeycraft`
-- artifactId: `monkeycraft`
-- version: `1.0.0`
-
-1. In the Monkeycraft repo, publish to your local Maven cache:
-   - `./gradlew publishToMavenLocal`
-2. In your other mod, add `mavenLocal()` and a dependency on Monkeycraft:
-
-```gradle
-repositories {
-  mavenLocal()
-  mavenCentral()
-}
-
-dependencies {
-  modCompileOnly "com.chenweikeng.monkeycraft:monkeycraft:1.0.0"
-}
-```
-
-This avoids copying jars and makes it easy to reuse Monkeycraft across many projects on your machine.
-
-### 1b) Using JitPack (Remote Dependency)
-
-For teams or CI, use JitPack to pull directly from GitHub releases:
+Use JitPack to pull directly from GitHub releases:
 
 ```gradle
 repositories {
   mavenCentral()
-  maven { url 'https://jitpack.io' }
+	maven { url = "https://jitpack.io" }
 }
 
 dependencies {
-  compileOnly('com.github.weikengchen:monkeycraft:v1.0.0') {
+  compileOnly('com.github.weikengchen:monkeycraft:1.0.0') {
     transitive = false
   }
 }
 ```
-
-Available versions correspond to git tags (e.g., `v1.0.0`, `v1.0.1`). JitPack builds on first request and caches the artifact.
 
 ### 2) Mark It Optional in fabric.mod.json
 

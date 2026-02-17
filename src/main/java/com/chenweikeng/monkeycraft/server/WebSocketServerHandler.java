@@ -30,6 +30,10 @@ public class WebSocketServerHandler {
   private StreamConfig streamConfig = new StreamConfig();
   private boolean isHibernating = false;
   private String hibernationMessage = "";
+  private Long pendingTimedNotificationFireAt = null;
+  private String pendingTimedNotificationTitle = null;
+  private String pendingTimedNotificationBody = null;
+  private boolean pendingTimedNotificationSound = true;
 
   private boolean turnLeft, turnRight, lookUp, lookDown;
 
@@ -153,12 +157,18 @@ public class WebSocketServerHandler {
   }
 
   public void sendTimedNotification(Long fireAtEpochMs, String title, String body, boolean sound) {
+    // Store state
+    pendingTimedNotificationFireAt = fireAtEpochMs;
+    pendingTimedNotificationTitle = title;
+    pendingTimedNotificationBody = body;
+    pendingTimedNotificationSound = sound;
+    
     if (server == null) return;
     WebSocket conn = server.authenticatedSession;
     if (conn == null || !conn.isOpen()) return;
 
     JsonObject msg = new JsonObject();
-    msg.addProperty("type", "TIMED");
+    msg.addProperty("type", "TIMED_STATUS");
     if (fireAtEpochMs != null) {
       msg.addProperty("fireAtEpochMs", fireAtEpochMs);
     } else {
@@ -171,6 +181,12 @@ public class WebSocketServerHandler {
   }
 
   public void cancelTimedNotification() {
+    // Clear stored state
+    pendingTimedNotificationFireAt = null;
+    pendingTimedNotificationTitle = null;
+    pendingTimedNotificationBody = null;
+    pendingTimedNotificationSound = true;
+    
     sendTimedNotification(null, null, null, false);
   }
 
@@ -187,40 +203,36 @@ public class WebSocketServerHandler {
     conn.send(GSON.toJson(msg));
   }
 
-  public void startHibernation(String message) {
-    isHibernating = true;
-    hibernationMessage = message == null ? "" : message;
-    isStreaming = false;
+  private void sendHibernationStatus() {
     if (server == null) return;
     WebSocket conn = server.authenticatedSession;
     if (conn == null || !conn.isOpen()) return;
     JsonObject msg = new JsonObject();
-    msg.addProperty("type", "HIBERNATION_START");
-    msg.addProperty("message", hibernationMessage);
+    msg.addProperty("type", "HIBERNATION_STATUS");
+    msg.addProperty("active", isHibernating);
+    if (isHibernating) {
+      msg.addProperty("message", hibernationMessage);
+    }
     conn.send(GSON.toJson(msg));
+  }
+
+  public void startHibernation(String message) {
+    isHibernating = true;
+    hibernationMessage = message == null ? "" : message;
+    isStreaming = false;
+    sendHibernationStatus();
   }
 
   public void endHibernation() {
     isHibernating = false;
     hibernationMessage = "";
-    if (server == null) return;
-    WebSocket conn = server.authenticatedSession;
-    if (conn == null || !conn.isOpen()) return;
-    JsonObject msg = new JsonObject();
-    msg.addProperty("type", "HIBERNATION_END");
-    conn.send(GSON.toJson(msg));
+    sendHibernationStatus();
   }
 
   public void setHibernationMessage(String message) {
     if (!isHibernating) return;
     hibernationMessage = message == null ? "" : message;
-    if (server == null) return;
-    WebSocket conn = server.authenticatedSession;
-    if (conn == null || !conn.isOpen()) return;
-    JsonObject msg = new JsonObject();
-    msg.addProperty("type", "HIBERNATION_MESSAGE");
-    msg.addProperty("message", hibernationMessage);
-    conn.send(GSON.toJson(msg));
+    sendHibernationStatus();
   }
 
   public void disconnectClient() {
@@ -337,8 +349,6 @@ public class WebSocketServerHandler {
               handleGetPlayerPose(conn);
             } else if ("ACK".equals(type)) {
               if (streamer != null) streamer.ack();
-            } else if ("HIBERNATION_PING".equals(type)) {
-              handleHibernationPing(conn);
             } else if ("RUN_COMMAND".equals(type)) {
               handleRunCommand(conn, json);
             } else if ("CLICK".equals(type)) {
@@ -458,16 +468,6 @@ public class WebSocketServerHandler {
       conn.send(GSON.toJson(response));
     }
 
-    private void handleHibernationPing(WebSocket conn) {
-      JsonObject response = new JsonObject();
-      response.addProperty("type", "HIBERNATION_STATUS");
-      response.addProperty("active", isHibernating);
-      if (isHibernating) {
-        response.addProperty("message", hibernationMessage);
-      }
-      conn.send(GSON.toJson(response));
-    }
-
     private void handleRequestKeyframe() {
       if (streamer != null) {
         streamer.resetBackpressure();
@@ -548,20 +548,6 @@ public class WebSocketServerHandler {
               case "DOWN":
                 lookDown = pressed;
                 break;
-            }
-
-            if (binding != null) {
-              binding.setDown(pressed);
-              // Reset pitch to 0 (look straight) on press, as requested
-              if (pressed
-                  && mc.player != null
-                  && ("W".equals(key)
-                      || "A".equals(key)
-                      || "S".equals(key)
-                      || "D".equals(key)
-                      || "SPACE".equals(key))) {
-                mc.player.setXRot(0);
-              }
             }
           });
     }
@@ -704,11 +690,29 @@ public class WebSocketServerHandler {
         conn.send(GSON.toJson(response));
 
         MonkeycraftApi.CONNECTION.invoker().onConnected(conn.getRemoteSocketAddress().toString());
+        
+        // Sync hibernation state using STATUS message
         if (isHibernating) {
-          JsonObject msg = new JsonObject();
-          msg.addProperty("type", "HIBERNATION_START");
-          msg.addProperty("message", hibernationMessage);
-          conn.send(GSON.toJson(msg));
+          JsonObject hibernationStatus = new JsonObject();
+          hibernationStatus.addProperty("type", "HIBERNATION_STATUS");
+          hibernationStatus.addProperty("active", true);
+          hibernationStatus.addProperty("message", hibernationMessage);
+          conn.send(GSON.toJson(hibernationStatus));
+        }
+        
+        // Sync timed notification state using STATUS message
+        if (pendingTimedNotificationFireAt != null) {
+          JsonObject timedStatus = new JsonObject();
+          timedStatus.addProperty("type", "TIMED_STATUS");
+          timedStatus.addProperty("fireAtEpochMs", pendingTimedNotificationFireAt);
+          if (pendingTimedNotificationTitle != null) {
+            timedStatus.addProperty("title", pendingTimedNotificationTitle);
+          }
+          if (pendingTimedNotificationBody != null) {
+            timedStatus.addProperty("body", pendingTimedNotificationBody);
+          }
+          timedStatus.addProperty("sound", pendingTimedNotificationSound);
+          conn.send(GSON.toJson(timedStatus));
         }
         MonkeycraftClient.sendSystemMessage(
             Component.literal(
