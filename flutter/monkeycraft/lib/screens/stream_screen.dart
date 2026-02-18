@@ -10,6 +10,7 @@ import 'package:monkeycraft_client/services/ios_timed_notification_scheduler.dar
 import 'package:monkeycraft_client/services/notification_models.dart';
 import 'package:monkeycraft_client/services/stream_proxy.dart';
 import 'package:monkeycraft_client/services/hardware_h264_decoder.dart';
+import 'package:monkeycraft_client/services/live_activity_service.dart';
 import 'package:monkeycraft_client/services/stream_resolution.dart';
 import 'package:monkeycraft_client/services/stream_settings.dart';
 import 'package:monkeycraft_client/services/timed_notification_coordinator.dart';
@@ -39,6 +40,7 @@ class _StreamScreenState extends State<StreamScreen>
   late final TimedNotificationCoordinator _timedCoordinator;
   late final IosTimedNotificationScheduler _timedScheduler;
   late final StreamSettingsStore _settingsStore;
+  final _liveActivityService = LiveActivityService();
   bool _hotbarExpanded = false;
   int _selectedHotbarSlot = 0;
   StreamSettings _settings = StreamSettings.defaults;
@@ -85,6 +87,7 @@ class _StreamScreenState extends State<StreamScreen>
     );
     _settingsStore = StreamSettingsStore();
     _loadStreamSettings();
+    _liveActivityService.init();
     _attachProxyStreams();
     _loadReconnectCredentials();
 
@@ -133,6 +136,18 @@ class _StreamScreenState extends State<StreamScreen>
     // Schedule with OS for when app is inactive
     _timedCoordinator.handle(notification);
 
+    // Start Live Activity countdown on iOS 16.1+
+    if (notification.fireAtEpochMs != null) {
+      _liveActivityService.startCountdown(
+        fireAtEpochMs: notification.fireAtEpochMs!,
+        title: notification.title ?? 'MonkeyCraft',
+        body: notification.body ?? '',
+        countDownText: notification.countDownText ?? 'TBA',
+      );
+    } else {
+      _liveActivityService.cancel();
+    }
+
     // Check immediately if it should have already fired
     _checkNotificationTime();
   }
@@ -147,6 +162,7 @@ class _StreamScreenState extends State<StreamScreen>
     if (pending.fireAtEpochMs! <= now) {
       _showNotificationNow(pending);
       _pendingNotification = null; // Clear pending notification
+      _liveActivityService.cancel(); // Dismiss live activity when timer fires
     }
   }
 
@@ -309,6 +325,7 @@ class _StreamScreenState extends State<StreamScreen>
     _serverDisconnectSub?.cancel();
     _notificationCheckTimer?.cancel();
     _decoder?.dispose().catchError((_) {});
+    _liveActivityService.dispose();
     widget.proxy.stop();
     SystemChrome.setPreferredOrientations([]);
     super.dispose();
@@ -360,6 +377,7 @@ class _StreamScreenState extends State<StreamScreen>
     _reconnecting = true;
     try {
       await widget.proxy.start(host, port, password);
+      widget.proxy.sendPing();
       _attachProxyStreams();
       if (_supportedPlatform) {
         await _initHardwareDecoder();

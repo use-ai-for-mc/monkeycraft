@@ -70,8 +70,9 @@ public final class MonkeycraftApi {
               });
 
   public static void setTimedNotification(
-      Long fireAtEpochMs, String title, String body, boolean sound) {
-    WebSocketServerHandler.getInstance().sendTimedNotification(fireAtEpochMs, title, body, sound);
+      Long fireAtEpochMs, String title, String body, boolean sound, String countDownText) {
+    WebSocketServerHandler.getInstance()
+        .sendTimedNotification(fireAtEpochMs, title, body, sound, countDownText);
   }
 
   public static void cancelTimedNotification() {

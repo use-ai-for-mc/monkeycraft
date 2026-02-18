@@ -3,12 +3,14 @@ class TimedNotification {
   final String? title;
   final String? body;
   final bool sound;
+  final String? countDownText;
 
   const TimedNotification({
     required this.fireAtEpochMs,
     required this.title,
     required this.body,
     required this.sound,
+    this.countDownText,
   });
 }
 
@@ -32,11 +34,13 @@ TimedNotification? timedFromJson(dynamic json) {
   final title = json['title'];
   final body = json['body'];
   final sound = json['sound'];
+  final countDownText = json['countDownText'];
   return TimedNotification(
     fireAtEpochMs: fireAt is num ? fireAt.toInt() : null,
     title: title is String ? title : null,
     body: body is String ? body : null,
     sound: sound is bool ? sound : true,
+    countDownText: countDownText is String ? countDownText : null,
   );
 }
 

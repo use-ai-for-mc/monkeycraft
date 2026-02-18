@@ -31,6 +31,9 @@ class StreamProxy {
   int _fps = 20;
   int _frameIndex = 0;
   int _port = 0;
+  DateTime? _lastHibernationStatusTime;
+  DateTime? _lastTimedStatusTime;
+  Timer? _pingTimer;
 
   // Get the local proxy URL
   String get url => 'tcp://127.0.0.1:$_port';
@@ -204,6 +207,7 @@ class StreamProxy {
                 }
               } else if (data['type'] == 'AUTH_OK') {
                 _authenticated = true;
+                _startPingTimer();
                 if (!authCompleter.isCompleted) {
                   authCompleter.complete();
                 }
@@ -211,6 +215,7 @@ class StreamProxy {
                 final success = data['success'] == true;
                 if (success) {
                   _authenticated = true;
+                  _startPingTimer();
                   if (!authCompleter.isCompleted) {
                     authCompleter.complete();
                   }
@@ -255,11 +260,10 @@ class StreamProxy {
               } else {
                 final timed = timedFromJson(data);
                 if (timed != null) {
+                  if (data['type'] == 'TIMED_STATUS') {
+                    _lastTimedStatusTime = DateTime.now();
+                  }
                   _timedNotificationController?.add(timed);
-                }
-                final timedStatus = timedStatusFromJson(data);
-                if (timedStatus != null) {
-                  _timedNotificationController?.add(timedStatus);
                 }
                 final nudge = nudgeFromJson(data);
                 if (nudge != null) {
@@ -267,6 +271,7 @@ class StreamProxy {
                 }
                 final status = hibernationStatusFromJson(data);
                 if (status != null) {
+                  _lastHibernationStatusTime = DateTime.now();
                   _hibernationController?.add(status);
                 }
               }
@@ -274,6 +279,7 @@ class StreamProxy {
           }
         },
         onError: (e, st) {
+          _stopPingTimer();
           _wsChannel = null;
           _authenticated = false;
           if (_timedNotificationController != null &&
@@ -290,6 +296,7 @@ class StreamProxy {
           completeAuthError(e, st);
         },
         onDone: () {
+          _stopPingTimer();
           _wsChannel = null;
           _authenticated = false;
           if (_timedNotificationController != null &&
@@ -360,6 +367,30 @@ class StreamProxy {
     trySendCommand({'type': 'REQUEST_KEYFRAME'});
   }
 
+  void sendPing() {
+    trySendCommand({'type': 'PING'});
+  }
+
+  void _startPingTimer() {
+    _pingTimer?.cancel();
+    _lastHibernationStatusTime = DateTime.now();
+    _lastTimedStatusTime = DateTime.now();
+    _pingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_authenticated) return;
+      final now = DateTime.now();
+      final hibernationAge = now.difference(_lastHibernationStatusTime ?? now);
+      final timedAge = now.difference(_lastTimedStatusTime ?? now);
+      if (hibernationAge.inSeconds >= 10 || timedAge.inSeconds >= 10) {
+        sendPing();
+      }
+    });
+  }
+
+  void _stopPingTimer() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+  }
+
   bool trySendChatMessage(String message) {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return false;
@@ -403,6 +434,7 @@ class StreamProxy {
   }
 
   Future<void> stop() async {
+    _stopPingTimer();
     final ws = _wsChannel;
     if (ws != null) {
       try {

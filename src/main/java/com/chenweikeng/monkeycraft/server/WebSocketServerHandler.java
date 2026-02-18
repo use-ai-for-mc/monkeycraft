@@ -34,6 +34,7 @@ public class WebSocketServerHandler {
   private String pendingTimedNotificationTitle = null;
   private String pendingTimedNotificationBody = null;
   private boolean pendingTimedNotificationSound = true;
+  private String pendingTimedNotificationCountDownText = null;
 
   private boolean turnLeft, turnRight, lookUp, lookDown;
 
@@ -156,13 +157,15 @@ public class WebSocketServerHandler {
     return isStreaming && server != null && server.authenticatedSession != null;
   }
 
-  public void sendTimedNotification(Long fireAtEpochMs, String title, String body, boolean sound) {
+  public void sendTimedNotification(
+      Long fireAtEpochMs, String title, String body, boolean sound, String countDownText) {
     // Store state
     pendingTimedNotificationFireAt = fireAtEpochMs;
     pendingTimedNotificationTitle = title;
     pendingTimedNotificationBody = body;
     pendingTimedNotificationSound = sound;
-    
+    pendingTimedNotificationCountDownText = countDownText;
+
     if (server == null) return;
     WebSocket conn = server.authenticatedSession;
     if (conn == null || !conn.isOpen()) return;
@@ -177,6 +180,7 @@ public class WebSocketServerHandler {
     if (title != null) msg.addProperty("title", title);
     if (body != null) msg.addProperty("body", body);
     msg.addProperty("sound", sound);
+    if (countDownText != null) msg.addProperty("countDownText", countDownText);
     conn.send(GSON.toJson(msg));
   }
 
@@ -186,8 +190,9 @@ public class WebSocketServerHandler {
     pendingTimedNotificationTitle = null;
     pendingTimedNotificationBody = null;
     pendingTimedNotificationSound = true;
-    
-    sendTimedNotification(null, null, null, false);
+    pendingTimedNotificationCountDownText = null;
+
+    sendTimedNotification(null, null, null, false, null);
   }
 
   public void sendNudge(String title, String body, boolean sound) {
@@ -363,6 +368,8 @@ public class WebSocketServerHandler {
               handleEnterChat(conn);
             } else if ("EXIT_CHAT".equals(type)) {
               handleExitChat(conn);
+            } else if ("PING".equals(type)) {
+              handlePing(conn);
             } else {
               MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
@@ -507,6 +514,29 @@ public class WebSocketServerHandler {
       exitChatMode();
     }
 
+    private void handlePing(WebSocket conn) {
+      sendHibernationStatus();
+
+      JsonObject timedStatus = new JsonObject();
+      timedStatus.addProperty("type", "TIMED_STATUS");
+      if (pendingTimedNotificationFireAt != null) {
+        timedStatus.addProperty("fireAtEpochMs", pendingTimedNotificationFireAt);
+        if (pendingTimedNotificationTitle != null) {
+          timedStatus.addProperty("title", pendingTimedNotificationTitle);
+        }
+        if (pendingTimedNotificationBody != null) {
+          timedStatus.addProperty("body", pendingTimedNotificationBody);
+        }
+        timedStatus.addProperty("sound", pendingTimedNotificationSound);
+        if (pendingTimedNotificationCountDownText != null) {
+          timedStatus.addProperty("countDownText", pendingTimedNotificationCountDownText);
+        }
+      } else {
+        timedStatus.add("fireAtEpochMs", null);
+      }
+      conn.send(GSON.toJson(timedStatus));
+    }
+
     private void handleInput(JsonObject json) {
       if (!json.has("key") || !json.has("pressed")) return;
 
@@ -548,6 +578,10 @@ public class WebSocketServerHandler {
               case "DOWN":
                 lookDown = pressed;
                 break;
+            }
+
+            if (binding != null) {
+              binding.setDown(pressed);
             }
           });
     }
@@ -690,7 +724,7 @@ public class WebSocketServerHandler {
         conn.send(GSON.toJson(response));
 
         MonkeycraftApi.CONNECTION.invoker().onConnected(conn.getRemoteSocketAddress().toString());
-        
+
         // Sync hibernation state using STATUS message
         if (isHibernating) {
           JsonObject hibernationStatus = new JsonObject();
@@ -699,7 +733,7 @@ public class WebSocketServerHandler {
           hibernationStatus.addProperty("message", hibernationMessage);
           conn.send(GSON.toJson(hibernationStatus));
         }
-        
+
         // Sync timed notification state using STATUS message
         if (pendingTimedNotificationFireAt != null) {
           JsonObject timedStatus = new JsonObject();
@@ -712,6 +746,9 @@ public class WebSocketServerHandler {
             timedStatus.addProperty("body", pendingTimedNotificationBody);
           }
           timedStatus.addProperty("sound", pendingTimedNotificationSound);
+          if (pendingTimedNotificationCountDownText != null) {
+            timedStatus.addProperty("countDownText", pendingTimedNotificationCountDownText);
+          }
           conn.send(GSON.toJson(timedStatus));
         }
         MonkeycraftClient.sendSystemMessage(
