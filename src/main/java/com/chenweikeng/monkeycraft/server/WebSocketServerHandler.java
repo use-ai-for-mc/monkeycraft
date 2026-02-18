@@ -1,10 +1,10 @@
 package com.chenweikeng.monkeycraft.server;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
-import com.chenweikeng.monkeycraft.api.v1.CommandExecutionResult;
-import com.chenweikeng.monkeycraft.api.v1.MonkeycraftApi;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
+import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
+import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -159,6 +159,14 @@ public class WebSocketServerHandler {
 
   public void sendTimedNotification(
       Long fireAtEpochMs, String title, String body, boolean sound, String countDownText) {
+    // Skip if fireAtEpochMs is in the past or now
+    if (fireAtEpochMs != null && fireAtEpochMs <= System.currentTimeMillis()) {
+      fireAtEpochMs = null;
+      title = null;
+      body = null;
+      countDownText = null;
+    }
+
     // Store state
     pendingTimedNotificationFireAt = fireAtEpochMs;
     pendingTimedNotificationTitle = title;

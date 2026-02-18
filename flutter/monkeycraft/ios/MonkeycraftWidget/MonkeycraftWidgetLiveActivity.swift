@@ -32,10 +32,11 @@ func getCountDownText(from appGroupId: String, prefix: UUID) -> String {
 struct MonkeycraftWidgetLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
-      HStack {
+      HStack(alignment: .top) {
         Text(getCountDownText(from: context.state.appGroupId, prefix: context.attributes.id))
           .font(.headline)
           .foregroundColor(.primary)
+          .fixedSize(horizontal: false, vertical: true)
         Spacer()
         CountdownView(appGroupId: context.state.appGroupId, prefix: context.attributes.id)
           .font(.system(size: 28, weight: .medium, design: .monospaced))
@@ -45,20 +46,24 @@ struct MonkeycraftWidgetLiveActivity: Widget {
       .padding()
     } dynamicIsland: { context in
       DynamicIsland {
-        DynamicIslandExpandedRegion(.leading) {
-          Text(getCountDownText(from: context.state.appGroupId, prefix: context.attributes.id))
-            .font(.headline)
-            .foregroundColor(.white)
-        }
-        DynamicIslandExpandedRegion(.trailing) {
-          CountdownView(appGroupId: context.state.appGroupId, prefix: context.attributes.id)
-            .font(.system(size: 24, weight: .medium, design: .monospaced))
-            .foregroundColor(.green)
+        DynamicIslandExpandedRegion(.center) {
+          HStack(alignment: .top) {
+            Text(getCountDownText(from: context.state.appGroupId, prefix: context.attributes.id))
+              .font(.headline)
+              .foregroundColor(.white)
+              .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            CountdownView(appGroupId: context.state.appGroupId, prefix: context.attributes.id)
+              .font(.system(size: 24, weight: .medium, design: .monospaced))
+              .foregroundColor(.green)
+          }
         }
       } compactLeading: {
         Text(getCountDownText(from: context.state.appGroupId, prefix: context.attributes.id))
           .font(.caption)
           .foregroundColor(.white)
+          .lineLimit(1)
+          .truncationMode(.tail)
       } compactTrailing: {
         CountdownView(appGroupId: context.state.appGroupId, prefix: context.attributes.id)
           .font(.system(.body, design: .monospaced))

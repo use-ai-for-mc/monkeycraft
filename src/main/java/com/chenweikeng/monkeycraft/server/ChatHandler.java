@@ -1,9 +1,9 @@
 package com.chenweikeng.monkeycraft.server;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
-import com.chenweikeng.monkeycraft.api.v1.ChatMessageContext;
-import com.chenweikeng.monkeycraft.api.v1.ChatMessageResult;
-import com.chenweikeng.monkeycraft.api.v1.MonkeycraftApi;
+import com.chenweikeng.monkeycraft_api.v1.ChatMessageContext;
+import com.chenweikeng.monkeycraft_api.v1.ChatMessageResult;
+import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;

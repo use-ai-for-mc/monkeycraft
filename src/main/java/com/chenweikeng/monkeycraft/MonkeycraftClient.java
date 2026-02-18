@@ -2,10 +2,12 @@ package com.chenweikeng.monkeycraft;
 
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
 import com.chenweikeng.monkeycraft.utils.ImageUtils;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
+import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApiRegistration;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -32,6 +34,8 @@ public class MonkeycraftClient implements ClientModInitializer {
   @Override
   public void onInitializeClient() {
     LOGGER.info("Monkeycraft client initializing...");
+
+    MonkeycraftApiRegistration.register(new WebSocketApiProvider());
 
     ClientCommandRegistrationCallback.EVENT.register(this::registerCommands);
     registerConnectionEvents();
