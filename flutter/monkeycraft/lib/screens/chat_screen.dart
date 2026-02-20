@@ -22,13 +22,25 @@ class _ChatScreenState extends State<ChatScreen> {
   StreamSubscription<ChatMessage>? _chatSubscription;
   StreamSubscription<ChatDeniedEvent>? _chatDeniedSubscription;
   bool _sending = false;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    widget.proxy.enterChatMode();
     _chatSubscription = widget.proxy.chatMessages.listen(_onChatMessage);
     _chatDeniedSubscription = widget.proxy.chatDeniedEvents.listen(_onChatDenied);
+    _loadCachedMessages();
+  }
+
+  Future<void> _loadCachedMessages() async {
+    final cachedMessages = await widget.proxy.subscribeToChat();
+    if (!mounted) return;
+    setState(() {
+      _messages.clear();
+      _messages.addAll(cachedMessages);
+      _loading = false;
+    });
+    _scrollToBottom();
   }
 
   void _onChatMessage(ChatMessage message) {
@@ -71,7 +83,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _chatDeniedSubscription?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
-    widget.proxy.exitChatMode();
+    widget.proxy.unsubscribeFromChat();
     super.dispose();
   }
 
@@ -124,14 +136,18 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
+            child: _loading
                 ? const Center(
-                    child: Text(
-                      'No messages yet',
-                      style: TextStyle(color: Colors.white54, fontSize: 16),
-                    ),
+                    child: CircularProgressIndicator(),
                   )
-                : ListView.builder(
+                : _messages.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No messages yet',
+                          style: TextStyle(color: Colors.white54, fontSize: 16),
+                        ),
+                      )
+                    : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     itemCount: _messages.length,

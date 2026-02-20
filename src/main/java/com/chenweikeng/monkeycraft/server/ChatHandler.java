@@ -5,17 +5,36 @@ import com.chenweikeng.monkeycraft_api.v1.ChatMessageContext;
 import com.chenweikeng.monkeycraft_api.v1.ChatMessageResult;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import java.util.LinkedList;
 import net.minecraft.client.Minecraft;
 
 public class ChatHandler {
   private static final ChatHandler INSTANCE = new ChatHandler();
   private static final Gson GSON = new Gson();
+  private static final int MAX_CACHE_SIZE = 100;
+  private final LinkedList<JsonObject> messageCache = new LinkedList<>();
 
   private ChatHandler() {}
 
   public static ChatHandler getInstance() {
     return INSTANCE;
+  }
+
+  private synchronized void cacheMessage(JsonObject chatMsg) {
+    messageCache.addLast(chatMsg);
+    while (messageCache.size() > MAX_CACHE_SIZE) {
+      messageCache.removeFirst();
+    }
+  }
+
+  public synchronized JsonArray getCachedMessages() {
+    JsonArray arr = new JsonArray();
+    for (JsonObject msg : messageCache) {
+      arr.add(msg);
+    }
+    return arr;
   }
 
   public void handleIncomingChat(String message, String senderName, String senderUuid) {
@@ -87,6 +106,10 @@ public class ChatHandler {
     chatMsg.addProperty("message", message);
     chatMsg.addProperty("timestamp", System.currentTimeMillis());
 
-    wsHandler.sendChatMessage(GSON.toJson(chatMsg));
+    cacheMessage(chatMsg);
+
+    if (wsHandler.isChatSubscribed()) {
+      wsHandler.sendChatMessage(GSON.toJson(chatMsg));
+    }
   }
 }

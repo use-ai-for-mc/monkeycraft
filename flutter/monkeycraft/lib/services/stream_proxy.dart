@@ -27,6 +27,7 @@ class StreamProxy {
   StreamController<ChatMessage>? _chatMessageController;
   StreamController<ChatDeniedEvent>? _chatDeniedController;
   StreamController<ChatModeEvent>? _chatModeController;
+  Completer<List<ChatMessage>>? _chatSubscribeCompleter;
   final List<ChatMessageListener> _outgoingChatListeners = [];
   int _fps = 20;
   int _frameIndex = 0;
@@ -252,6 +253,16 @@ class StreamProxy {
                 );
               } else if (data['type'] == 'CHAT_MESSAGE') {
                 _chatMessageController?.add(ChatMessage.fromJson(data));
+              } else if (data['type'] == 'CACHED_CHAT_MESSAGES') {
+                final messagesList = data['messages'] as List<dynamic>?;
+                final cachedMessages = messagesList
+                        ?.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
+                        .toList() ??
+                    <ChatMessage>[];
+                if (_chatSubscribeCompleter != null &&
+                    !_chatSubscribeCompleter!.isCompleted) {
+                  _chatSubscribeCompleter!.complete(cachedMessages);
+                }
               } else if (data['type'] == 'CHAT_DENIED') {
                 _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
               } else if (data['type'] == 'CHAT_MODE_STARTED' ||
@@ -423,6 +434,25 @@ class StreamProxy {
 
   void exitChatMode() {
     trySendCommand({'type': 'EXIT_CHAT'});
+  }
+
+  Future<List<ChatMessage>> subscribeToChat({
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    if (!_authenticated || _wsChannel == null) {
+      return <ChatMessage>[];
+    }
+    _chatSubscribeCompleter = Completer<List<ChatMessage>>();
+    trySendCommand({'type': 'SUBSCRIBE_CHAT'});
+    return _chatSubscribeCompleter!.future.timeout(timeout, onTimeout: () {
+      _chatSubscribeCompleter = null;
+      return <ChatMessage>[];
+    });
+  }
+
+  void unsubscribeFromChat() {
+    _chatSubscribeCompleter = null;
+    trySendCommand({'type': 'UNSUBSCRIBE_CHAT'});
   }
 
   void addOutgoingChatListener(ChatMessageListener listener) {

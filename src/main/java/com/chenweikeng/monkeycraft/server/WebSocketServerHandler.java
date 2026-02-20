@@ -6,6 +6,7 @@ import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -37,6 +38,7 @@ public class WebSocketServerHandler {
   private String pendingTimedNotificationCountDownText = null;
 
   private boolean turnLeft, turnRight, lookUp, lookDown;
+  private boolean isChatSubscribed = false;
 
   public boolean isTurningLeft() {
     return turnLeft;
@@ -52,6 +54,23 @@ public class WebSocketServerHandler {
 
   public boolean isLookingDown() {
     return lookDown;
+  }
+
+  public boolean isChatSubscribed() {
+    return isChatSubscribed;
+  }
+
+  public void subscribeChat(WebSocket conn) {
+    isChatSubscribed = true;
+    JsonArray cachedMessages = ChatHandler.getInstance().getCachedMessages();
+    JsonObject response = new JsonObject();
+    response.addProperty("type", "CACHED_CHAT_MESSAGES");
+    response.add("messages", cachedMessages);
+    conn.send(GSON.toJson(response));
+  }
+
+  public void unsubscribeChat() {
+    isChatSubscribed = false;
   }
 
   public static class StreamConfig {
@@ -331,6 +350,7 @@ public class WebSocketServerHandler {
       if (conn == authenticatedSession) {
         authenticatedSession = null;
         isStreaming = false;
+        isChatSubscribed = false;
         MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
       }
     }
@@ -376,6 +396,10 @@ public class WebSocketServerHandler {
               handleEnterChat(conn);
             } else if ("EXIT_CHAT".equals(type)) {
               handleExitChat(conn);
+            } else if ("SUBSCRIBE_CHAT".equals(type)) {
+              handleSubscribeChat(conn);
+            } else if ("UNSUBSCRIBE_CHAT".equals(type)) {
+              handleUnsubscribeChat();
             } else if ("PING".equals(type)) {
               handlePing(conn);
             } else {
@@ -520,6 +544,14 @@ public class WebSocketServerHandler {
 
     private void handleExitChat(WebSocket conn) {
       exitChatMode();
+    }
+
+    private void handleSubscribeChat(WebSocket conn) {
+      subscribeChat(conn);
+    }
+
+    private void handleUnsubscribeChat() {
+      unsubscribeChat();
     }
 
     private void handlePing(WebSocket conn) {

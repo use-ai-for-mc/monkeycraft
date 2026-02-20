@@ -18,7 +18,7 @@ public class ClientPacketListenerMixin {
   @Inject(method = "handlePlayerChat", at = @At("RETURN"))
   private void onHandlePlayerChat(ClientboundPlayerChatPacket packet, CallbackInfo ci) {
     try {
-      String message = packet.body().content();
+      String message = packet.unsignedContent().getString();
       UUID senderUuid = packet.sender();
       String senderName = "Unknown"; // Default fallback
 

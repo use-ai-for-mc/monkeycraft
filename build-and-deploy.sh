@@ -2,8 +2,9 @@
 
 set -e
 
-PROJECT_DIR="/Users/cusgadmin/if/remotecraft-template-1.21.11"
-TARGET_DIR="/Users/cusgadmin/hmcl/.minecraft/versions/ImagineFun/mods"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="${SCRIPT_DIR}"
+TARGET_DIR="/Users/cusgadmin/.lunarclient/profiles/modrinth/imaginefun/versions/0.0.6/mods/fabric-1.21.11"
 
 JAR_NAME="monkeycraft-1.0.0.jar"
 SOURCE_JAR="${PROJECT_DIR}/build/libs/${JAR_NAME}"
