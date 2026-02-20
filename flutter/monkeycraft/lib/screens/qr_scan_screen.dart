@@ -43,7 +43,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
             return;
           }
         },
-        errorBuilder: (context, error, child) {
+        errorBuilder: (context, error) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -58,4 +58,3 @@ class _QrScanScreenState extends State<QrScanScreen> {
     );
   }
 }
-
