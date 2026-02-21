@@ -36,14 +36,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
         children: [
           DropdownButtonFormField<ResolutionPreset>(
             initialValue: _settings.resolutionPreset,
-            decoration: const InputDecoration(
-              labelText: 'Resolution',
-            ),
+            decoration: const InputDecoration(labelText: 'Resolution'),
             items: const [
-              DropdownMenuItem(
-                value: ResolutionPreset.low,
-                child: Text('Low'),
-              ),
+              DropdownMenuItem(value: ResolutionPreset.low, child: Text('Low')),
               DropdownMenuItem(
                 value: ResolutionPreset.medium,
                 child: Text('Medium'),
@@ -55,15 +50,15 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             ],
             onChanged: (v) {
               if (v == null) return;
-              setState(() => _settings = _settings.copyWith(resolutionPreset: v));
+              setState(
+                () => _settings = _settings.copyWith(resolutionPreset: v),
+              );
             },
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<int>(
             initialValue: _settings.colorMode,
-            decoration: const InputDecoration(
-              labelText: 'Color Mode',
-            ),
+            decoration: const InputDecoration(labelText: 'Color Mode'),
             items: const [
               DropdownMenuItem(value: 0, child: Text('Normal')),
               DropdownMenuItem(value: 1, child: Text('High Perf (12-bit)')),
@@ -82,7 +77,18 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             max: 20,
             divisions: 19,
             value: _settings.fps.toDouble(),
-            onChanged: (v) => setState(() => _settings = _settings.copyWith(fps: v.round())),
+            onChanged: (v) =>
+                setState(() => _settings = _settings.copyWith(fps: v.round())),
+          ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Invert Look Y-Axis'),
+            subtitle: const Text(
+              'ON: drag up to look down (indirect)\nOFF: drag up to look up (direct)',
+            ),
+            value: _settings.invertLookY,
+            onChanged: (v) =>
+                setState(() => _settings = _settings.copyWith(invertLookY: v)),
           ),
         ],
       ),

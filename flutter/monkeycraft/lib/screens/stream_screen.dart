@@ -60,8 +60,7 @@ class _StreamScreenState extends State<StreamScreen>
   bool _reconnecting = false;
   bool _hibernating = false;
   String _hibernationMessage = '';
-  String? _host;
-  int? _port;
+  String? _server;
   String? _password;
   bool? _forcedOrientation;
   int _streamWidth = 0;
@@ -274,9 +273,7 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _loadReconnectCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    _host = prefs.getString('host') ?? '127.0.0.1';
-    final portStr = prefs.getString('port') ?? '9600';
-    _port = int.tryParse(portStr) ?? 9600;
+    _server = prefs.getString('server') ?? '127.0.0.1:9600';
     _password = prefs.getString('password') ?? '';
   }
 
@@ -369,14 +366,13 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _resumeIfNeeded() async {
     if (_closing || _reconnecting) return;
     if (!mounted) return;
-    final host = _host;
-    final port = _port;
+    final server = _server;
     final password = _password;
-    if (host == null || port == null || password == null) return;
+    if (server == null || password == null) return;
 
     _reconnecting = true;
     try {
-      await widget.proxy.start(host, port, password);
+      await widget.proxy.start(server, password);
       widget.proxy.sendPing();
       _attachProxyStreams();
       if (_supportedPlatform) {
@@ -891,6 +887,7 @@ class _StreamScreenState extends State<StreamScreen>
                     commandRectSafe,
                     rotateRectSafe,
                   ],
+                  invertY: _settings.invertLookY,
                   onDelta: (yaw, pitch) => widget.proxy.sendCommand({
                     'type': 'LOOK_DELTA',
                     'yaw': yaw,

@@ -17,8 +17,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _hostController = TextEditingController();
-  final _portController = TextEditingController();
+  final _serverController = TextEditingController();
   final _passController = TextEditingController();
   bool _isLoading = false;
   bool _connectInFlight = false;
@@ -46,16 +45,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loadCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _hostController.text = prefs.getString('host') ?? '127.0.0.1';
-      _portController.text = prefs.getString('port') ?? '9600';
+      _serverController.text = prefs.getString('server') ?? '127.0.0.1:9600';
       _passController.text = prefs.getString('password') ?? '';
     });
   }
 
   Future<void> _saveCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('host', _hostController.text);
-    await prefs.setString('port', _portController.text);
+    await prefs.setString('server', _serverController.text);
     await prefs.setString('password', _passController.text);
   }
 
@@ -103,13 +100,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final proxy = StreamProxy();
     _inFlightProxy = proxy;
     try {
-      await proxy.start(
-        _hostController.text,
-        int.parse(_portController.text),
-        _passController.text,
-        connectTimeout: const Duration(seconds: 5),
-        authTimeout: const Duration(seconds: 5),
-      ).timeout(const Duration(seconds: 7));
+      await proxy
+          .start(
+            _serverController.text,
+            _passController.text,
+            connectTimeout: const Duration(seconds: 5),
+            authTimeout: const Duration(seconds: 5),
+          )
+          .timeout(const Duration(seconds: 7));
 
       if (attempt != _connectAttempt) {
         await proxy.stop();
@@ -118,9 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => StreamScreen(proxy: proxy),
-          ),
+          MaterialPageRoute(builder: (context) => StreamScreen(proxy: proxy)),
         );
       }
     } catch (e) {
@@ -130,11 +126,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       if (mounted) {
         final msg = e is TimeoutException
-            ? 'Connection timed out. Check host/port and try again.'
+            ? 'Connection timed out. Check server address and try again.'
             : 'Connection failed: $e';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (attempt == _connectAttempt) {
@@ -147,19 +143,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _hostController.dispose();
-    _portController.dispose();
+    _serverController.dispose();
     _passController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('MonkeyCraft'),
-      ),
+      appBar: AppBar(title: const Text('MonkeyCraft')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -169,15 +163,11 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TextFormField(
-                  controller: _hostController,
-                  decoration: const InputDecoration(labelText: 'Host (IP or domain)'),
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _portController,
-                  decoration: const InputDecoration(labelText: 'Port'),
-                  keyboardType: TextInputType.number,
+                  controller: _serverController,
+                  decoration: const InputDecoration(
+                    labelText: 'Server',
+                    hintText: '192.168.0.3:9600 or example.ngrok-free.app',
+                  ),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
@@ -190,11 +180,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? null
                           : () async {
                               try {
-                                final scanned = await Navigator.of(context).push<String>(
-                                  MaterialPageRoute(
-                                    builder: (context) => const QrScanScreen(),
-                                  ),
-                                );
+                                final scanned = await Navigator.of(context)
+                                    .push<String>(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const QrScanScreen(),
+                                      ),
+                                    );
                                 if (!mounted) return;
                                 if (scanned == null) return;
                                 setState(() => _passController.text = scanned);
@@ -223,7 +215,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                               SizedBox(width: 10),
                               Text('Cancel'),
@@ -254,7 +248,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                     SizedBox(width: 10),
                                     Text('Cancel'),

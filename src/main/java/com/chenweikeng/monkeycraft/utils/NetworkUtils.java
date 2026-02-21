@@ -27,6 +27,7 @@ public class NetworkUtils {
           InetAddress addr = addresses.nextElement();
 
           if (addr.isLoopbackAddress()) continue;
+          if (addr.isLinkLocalAddress()) continue;
           if (!(addr instanceof Inet4Address)) continue;
 
           ips.add(addr.getHostAddress());

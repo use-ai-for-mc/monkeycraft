@@ -48,8 +48,10 @@ dependencies {
 	implementation "com.google.zxing:core:3.5.3"
 	include "com.google.zxing:core:3.5.3"
 
-	implementation 'com.github.weikengchen:monkeycraft-api:2026-02-18'
-	include 'com.github.weikengchen:monkeycraft-api:2026-02-18'
+	modImplementation("com.github.weikengchen:monkeycraft-api:2026-02-20"){
+		transitive = false
+	}
+	include "com.github.weikengchen:monkeycraft-api:2026-02-20"
 }
 
 processResources {

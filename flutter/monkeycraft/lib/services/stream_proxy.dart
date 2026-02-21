@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
@@ -74,6 +75,33 @@ class StreamProxy {
     return false;
   }
 
+  Uri _parseServerUrl(String server) {
+    server = server.trim();
+
+    // If it already has a scheme, use it
+    if (server.startsWith('https://')) {
+      return Uri.parse(server.replaceFirst('https://', 'wss://'));
+    }
+    if (server.startsWith('http://')) {
+      return Uri.parse(server.replaceFirst('http://', 'ws://'));
+    }
+    if (server.startsWith('wss://') || server.startsWith('ws://')) {
+      return Uri.parse(server);
+    }
+
+    // No scheme - determine based on whether there's a port
+    // IP:port format -> ws://
+    // Domain without port -> wss:// (likely ngrok or similar)
+    final hasPort = RegExp(r':\d+$').hasMatch(server);
+
+    if (hasPort) {
+      return Uri.parse('ws://$server');
+    } else {
+      // Domain without port - assume wss
+      return Uri.parse('wss://$server');
+    }
+  }
+
   String _generateSalt() {
     final random = List.generate(
       16,
@@ -89,8 +117,7 @@ class StreamProxy {
   }
 
   Future<void> start(
-    String host,
-    int port,
+    String server,
     String password, {
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
@@ -131,9 +158,11 @@ class StreamProxy {
           });
     });
 
-    // 2. Connect to WebSocket
-    final wsUrl = Uri.parse('ws://$host:$port');
+    // 2. Parse server string and build WebSocket URL
+    final wsUrl = _parseServerUrl(server);
+    debugPrint('[StreamProxy] Connecting to $wsUrl');
 
+    // 3. Connect to WebSocket
     try {
       _wsChannel = WebSocketChannel.connect(wsUrl);
       await _wsChannel!.ready.timeout(connectTimeout);
@@ -254,14 +283,33 @@ class StreamProxy {
               } else if (data['type'] == 'CHAT_MESSAGE') {
                 _chatMessageController?.add(ChatMessage.fromJson(data));
               } else if (data['type'] == 'CACHED_CHAT_MESSAGES') {
+                debugPrint('[Chat] Received CACHED_CHAT_MESSAGES');
                 final messagesList = data['messages'] as List<dynamic>?;
-                final cachedMessages = messagesList
-                        ?.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
+                debugPrint(
+                  '[Chat] messagesList is null: ${messagesList == null}, length: ${messagesList?.length}',
+                );
+                final cachedMessages =
+                    messagesList
+                        ?.map(
+                          (m) =>
+                              ChatMessage.fromJson(m as Map<String, dynamic>),
+                        )
                         .toList() ??
                     <ChatMessage>[];
+                debugPrint(
+                  '[Chat] Parsed ${cachedMessages.length} cached messages',
+                );
+                debugPrint(
+                  '[Chat] _chatSubscribeCompleter is null: ${_chatSubscribeCompleter == null}, isCompleted: ${_chatSubscribeCompleter?.isCompleted}',
+                );
                 if (_chatSubscribeCompleter != null &&
                     !_chatSubscribeCompleter!.isCompleted) {
                   _chatSubscribeCompleter!.complete(cachedMessages);
+                  debugPrint('[Chat] Completer completed with cached messages');
+                } else {
+                  debugPrint(
+                    '[Chat] WARNING: completer was null or already completed!',
+                  );
                 }
               } else if (data['type'] == 'CHAT_DENIED') {
                 _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
@@ -286,7 +334,10 @@ class StreamProxy {
                   _hibernationController?.add(status);
                 }
               }
-            } catch (_) {}
+            } catch (e, st) {
+              debugPrint('[Chat] Exception parsing message: $e');
+              debugPrint('[Chat] Stack trace: $st');
+            }
           }
         },
         onError: (e, st) {
@@ -408,14 +459,7 @@ class StreamProxy {
     if (trimmed.startsWith('/')) return false;
 
     for (final listener in _outgoingChatListeners) {
-      final result = listener(
-        ChatMessage(
-          sender: 'Me',
-          message: trimmed,
-          timestamp: DateTime.now().millisecondsSinceEpoch,
-          isOutgoing: true,
-        ),
-      );
+      final result = listener(ChatMessage.outgoing(trimmed));
       if (result == ChatMessageResult.deny) {
         return false;
       }
@@ -439,15 +483,30 @@ class StreamProxy {
   Future<List<ChatMessage>> subscribeToChat({
     Duration timeout = const Duration(seconds: 5),
   }) async {
+    debugPrint(
+      '[Chat] subscribeToChat called, authenticated=$_authenticated, wsChannel=${_wsChannel != null}',
+    );
     if (!_authenticated || _wsChannel == null) {
+      debugPrint(
+        '[Chat] subscribeToChat: not authenticated or no ws channel, returning empty',
+      );
       return <ChatMessage>[];
     }
     _chatSubscribeCompleter = Completer<List<ChatMessage>>();
+    debugPrint(
+      '[Chat] subscribeToChat: completer created, sending SUBSCRIBE_CHAT',
+    );
     trySendCommand({'type': 'SUBSCRIBE_CHAT'});
-    return _chatSubscribeCompleter!.future.timeout(timeout, onTimeout: () {
-      _chatSubscribeCompleter = null;
-      return <ChatMessage>[];
-    });
+    return _chatSubscribeCompleter!.future.timeout(
+      timeout,
+      onTimeout: () {
+        debugPrint(
+          '[Chat] subscribeToChat: TIMEOUT waiting for CACHED_CHAT_MESSAGES',
+        );
+        _chatSubscribeCompleter = null;
+        return <ChatMessage>[];
+      },
+    );
   }
 
   void unsubscribeFromChat() {
