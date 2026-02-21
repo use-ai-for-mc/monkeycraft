@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -45,7 +46,7 @@ class _RichText extends StatefulWidget {
 }
 
 class _RichTextState extends State<_RichText> {
-  final Map<String, TapGestureRecognizer> _tapGesturers = {};
+  OverlayEntry? _tooltipOverlay;
 
   static final Map<String, Color> _mcColors = {
     'black': Color(0xFF000000),
@@ -68,10 +69,56 @@ class _RichTextState extends State<_RichText> {
 
   @override
   void dispose() {
-    for (final gr in _tapGesturers.values) {
-      gr.dispose();
-    }
+    _removeTooltip();
     super.dispose();
+  }
+
+  void _removeTooltip() {
+    _tooltipOverlay?.remove();
+    _tooltipOverlay = null;
+  }
+
+  void _showTooltip(String text, Offset position) {
+    _removeTooltip();
+
+    final screenSize = MediaQuery.of(context).size;
+    double left = position.dx;
+    double top = position.dy - 45;
+
+    if (left + 200 > screenSize.width) {
+      left = screenSize.width - 210;
+    }
+    if (left < 10) left = 10;
+    if (top < 10) top = position.dy + 25;
+
+    final overlay = Overlay.of(context);
+    _tooltipOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: left,
+        top: top,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(_tooltipOverlay!);
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) _removeTooltip();
+    });
   }
 
   void _handleClick(ClickAction action) {
@@ -101,43 +148,93 @@ class _RichTextState extends State<_RichText> {
     }
   }
 
+  TextStyle _getStyleForSegment(ChatSegment seg, Color? color) {
+    return widget.baseStyle.copyWith(
+      color: color ?? widget.baseStyle.color,
+      fontWeight: seg.bold ? FontWeight.bold : null,
+      fontStyle: seg.italic ? FontStyle.italic : null,
+      decoration: TextDecoration.combine([
+        if (seg.underlined) TextDecoration.underline,
+        if (seg.strikethrough) TextDecoration.lineThrough,
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.segments.isEmpty) return const SizedBox.shrink();
 
     final spans = <InlineSpan>[];
-    for (int i = 0; i < widget.segments.length; i++) {
-      final seg = widget.segments[i];
+    final isMobile =
+        !Platform.isMacOS && !Platform.isWindows && !Platform.isLinux;
+
+    for (final seg in widget.segments) {
       Color? color;
       if (seg.color != null) {
         color = _mcColors[seg.color!] ?? Colors.white;
       }
 
-      final style = widget.baseStyle.copyWith(
-        color: color ?? widget.baseStyle.color,
-        fontWeight: seg.bold ? FontWeight.bold : null,
-        fontStyle: seg.italic ? FontStyle.italic : null,
-        decoration: TextDecoration.combine([
-          if (seg.underlined) TextDecoration.underline,
-          if (seg.strikethrough) TextDecoration.lineThrough,
-        ]),
-      );
+      final style = _getStyleForSegment(seg, color);
+      final hasClick = seg.clickAction != null;
+      final hasHover =
+          seg.hoverAction != null &&
+          seg.hoverAction!.action == 'show_text' &&
+          seg.hoverAction!.text.isNotEmpty;
 
-      final hasAction = seg.clickAction != null || seg.hoverAction != null;
+      if (!hasClick && !hasHover) {
+        spans.add(TextSpan(text: seg.text, style: style));
+        continue;
+      }
 
-      if (hasAction) {
-        final key = '$i-${seg.text}';
+      if (isMobile) {
+        spans.add(
+          WidgetSpan(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                if (hasClick) {
+                  _handleClick(seg.clickAction!);
+                } else if (hasHover) {
+                  final box = context.findRenderObject() as RenderBox?;
+                  if (box != null) {
+                    final pos = box.localToGlobal(Offset.zero);
+                    _showTooltip(
+                      seg.hoverAction!.text,
+                      Offset(pos.dx + 50, pos.dy),
+                    );
+                  }
+                }
+              },
+              onLongPress: () {
+                if (hasHover) {
+                  final box = context.findRenderObject() as RenderBox?;
+                  if (box != null) {
+                    final pos = box.localToGlobal(Offset.zero);
+                    _showTooltip(
+                      seg.hoverAction!.text,
+                      Offset(pos.dx + 50, pos.dy),
+                    );
+                  }
+                }
+              },
+              child: Text(
+                seg.text,
+                style: style.copyWith(
+                  decoration: TextDecoration.combine([
+                    if (seg.underlined) TextDecoration.underline,
+                    if (seg.strikethrough) TextDecoration.lineThrough,
+                    if (hasClick && !seg.underlined) TextDecoration.underline,
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
+      } else {
         TapGestureRecognizer? recognizer;
-        if (seg.clickAction != null) {
-          recognizer = _tapGesturers.putIfAbsent(key, () {
-            return TapGestureRecognizer()
-              ..onTap = () => _handleClick(seg.clickAction!);
-          });
-        }
-
-        String? tooltipText;
-        if (seg.hoverAction != null && seg.hoverAction!.action == 'show_text') {
-          tooltipText = seg.hoverAction!.text;
+        if (hasClick) {
+          recognizer = TapGestureRecognizer()
+            ..onTap = () => _handleClick(seg.clickAction!);
         }
 
         spans.add(
@@ -147,25 +244,18 @@ class _RichTextState extends State<_RichText> {
               decoration: TextDecoration.combine([
                 if (seg.underlined) TextDecoration.underline,
                 if (seg.strikethrough) TextDecoration.lineThrough,
-                if (seg.clickAction != null && !seg.underlined)
-                  TextDecoration.underline,
+                if (hasClick && !seg.underlined) TextDecoration.underline,
               ]),
-              color: seg.clickAction != null ? (color ?? Colors.white) : color,
             ),
             recognizer: recognizer,
-            mouseCursor: seg.clickAction != null
-                ? SystemMouseCursors.click
+            mouseCursor: hasClick ? SystemMouseCursors.click : null,
+            onEnter: hasHover
+                ? (details) =>
+                      _showTooltip(seg.hoverAction!.text, details.position)
                 : null,
-            onEnter: tooltipText != null ? (_) {} : null,
-            attributes: tooltipText != null
-                ? InlineSpanAttributes(
-                    tooltip: TooltipSpan.message(tooltipText),
-                  )
-                : null,
+            onExit: hasHover ? (_) => _removeTooltip() : null,
           ),
         );
-      } else {
-        spans.add(TextSpan(text: seg.text, style: style));
       }
     }
 
@@ -314,54 +404,21 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 8,
                       vertical: 8,
                     ),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
-                      final isMe = msg.isOutgoing;
-                      return Align(
-                        alignment: isMe
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: _RichText(
+                          segments: msg.segments,
+                          baseStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
                           ),
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.75,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isMe
-                                ? Colors.blue.withValues(alpha: 0.8)
-                                : Colors.grey.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!isMe)
-                                Text(
-                                  msg.sender,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              _RichText(
-                                segments: msg.segments,
-                                baseStyle: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ],
-                          ),
+                          proxy: widget.proxy,
                         ),
                       );
                     },
