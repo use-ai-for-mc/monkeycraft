@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,24 +49,14 @@ class _RichText extends StatefulWidget {
 class _RichTextState extends State<_RichText> {
   OverlayEntry? _tooltipOverlay;
 
-  static final Map<String, Color> _mcColors = {
-    'black': Color(0xFF000000),
-    'dark_blue': Color(0xFF0000AA),
-    'dark_green': Color(0xFF00AA00),
-    'dark_aqua': Color(0xFF00AAAA),
-    'dark_red': Color(0xFFAA0000),
-    'dark_purple': Color(0xFFAA00AA),
-    'gold': Color(0xFFFFAA00),
-    'gray': Color(0xFFAAAAAA),
-    'dark_gray': Color(0xFF555555),
-    'blue': Color(0xFF5555FF),
-    'green': Color(0xFF55FF55),
-    'aqua': Color(0xFF55FFFF),
-    'red': Color(0xFFFF5555),
-    'light_purple': Color(0xFFFF55FF),
-    'yellow': Color(0xFFFFFF55),
-    'white': Color(0xFFFFFFFF),
-  };
+  Color? _parseColor(String? colorStr) {
+    if (colorStr == null || !colorStr.startsWith('#') || colorStr.length != 7) {
+      return null;
+    }
+    final value = int.tryParse(colorStr.substring(1), radix: 16);
+    if (value == null) return null;
+    return Color(0xFF000000 + value);
+  }
 
   @override
   void dispose() {
@@ -164,15 +155,22 @@ class _RichTextState extends State<_RichText> {
   Widget build(BuildContext context) {
     if (widget.segments.isEmpty) return const SizedBox.shrink();
 
+    if (kDebugMode) {
+      for (final seg in widget.segments) {
+        if (seg.color != null || seg.bold || seg.italic) {
+          debugPrint(
+            '[RichText] segment: text="${seg.text}" color=${seg.color} bold=${seg.bold} italic=${seg.italic}',
+          );
+        }
+      }
+    }
+
     final spans = <InlineSpan>[];
     final isMobile =
         !Platform.isMacOS && !Platform.isWindows && !Platform.isLinux;
 
     for (final seg in widget.segments) {
-      Color? color;
-      if (seg.color != null) {
-        color = _mcColors[seg.color!] ?? Colors.white;
-      }
+      final color = _parseColor(seg.color);
 
       final style = _getStyleForSegment(seg, color);
       final hasClick = seg.clickAction != null;
@@ -189,6 +187,7 @@ class _RichTextState extends State<_RichText> {
       if (isMobile) {
         spans.add(
           WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () {
@@ -220,6 +219,7 @@ class _RichTextState extends State<_RichText> {
               child: Text(
                 seg.text,
                 style: style.copyWith(
+                  height: 1.0,
                   decoration: TextDecoration.combine([
                     if (seg.underlined) TextDecoration.underline,
                     if (seg.strikethrough) TextDecoration.lineThrough,
