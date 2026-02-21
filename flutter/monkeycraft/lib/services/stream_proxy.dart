@@ -456,7 +456,6 @@ class StreamProxy {
   bool trySendChatMessage(String message) {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return false;
-    if (trimmed.startsWith('/')) return false;
 
     for (final listener in _outgoingChatListeners) {
       final result = listener(ChatMessage.outgoing(trimmed));

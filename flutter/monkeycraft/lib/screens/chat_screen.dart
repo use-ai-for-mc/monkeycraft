@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -154,16 +153,6 @@ class _RichTextState extends State<_RichText> {
   @override
   Widget build(BuildContext context) {
     if (widget.segments.isEmpty) return const SizedBox.shrink();
-
-    if (kDebugMode) {
-      for (final seg in widget.segments) {
-        if (seg.color != null || seg.bold || seg.italic) {
-          debugPrint(
-            '[RichText] segment: text="${seg.text}" color=${seg.color} bold=${seg.bold} italic=${seg.italic}',
-          );
-        }
-      }
-    }
 
     final spans = <InlineSpan>[];
     final isMobile =
@@ -351,15 +340,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
-    if (text.startsWith('/')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Commands must use the command palette'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
 
     setState(() => _sending = true);
 
