@@ -63,7 +63,8 @@ class _LookPadState extends State<LookPad> {
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
         if (_pointerId != null) return;
-        if (isPointExcluded(event.localPosition, widget.excludedRegions)) return;
+        if (isPointExcluded(event.localPosition, widget.excludedRegions))
+          return;
         _pointerId = event.pointer;
         _last = event.localPosition;
         _downAt = event.localPosition;
@@ -104,13 +105,10 @@ class _LookPadState extends State<LookPad> {
       onPointerUp: (event) {
         _longPressTimer?.cancel();
         if (_pointerId != event.pointer) return;
-        final downTime = _downTime;
         final downAt = _downAt;
-        if (downTime != null && downAt != null && widget.onTap != null && !_longPressTriggered) {
-          final elapsed = DateTime.now().difference(downTime);
-          const maxMove = 10.0;
-          final maxMoveSq = maxMove * maxMove;
-          if (elapsed <= const Duration(milliseconds: 250) && _maxMoveSq <= maxMoveSq) {
+        if (downAt != null && !_longPressTriggered) {
+          const maxMoveSq = 100.0;
+          if (_maxMoveSq <= maxMoveSq) {
             widget.onTap?.call(event.localPosition);
           }
         }

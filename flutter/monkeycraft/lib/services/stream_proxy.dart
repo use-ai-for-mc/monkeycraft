@@ -33,9 +33,10 @@ class StreamProxy {
   int _fps = 20;
   int _frameIndex = 0;
   int _port = 0;
-  DateTime? _lastHibernationStatusTime;
-  DateTime? _lastTimedStatusTime;
-  Timer? _pingTimer;
+  DateTime? _lastServerMessageTime;
+  bool _waitingForHeartbeatAck = false;
+  Timer? _heartbeatTimer;
+  StreamController<void>? _connectionLostController;
 
   // Get the local proxy URL
   String get url => 'tcp://127.0.0.1:$_port';
@@ -61,6 +62,8 @@ class StreamProxy {
       _chatDeniedController?.stream ?? const Stream.empty();
   Stream<ChatModeEvent> get chatModeEvents =>
       _chatModeController?.stream ?? const Stream.empty();
+  Stream<void> get connectionLostEvents =>
+      _connectionLostController?.stream ?? const Stream.empty();
   bool get isConnected => _authenticated && _wsChannel != null;
 
   bool _isIdrFrame(List<int> data) {
@@ -143,6 +146,7 @@ class StreamProxy {
     _chatMessageController = StreamController<ChatMessage>.broadcast();
     _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
     _chatModeController = StreamController<ChatModeEvent>.broadcast();
+    _connectionLostController = StreamController<void>.broadcast();
 
     // 1. Start Local TCP Server
     _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
@@ -182,6 +186,7 @@ class StreamProxy {
       String? serverSalt;
       _wsChannel!.stream.listen(
         (message) {
+          _lastServerMessageTime = DateTime.now();
           if (message is List<int>) {
             if (!_authenticated) return;
             // Binary Video Data
@@ -242,7 +247,7 @@ class StreamProxy {
                 }
               } else if (data['type'] == 'AUTH_OK') {
                 _authenticated = true;
-                _startPingTimer();
+                _startHeartbeatTimer();
                 if (!authCompleter.isCompleted) {
                   authCompleter.complete();
                 }
@@ -250,7 +255,7 @@ class StreamProxy {
                 final success = data['success'] == true;
                 if (success) {
                   _authenticated = true;
-                  _startPingTimer();
+                  _startHeartbeatTimer();
                   if (!authCompleter.isCompleted) {
                     authCompleter.complete();
                   }
@@ -324,9 +329,6 @@ class StreamProxy {
               } else {
                 final timed = timedFromJson(data);
                 if (timed != null) {
-                  if (data['type'] == 'TIMED_STATUS') {
-                    _lastTimedStatusTime = DateTime.now();
-                  }
                   _timedNotificationController?.add(timed);
                 }
                 final immediate = immediateFromJson(data);
@@ -339,9 +341,11 @@ class StreamProxy {
                 }
                 final status = hibernationStatusFromJson(data);
                 if (status != null) {
-                  _lastHibernationStatusTime = DateTime.now();
                   _hibernationController?.add(status);
                 }
+              }
+              if (data['type'] == 'HEARTBEAT_ACK') {
+                _waitingForHeartbeatAck = false;
               }
             } catch (e, st) {
               debugPrint('[Chat] Exception parsing message: $e');
@@ -350,7 +354,7 @@ class StreamProxy {
           }
         },
         onError: (e, st) {
-          _stopPingTimer();
+          _stopHeartbeatTimer();
           _wsChannel = null;
           _authenticated = false;
           if (_timedNotificationController != null &&
@@ -367,7 +371,7 @@ class StreamProxy {
           completeAuthError(e, st);
         },
         onDone: () {
-          _stopPingTimer();
+          _stopHeartbeatTimer();
           _wsChannel = null;
           _authenticated = false;
           if (_timedNotificationController != null &&
@@ -434,32 +438,43 @@ class StreamProxy {
     trySendRunCommand(command);
   }
 
-  void requestKeyframe() {
-    trySendCommand({'type': 'REQUEST_KEYFRAME'});
-  }
-
   void sendPing() {
     trySendCommand({'type': 'PING'});
   }
 
-  void _startPingTimer() {
-    _pingTimer?.cancel();
-    _lastHibernationStatusTime = DateTime.now();
-    _lastTimedStatusTime = DateTime.now();
-    _pingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+  void requestKeyframe() {
+    trySendCommand({'type': 'REQUEST_KEYFRAME'});
+  }
+
+  void _startHeartbeatTimer() {
+    _heartbeatTimer?.cancel();
+    _lastServerMessageTime = DateTime.now();
+    _waitingForHeartbeatAck = false;
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_authenticated) return;
       final now = DateTime.now();
-      final hibernationAge = now.difference(_lastHibernationStatusTime ?? now);
-      final timedAge = now.difference(_lastTimedStatusTime ?? now);
-      if (hibernationAge.inSeconds >= 10 || timedAge.inSeconds >= 10) {
-        sendPing();
+      final lastMessageAge = now.difference(_lastServerMessageTime ?? now);
+      if (lastMessageAge.inSeconds >= 10) {
+        if (_waitingForHeartbeatAck) {
+          debugPrint(
+            '[Heartbeat] No HEARTBEAT_ACK received, closing connection',
+          );
+          _waitingForHeartbeatAck = false;
+          _connectionLostController?.add(null);
+          _wsChannel?.sink.close(status.normalClosure);
+          return;
+        }
+        debugPrint('[Heartbeat] Sending HEARTBEAT');
+        trySendCommand({'type': 'HEARTBEAT'});
+        _waitingForHeartbeatAck = true;
       }
     });
   }
 
-  void _stopPingTimer() {
-    _pingTimer?.cancel();
-    _pingTimer = null;
+  void _stopHeartbeatTimer() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _waitingForHeartbeatAck = false;
   }
 
   bool trySendChatMessage(String message) {
@@ -511,7 +526,7 @@ class StreamProxy {
   }
 
   Future<void> stop() async {
-    _stopPingTimer();
+    _stopHeartbeatTimer();
     final ws = _wsChannel;
     if (ws != null) {
       try {
@@ -555,6 +570,8 @@ class StreamProxy {
     _chatDeniedController = null;
     await _chatModeController?.close();
     _chatModeController = null;
+    await _connectionLostController?.close();
+    _connectionLostController = null;
 
     for (final client in _activeClients) {
       client.destroy();

@@ -18,6 +18,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -86,7 +87,9 @@ public class MonkeycraftClient implements ClientModInitializer {
             client.mouseHandler.releaseMouse();
           }
 
-          if (WebSocketServerHandler.getInstance().isStreaming() && client.screen != null) {
+          if (WebSocketServerHandler.getInstance().isStreaming()
+              && client.screen != null
+              && !(client.screen instanceof ChatScreen)) {
             client.screen.removed();
           }
 
@@ -282,7 +285,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                             .withBold(true)
                             .withClickEvent(
                                 new ClickEvent.OpenUrl(java.net.URI.create("https://ngrok.com/")))))
-            .append(Component.literal(": ngrok http " + port)));
+            .append(Component.literal(": ngrok http " + port).withStyle(ChatFormatting.GRAY)));
   }
 
   public static void stopServer() {
@@ -303,7 +306,13 @@ public class MonkeycraftClient implements ClientModInitializer {
       Component prefix =
           Component.literal("MONKEY: ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
       mc.player.displayClientMessage(
-          prefix.copy().append(message.copy().withStyle(ChatFormatting.WHITE)), false);
+          prefix
+              .copy()
+              .append(
+                  message
+                      .copy()
+                      .withStyle(Style.EMPTY.withColor(ChatFormatting.WHITE).withBold(false))),
+          false);
     }
   }
 

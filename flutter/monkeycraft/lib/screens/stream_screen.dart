@@ -210,7 +210,7 @@ class _StreamScreenState extends State<StreamScreen>
         duration: Duration(seconds: 2),
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _handleHibernationEvent(HibernationEvent event) {
@@ -274,9 +274,30 @@ class _StreamScreenState extends State<StreamScreen>
     if (!mounted) return;
     _chatScreenOpen = true;
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(proxy: widget.proxy),
-        fullscreenDialog: true,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ChatScreen(proxy: widget.proxy),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          if (animation.status == AnimationStatus.reverse) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          }
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
       ),
     );
     _chatScreenOpen = false;
@@ -303,7 +324,31 @@ class _StreamScreenState extends State<StreamScreen>
     if (!mounted) return;
     _chatScreenOpen = true;
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => ChatScreen(proxy: widget.proxy)),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ChatScreen(proxy: widget.proxy),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          if (animation.status == AnimationStatus.reverse) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          }
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+      ),
     );
     _chatScreenOpen = false;
 

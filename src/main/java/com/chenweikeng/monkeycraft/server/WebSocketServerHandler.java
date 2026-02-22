@@ -407,6 +407,8 @@ public class WebSocketServerHandler {
               handleUnsubscribeChat();
             } else if ("PING".equals(type)) {
               handlePing(conn);
+            } else if ("HEARTBEAT".equals(type)) {
+              handleHeartbeat(conn);
             } else {
               MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
@@ -580,6 +582,12 @@ public class WebSocketServerHandler {
         timedStatus.add("fireAtEpochMs", null);
       }
       conn.send(GSON.toJson(timedStatus));
+    }
+
+    private void handleHeartbeat(WebSocket conn) {
+      JsonObject ack = new JsonObject();
+      ack.addProperty("type", "HEARTBEAT_ACK");
+      conn.send(GSON.toJson(ack));
     }
 
     private void handleInput(JsonObject json) {

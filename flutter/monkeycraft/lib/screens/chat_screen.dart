@@ -270,6 +270,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   StreamSubscription<NudgeNotification>? _nudgeSubscription;
   StreamSubscription<TimedNotification>? _timedSubscription;
   StreamSubscription<ImmediateNotification>? _immediateSubscription;
+  StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSubscription;
   bool _loading = true;
   bool _reconnecting = false;
   String? _server;
@@ -296,6 +297,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _immediateSubscription = widget.proxy.immediateNotifications.listen(
       _onImmediateNotification,
     );
+    _serverDisconnectSubscription = widget.proxy.serverDisconnectEvents.listen(
+      _onServerDisconnect,
+    );
     _loadReconnectCredentials();
     _loadCachedMessages();
   }
@@ -314,7 +318,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _messages.addAll(cachedMessages);
       _loading = false;
     });
-    _scrollToBottom();
+    _scrollToBottom(immediate: true);
   }
 
   void _onChatMessage(ChatMessage message) {
@@ -372,14 +376,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  void _scrollToBottom() {
+  void _onServerDisconnect(ServerDisconnectEvent event) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Disconnected by server'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _scrollToBottom({bool immediate = false}) {
     if (_scrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
+        if (!_scrollController.hasClients) return;
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        if (immediate) {
+          _scrollController.jumpTo(maxScroll);
+        } else {
+          _scrollController.animateTo(
+            maxScroll,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
       });
     }
   }
@@ -392,6 +413,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _hibernationSubscription?.cancel();
     _nudgeSubscription?.cancel();
     _immediateSubscription?.cancel();
+    _serverDisconnectSubscription?.cancel();
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
