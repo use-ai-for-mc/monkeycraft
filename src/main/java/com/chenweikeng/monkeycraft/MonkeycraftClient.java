@@ -285,7 +285,8 @@ public class MonkeycraftClient implements ClientModInitializer {
                             .withBold(true)
                             .withClickEvent(
                                 new ClickEvent.OpenUrl(java.net.URI.create("https://ngrok.com/")))))
-            .append(Component.literal(": ngrok http " + port).withStyle(ChatFormatting.GRAY)));
+            .append(Component.literal(" with").withStyle(Style.EMPTY))
+            .append(Component.literal(" ngrok http " + port).withStyle(ChatFormatting.GRAY)));
   }
 
   public static void stopServer() {
