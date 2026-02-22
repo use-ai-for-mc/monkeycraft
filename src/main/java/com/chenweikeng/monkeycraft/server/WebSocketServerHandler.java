@@ -15,7 +15,6 @@ import java.net.ServerSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;

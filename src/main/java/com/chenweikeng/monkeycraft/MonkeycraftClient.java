@@ -87,7 +87,7 @@ public class MonkeycraftClient implements ClientModInitializer {
           }
 
           if (WebSocketServerHandler.getInstance().isStreaming() && client.screen != null) {
-            client.setScreen(null);
+            client.screen.removed();
           }
 
           if (WebSocketServerHandler.getInstance().isStreaming()) {
