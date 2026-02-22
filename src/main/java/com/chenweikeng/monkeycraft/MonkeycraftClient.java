@@ -257,16 +257,6 @@ public class MonkeycraftClient implements ClientModInitializer {
                         })));
   }
 
-  public static void startServer(int port) {
-    WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-    boolean success = handler.startServer(port);
-    if (success) {
-      sendMonkeyMessage(Component.translatable("monkeycraft.server.started", port));
-    } else {
-      sendMonkeyMessage(Component.translatable("monkeycraft.server.port_unavailable", port));
-    }
-  }
-
   public static int startServerWithPortRange(int preferredPort) {
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
     return handler.startServerWithPortRange(preferredPort);
@@ -282,6 +272,17 @@ public class MonkeycraftClient implements ClientModInitializer {
         sendMonkeyMessage(Component.literal("  " + ip));
       }
     }
+    sendMonkeyMessage(
+        Component.literal("For remote connection, use ")
+            .append(
+                Component.literal("ngrok")
+                    .withStyle(
+                        Style.EMPTY
+                            .withColor(ChatFormatting.BLUE)
+                            .withBold(true)
+                            .withClickEvent(
+                                new ClickEvent.OpenUrl(java.net.URI.create("https://ngrok.com/")))))
+            .append(Component.literal(": ngrok http " + port)));
   }
 
   public static void stopServer() {
