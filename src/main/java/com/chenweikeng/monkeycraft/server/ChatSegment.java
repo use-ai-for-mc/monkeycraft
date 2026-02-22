@@ -17,6 +17,10 @@ import net.minecraft.util.StringDecomposer;
 public class ChatSegment {
 
   public static List<JsonObject> fromComponent(Component component) {
+    return fromComponent(component, true);
+  }
+
+  public static List<JsonObject> fromComponent(Component component, boolean canHaveHover) {
     List<JsonObject> segments = new ArrayList<>();
 
     MutableComponent legacyParsed = Component.empty();
@@ -87,16 +91,19 @@ public class ChatSegment {
             }
           }
 
-          HoverEvent hoverEvent = style.getHoverEvent();
-          if (hoverEvent != null && hoverEvent.action() == HoverEvent.Action.SHOW_TEXT) {
-            HoverEvent.ShowText showText = (HoverEvent.ShowText) hoverEvent;
-            Component hoverComponent = showText.value();
+          if (canHaveHover) {
+            HoverEvent hoverEvent = style.getHoverEvent();
+            if (hoverEvent != null && hoverEvent.action() == HoverEvent.Action.SHOW_TEXT) {
+              HoverEvent.ShowText showText = (HoverEvent.ShowText) hoverEvent;
+              Component hoverComponent = showText.value();
 
-            JsonObject hoverEventJson = new JsonObject();
-            hoverEventJson.addProperty("action", "show_text");
-            hoverEventJson.add(
-                "value", ChatSegment.toJsonArray(ChatSegment.fromComponent(hoverComponent)));
-            seg.add("hoverEvent", hoverEventJson);
+              JsonObject hoverEventJson = new JsonObject();
+              hoverEventJson.addProperty("action", "show_text");
+              hoverEventJson.add(
+                  "value",
+                  ChatSegment.toJsonArray(ChatSegment.fromComponent(hoverComponent, false)));
+              seg.add("hoverEvent", hoverEventJson);
+            }
           }
 
           segments.add(seg);

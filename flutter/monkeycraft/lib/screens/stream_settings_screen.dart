@@ -90,6 +90,16 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             onChanged: (v) =>
                 setState(() => _settings = _settings.copyWith(invertLookY: v)),
           ),
+          SwitchListTile(
+            title: const Text('Auto-switch Ride/Chat'),
+            subtitle: const Text(
+              'ON: auto-switch to Chat when hypersleep starts, back to Ride when it ends',
+            ),
+            value: _settings.autoSwitchRideChat,
+            onChanged: (v) => setState(
+              () => _settings = _settings.copyWith(autoSwitchRideChat: v),
+            ),
+          ),
         ],
       ),
     );

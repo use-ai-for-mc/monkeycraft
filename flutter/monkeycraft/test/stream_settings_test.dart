@@ -9,6 +9,7 @@ void main() {
         colorMode: 0,
         resolutionPreset: ResolutionPreset.low,
         invertLookY: true,
+        autoSwitchRideChat: false,
       ).resolutionScale,
       0.5,
     );
@@ -18,6 +19,7 @@ void main() {
         colorMode: 0,
         resolutionPreset: ResolutionPreset.medium,
         invertLookY: true,
+        autoSwitchRideChat: false,
       ).resolutionScale,
       0.75,
     );
@@ -27,6 +29,7 @@ void main() {
         colorMode: 0,
         resolutionPreset: ResolutionPreset.high,
         invertLookY: true,
+        autoSwitchRideChat: false,
       ).resolutionScale,
       1.0,
     );

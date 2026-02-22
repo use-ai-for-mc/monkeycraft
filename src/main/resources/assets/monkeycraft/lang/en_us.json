@@ -15,10 +15,10 @@
 	"config.monkeycraft.option.commandDenylist.tooltip": "List of denied command patterns. Use '*' for wildcard (e.g., 'op *' denies '/op anyone'). Deny takes priority over allow.",
 	"config.monkeycraft.option.defaultBehavior": "Default Behavior",
 	"config.monkeycraft.option.defaultBehavior.tooltip": "What to do when a command is not in allowlist or denylist. Use 'ALLOW' or 'DENY'",
-	"monkeycraft.server.started": "MonkeyCraft server started on port %s",
-	"monkeycraft.server.stopped": "MonkeyCraft server stopped",
-	"monkeycraft.server.port_unavailable": "MonkeyCraft: Port %s is unavailable. Server not started.",
-	"monkeycraft.server.disabled": "MonkeyCraft: Mod is disabled in config",
-	"monkeycraft.server.autolaunch": "MonkeyCraft: Auto-launching server...",
-	"monkeycraft.command.help": "MonkeyCraft Commands:\n/monkeycraft start - Start server\n/monkeycraft stop - Stop server\n/monkeycraft config - Open settings"
+	"monkeycraft.server.started": "Server started on port %s",
+	"monkeycraft.server.stopped": "Server stopped",
+	"monkeycraft.server.port_unavailable": "Port %s is unavailable. Server not started.",
+	"monkeycraft.server.disabled": "Mod is disabled in config",
+	"monkeycraft.server.autolaunch": "Auto-launching server...",
+	"monkeycraft.command.help": "/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open settings\n/monkey ip - Show local IPs"
 }

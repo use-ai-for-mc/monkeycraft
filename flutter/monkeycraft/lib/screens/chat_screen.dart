@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/services/chat_models.dart';
+import 'package:monkeycraft_client/services/hibernation_models.dart';
+import 'package:monkeycraft_client/services/notification_models.dart';
 import 'package:monkeycraft_client/services/stream_proxy.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class _SmartQuotesFormatter extends TextInputFormatter {
@@ -20,8 +21,6 @@ class _SmartQuotesFormatter extends TextInputFormatter {
         .replaceAll('"', '"')
         .replaceAll(''', "'")
         .replaceAll(''', "'");
-    final isAscii = text.codeUnits.every((c) => c >= 32 && c <= 126);
-    if (!isAscii) return oldValue;
     if (text == newValue.text) return newValue;
     return TextEditingValue(
       text: text,
@@ -34,11 +33,13 @@ class _RichText extends StatefulWidget {
   final List<ChatSegment> segments;
   final TextStyle baseStyle;
   final StreamProxy? proxy;
+  final void Function(String command)? onSuggestCommand;
 
   const _RichText({
     required this.segments,
     required this.baseStyle,
     this.proxy,
+    this.onSuggestCommand,
   });
 
   @override
@@ -68,18 +69,45 @@ class _RichTextState extends State<_RichText> {
     _tooltipOverlay = null;
   }
 
-  void _showTooltip(String text, Offset position) {
+  void _showTooltip(List<ChatSegment> segments, Offset position) {
     _removeTooltip();
 
     final screenSize = MediaQuery.of(context).size;
     double left = position.dx;
-    double top = position.dy - 45;
+
+    const tooltipHeight = 100.0;
+
+    bool showAbove = position.dy + tooltipHeight > screenSize.height;
+
+    double top = showAbove
+        ? position.dy - tooltipHeight - 30
+        : position.dy + 25;
 
     if (left + 200 > screenSize.width) {
       left = screenSize.width - 210;
     }
     if (left < 10) left = 10;
-    if (top < 10) top = position.dy + 25;
+    if (top < 10) top = 10;
+
+    final spans = <InlineSpan>[];
+    for (final seg in segments) {
+      final color = _parseColor(seg.color);
+      spans.add(
+        TextSpan(
+          text: seg.text,
+          style: TextStyle(
+            color: color ?? Colors.white,
+            fontSize: 13,
+            fontWeight: seg.bold ? FontWeight.bold : null,
+            fontStyle: seg.italic ? FontStyle.italic : null,
+            decoration: TextDecoration.combine([
+              if (seg.underlined) TextDecoration.underline,
+              if (seg.strikethrough) TextDecoration.lineThrough,
+            ]),
+          ),
+        ),
+      );
+    }
 
     final overlay = Overlay.of(context);
     _tooltipOverlay = OverlayEntry(
@@ -96,10 +124,7 @@ class _RichTextState extends State<_RichText> {
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: Colors.white24),
             ),
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
+            child: Text.rich(TextSpan(children: spans)),
           ),
         ),
       ),
@@ -120,9 +145,10 @@ class _RichTextState extends State<_RichText> {
         }
         break;
       case 'run_command':
-        widget.proxy?.trySendChatMessage(action.value);
+        widget.proxy?.trySendRunCommand(action.value);
         break;
       case 'suggest_command':
+        widget.onSuggestCommand?.call(action.value);
         break;
       case 'copy_to_clipboard':
         Clipboard.setData(ClipboardData(text: action.value));
@@ -155,8 +181,6 @@ class _RichTextState extends State<_RichText> {
     if (widget.segments.isEmpty) return const SizedBox.shrink();
 
     final spans = <InlineSpan>[];
-    final isMobile =
-        !Platform.isMacOS && !Platform.isWindows && !Platform.isLinux;
 
     for (final seg in widget.segments) {
       final color = _parseColor(seg.color);
@@ -166,86 +190,58 @@ class _RichTextState extends State<_RichText> {
       final hasHover =
           seg.hoverAction != null &&
           seg.hoverAction!.action == 'show_text' &&
-          seg.hoverAction!.text.isNotEmpty;
+          seg.hoverAction!.segments.isNotEmpty;
 
       if (!hasClick && !hasHover) {
         spans.add(TextSpan(text: seg.text, style: style));
         continue;
       }
 
-      if (isMobile) {
-        spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {
-                if (hasClick) {
-                  _handleClick(seg.clickAction!);
-                } else if (hasHover) {
-                  final box = context.findRenderObject() as RenderBox?;
-                  if (box != null) {
-                    final pos = box.localToGlobal(Offset.zero);
-                    _showTooltip(
-                      seg.hoverAction!.text,
-                      Offset(pos.dx + 50, pos.dy),
-                    );
-                  }
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              if (hasClick) {
+                _handleClick(seg.clickAction!);
+              } else if (hasHover) {
+                final box = context.findRenderObject() as RenderBox?;
+                if (box != null) {
+                  final pos = box.localToGlobal(Offset.zero);
+                  _showTooltip(
+                    seg.hoverAction!.segments,
+                    Offset(pos.dx + 50, pos.dy),
+                  );
                 }
-              },
-              onLongPress: () {
-                if (hasHover) {
-                  final box = context.findRenderObject() as RenderBox?;
-                  if (box != null) {
-                    final pos = box.localToGlobal(Offset.zero);
-                    _showTooltip(
-                      seg.hoverAction!.text,
-                      Offset(pos.dx + 50, pos.dy),
-                    );
-                  }
+              }
+            },
+            onLongPress: () {
+              if (hasHover) {
+                final box = context.findRenderObject() as RenderBox?;
+                if (box != null) {
+                  final pos = box.localToGlobal(Offset.zero);
+                  _showTooltip(
+                    seg.hoverAction!.segments,
+                    Offset(pos.dx + 50, pos.dy),
+                  );
                 }
-              },
-              child: Text(
-                seg.text,
-                style: style.copyWith(
-                  height: 1.0,
-                  decoration: TextDecoration.combine([
-                    if (seg.underlined) TextDecoration.underline,
-                    if (seg.strikethrough) TextDecoration.lineThrough,
-                    if (hasClick && !seg.underlined) TextDecoration.underline,
-                  ]),
-                ),
+              }
+            },
+            child: Text(
+              seg.text,
+              style: style.copyWith(
+                height: 1.0,
+                decoration: TextDecoration.combine([
+                  if (seg.underlined) TextDecoration.underline,
+                  if (seg.strikethrough) TextDecoration.lineThrough,
+                  if (hasClick && !seg.underlined) TextDecoration.underline,
+                ]),
               ),
             ),
           ),
-        );
-      } else {
-        TapGestureRecognizer? recognizer;
-        if (hasClick) {
-          recognizer = TapGestureRecognizer()
-            ..onTap = () => _handleClick(seg.clickAction!);
-        }
-
-        spans.add(
-          TextSpan(
-            text: seg.text,
-            style: style.copyWith(
-              decoration: TextDecoration.combine([
-                if (seg.underlined) TextDecoration.underline,
-                if (seg.strikethrough) TextDecoration.lineThrough,
-                if (hasClick && !seg.underlined) TextDecoration.underline,
-              ]),
-            ),
-            recognizer: recognizer,
-            mouseCursor: hasClick ? SystemMouseCursors.click : null,
-            onEnter: hasHover
-                ? (details) =>
-                      _showTooltip(seg.hoverAction!.text, details.position)
-                : null,
-            onExit: hasHover ? (_) => _removeTooltip() : null,
-          ),
-        );
-      }
+        ),
+      );
     }
 
     return SelectableText.rich(
@@ -263,23 +259,51 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   StreamSubscription<ChatMessage>? _chatSubscription;
   StreamSubscription<ChatDeniedEvent>? _chatDeniedSubscription;
-  bool _sending = false;
+  StreamSubscription<HibernationEvent>? _hibernationSubscription;
+  StreamSubscription<NudgeNotification>? _nudgeSubscription;
+  StreamSubscription<TimedNotification>? _timedSubscription;
+  StreamSubscription<ImmediateNotification>? _immediateSubscription;
   bool _loading = true;
+  bool _reconnecting = false;
+  String? _server;
+  String? _password;
+  bool _hibernating = false;
+  String _hibernationMessage = '';
+  bool _hibernationBannerDismissed = false;
+  NudgeNotification? _currentNudge;
+  ImmediateNotification? _currentImmediate;
+  bool _nudgeBannerDismissed = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _chatSubscription = widget.proxy.chatMessages.listen(_onChatMessage);
     _chatDeniedSubscription = widget.proxy.chatDeniedEvents.listen(
       _onChatDenied,
     );
+    _hibernationSubscription = widget.proxy.hibernationEvents.listen(
+      _onHibernationEvent,
+    );
+    _nudgeSubscription = widget.proxy.nudges.listen(_onNudge);
+    _immediateSubscription = widget.proxy.immediateNotifications.listen(
+      _onImmediateNotification,
+    );
+    _loadReconnectCredentials();
     _loadCachedMessages();
+  }
+
+  Future<void> _loadReconnectCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    _server = prefs.getString('server') ?? '127.0.0.1:9600';
+    _password = prefs.getString('password') ?? '';
   }
 
   Future<void> _loadCachedMessages() async {
@@ -306,13 +330,46 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onChatDenied(ChatDeniedEvent event) {
     if (!mounted) return;
-    setState(() => _sending = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Message denied: ${event.reason}'),
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  void _onHibernationEvent(HibernationEvent event) {
+    if (!mounted) return;
+    if (event is HibernationStatus) {
+      setState(() {
+        if (event.active) {
+          if (!_hibernating) {
+            _hibernationBannerDismissed = false;
+          }
+          _hibernating = true;
+          _hibernationMessage = event.message ?? _hibernationMessage;
+        } else {
+          _hibernating = false;
+          _hibernationMessage = '';
+          _hibernationBannerDismissed = false;
+        }
+      });
+    }
+  }
+
+  void _onNudge(NudgeNotification nudge) {
+    if (!mounted) return;
+    setState(() {
+      _currentNudge = nudge;
+      _nudgeBannerDismissed = false;
+    });
+  }
+
+  void _onImmediateNotification(ImmediateNotification notification) {
+    if (!mounted) return;
+    setState(() {
+      _currentImmediate = notification;
+    });
   }
 
   void _scrollToBottom() {
@@ -329,31 +386,174 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _chatSubscription?.cancel();
     _chatDeniedSubscription?.cancel();
+    _hibernationSubscription?.cancel();
+    _nudgeSubscription?.cancel();
+    _immediateSubscription?.cancel();
     _messageController.dispose();
+    _messageFocusNode.dispose();
     _scrollController.dispose();
     widget.proxy.unsubscribeFromChat();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resumeIfNeeded();
+    }
+  }
+
+  Future<void> _resumeIfNeeded() async {
+    if (_reconnecting || !mounted) return;
+    final server = _server;
+    final password = _password;
+    if (server == null || password == null) return;
+
+    if (!widget.proxy.isConnected) {
+      _reconnecting = true;
+      try {
+        await widget.proxy.start(server, password);
+        widget.proxy.sendPing();
+      } catch (_) {
+      } finally {
+        _reconnecting = false;
+      }
+    }
+
+    if (mounted && widget.proxy.isConnected) {
+      _reattachChatStreams();
+      await _loadCachedMessages();
+    }
+  }
+
+  void _reattachChatStreams() {
+    _chatSubscription?.cancel();
+    _chatDeniedSubscription?.cancel();
+    _hibernationSubscription?.cancel();
+    _nudgeSubscription?.cancel();
+    _timedSubscription?.cancel();
+    _chatSubscription = widget.proxy.chatMessages.listen(_onChatMessage);
+    _chatDeniedSubscription = widget.proxy.chatDeniedEvents.listen(
+      _onChatDenied,
+    );
+    _hibernationSubscription = widget.proxy.hibernationEvents.listen(
+      _onHibernationEvent,
+    );
+    _nudgeSubscription = widget.proxy.nudges.listen(_onNudge);
+    _immediateSubscription = widget.proxy.immediateNotifications.listen(
+      _onImmediateNotification,
+    );
   }
 
   void _sendMessage() {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() => _sending = true);
+    final sent = text.startsWith('/')
+        ? widget.proxy.trySendRunCommand(text)
+        : widget.proxy.trySendChatMessage(text);
 
-    final sent = widget.proxy.trySendChatMessage(text);
     if (sent) {
       _messageController.clear();
-      setState(() {
-        _messages.add(ChatMessage.outgoing(text));
-        _sending = false;
-      });
-      _scrollToBottom();
-    } else {
-      setState(() => _sending = false);
     }
+  }
+
+  void _dismissHibernationBanner() {
+    setState(() {
+      _hibernationBannerDismissed = true;
+    });
+  }
+
+  void _dismissNudgeBanner() {
+    setState(() {
+      _nudgeBannerDismissed = true;
+    });
+  }
+
+  void _onSuggestCommand(String command) {
+    _messageController.text = command;
+    _messageController.selection = TextSelection.collapsed(
+      offset: command.length,
+    );
+    _messageFocusNode.requestFocus();
+  }
+
+  Widget _buildDynamicIsland() {
+    String? bannerText;
+    Color backgroundColor;
+    Color textColor;
+    VoidCallback onDismiss;
+
+    if (_hibernating &&
+        !_hibernationBannerDismissed &&
+        _hibernationMessage.isNotEmpty) {
+      final lines = _hibernationMessage.split('\n');
+      bannerText = lines.isNotEmpty ? lines.last : _hibernationMessage;
+      backgroundColor = const Color(0xFF2E7D32);
+      textColor = Colors.white;
+      onDismiss = _dismissHibernationBanner;
+    } else if (_currentImmediate != null) {
+      bannerText = _currentImmediate!.body ?? '';
+      if (bannerText.isEmpty) return const SizedBox.shrink();
+      backgroundColor = const Color(0xFF1565C0);
+      textColor = Colors.white;
+      onDismiss = () {
+        setState(() {
+          _currentImmediate = null;
+        });
+      };
+    } else if (!_hibernating &&
+        _currentNudge != null &&
+        !_nudgeBannerDismissed) {
+      final title = _currentNudge!.title ?? '';
+      final body = _currentNudge!.body ?? '';
+      bannerText = body.isNotEmpty
+          ? (title.isNotEmpty ? '$title: $body' : body)
+          : title;
+      if (bannerText.isEmpty) return const SizedBox.shrink();
+      backgroundColor = const Color(0xFF1A1A1A);
+      textColor = Colors.white70;
+      onDismiss = _dismissNudgeBanner;
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              bannerText,
+              style: TextStyle(color: textColor, fontSize: 12, height: 1.3),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          GestureDetector(
+            onTap: onDismiss,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(
+                Icons.close,
+                size: 16,
+                color: textColor.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -371,6 +571,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          _buildDynamicIsland(),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -399,6 +600,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             fontSize: 14,
                           ),
                           proxy: widget.proxy,
+                          onSuggestCommand: _onSuggestCommand,
                         ),
                       );
                     },
@@ -431,8 +633,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       Expanded(
                         child: TextField(
                           controller: _messageController,
+                          focusNode: _messageFocusNode,
                           style: const TextStyle(color: Colors.white),
                           textInputAction: TextInputAction.send,
+                          keyboardType: TextInputType.text,
                           inputFormatters: [_SmartQuotesFormatter()],
                           decoration: const InputDecoration(
                             hintText: 'Type a message...',
@@ -449,11 +653,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: IconButton(
-                          onPressed: _sending ? null : _sendMessage,
-                          icon: Icon(
-                            Icons.send,
-                            color: _sending ? Colors.white30 : Colors.white,
-                          ),
+                          onPressed: _sendMessage,
+                          icon: const Icon(Icons.send, color: Colors.white),
                         ),
                       ),
                     ],

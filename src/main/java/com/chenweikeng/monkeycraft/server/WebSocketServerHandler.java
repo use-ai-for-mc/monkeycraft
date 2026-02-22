@@ -25,6 +25,7 @@ public class WebSocketServerHandler {
   private MonkeycraftWebSocketServer server;
   private int currentPort = -1;
   private final AtomicBoolean running = new AtomicBoolean(false);
+  private final AtomicBoolean hasEverConnected = new AtomicBoolean(false);
   private static final Gson GSON = new Gson();
   private H264Streamer streamer;
   private boolean isStreaming = false;
@@ -125,6 +126,7 @@ public class WebSocketServerHandler {
       streamer = null;
     }
     isStreaming = false;
+    hasEverConnected.set(false);
 
     if (server != null) {
       try {
@@ -141,6 +143,10 @@ public class WebSocketServerHandler {
 
   public boolean isRunning() {
     return running.get();
+  }
+
+  public boolean hasEverConnected() {
+    return hasEverConnected.get();
   }
 
   public int getCurrentPort() {
@@ -756,6 +762,7 @@ public class WebSocketServerHandler {
           }
         }
         authenticatedSession = conn;
+        hasEverConnected.set(true);
 
         String serverSignature = CryptoUtils.computeHmac(password, clientSalt + serverSalt);
         JsonObject response = new JsonObject();
@@ -791,9 +798,8 @@ public class WebSocketServerHandler {
           }
           conn.send(GSON.toJson(timedStatus));
         }
-        MonkeycraftClient.sendSystemMessage(
-            Component.literal(
-                "Monkeycraft: New client authenticated from " + conn.getRemoteSocketAddress()));
+        MonkeycraftClient.sendMonkeyMessage(
+            Component.literal("New client authenticated from " + conn.getRemoteSocketAddress()));
       } else {
         sendAuthResponse(conn, false, "Invalid signature");
         conn.close();

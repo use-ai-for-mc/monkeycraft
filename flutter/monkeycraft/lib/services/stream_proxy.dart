@@ -21,6 +21,7 @@ class StreamProxy {
   StreamController<Uint8List>? _accessUnitsController;
   StreamController<PlayerPose>? _playerPoseController;
   StreamController<TimedNotification>? _timedNotificationController;
+  StreamController<ImmediateNotification>? _immediateNotificationController;
   StreamController<NudgeNotification>? _nudgeNotificationController;
   StreamController<HibernationEvent>? _hibernationController;
   StreamController<CommandDeniedEvent>? _commandDeniedController;
@@ -29,7 +30,6 @@ class StreamProxy {
   StreamController<ChatDeniedEvent>? _chatDeniedController;
   StreamController<ChatModeEvent>? _chatModeController;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
-  final List<ChatMessageListener> _outgoingChatListeners = [];
   int _fps = 20;
   int _frameIndex = 0;
   int _port = 0;
@@ -45,6 +45,8 @@ class StreamProxy {
       _playerPoseController?.stream ?? const Stream.empty();
   Stream<TimedNotification> get timedNotifications =>
       _timedNotificationController?.stream ?? const Stream.empty();
+  Stream<ImmediateNotification> get immediateNotifications =>
+      _immediateNotificationController?.stream ?? const Stream.empty();
   Stream<NudgeNotification> get nudges =>
       _nudgeNotificationController?.stream ?? const Stream.empty();
   Stream<HibernationEvent> get hibernationEvents =>
@@ -59,6 +61,7 @@ class StreamProxy {
       _chatDeniedController?.stream ?? const Stream.empty();
   Stream<ChatModeEvent> get chatModeEvents =>
       _chatModeController?.stream ?? const Stream.empty();
+  bool get isConnected => _authenticated && _wsChannel != null;
 
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
@@ -129,6 +132,8 @@ class StreamProxy {
     _playerPoseController = StreamController<PlayerPose>.broadcast();
     _timedNotificationController =
         StreamController<TimedNotification>.broadcast();
+    _immediateNotificationController =
+        StreamController<ImmediateNotification>.broadcast();
     _nudgeNotificationController =
         StreamController<NudgeNotification>.broadcast();
     _hibernationController = StreamController<HibernationEvent>.broadcast();
@@ -324,6 +329,10 @@ class StreamProxy {
                   }
                   _timedNotificationController?.add(timed);
                 }
+                final immediate = immediateFromJson(data);
+                if (immediate != null) {
+                  _immediateNotificationController?.add(immediate);
+                }
                 final nudge = nudgeFromJson(data);
                 if (nudge != null) {
                   _nudgeNotificationController?.add(nudge);
@@ -456,19 +465,7 @@ class StreamProxy {
   bool trySendChatMessage(String message) {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return false;
-
-    for (final listener in _outgoingChatListeners) {
-      final result = listener(ChatMessage.outgoing(trimmed));
-      if (result == ChatMessageResult.deny) {
-        return false;
-      }
-    }
-
     return trySendCommand({'type': 'SEND_CHAT', 'message': trimmed});
-  }
-
-  void sendChatMessage(String message) {
-    trySendChatMessage(message);
   }
 
   void enterChatMode() {
@@ -513,14 +510,6 @@ class StreamProxy {
     trySendCommand({'type': 'UNSUBSCRIBE_CHAT'});
   }
 
-  void addOutgoingChatListener(ChatMessageListener listener) {
-    _outgoingChatListeners.add(listener);
-  }
-
-  void removeOutgoingChatListener(ChatMessageListener listener) {
-    _outgoingChatListeners.remove(listener);
-  }
-
   Future<void> stop() async {
     _stopPingTimer();
     final ws = _wsChannel;
@@ -550,6 +539,8 @@ class StreamProxy {
     }
     await _timedNotificationController?.close();
     _timedNotificationController = null;
+    await _immediateNotificationController?.close();
+    _immediateNotificationController = null;
     await _nudgeNotificationController?.close();
     _nudgeNotificationController = null;
     await _hibernationController?.close();

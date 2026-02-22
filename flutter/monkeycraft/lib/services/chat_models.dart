@@ -79,22 +79,15 @@ class ChatMessage {
   final String? senderUuid;
   final List<ChatSegment> segments;
   final int timestamp;
-  final bool isOutgoing;
-  final String? plainText;
 
   const ChatMessage({
     required this.sender,
     this.senderUuid,
     required this.segments,
     required this.timestamp,
-    this.isOutgoing = false,
-    this.plainText,
   });
 
-  String get message {
-    if (plainText != null) return plainText!;
-    return segments.map((s) => s.text).join();
-  }
+  String get message => segments.map((s) => s.text).join();
 
   bool get isSystem => sender == 'System';
 
@@ -117,17 +110,6 @@ class ChatMessage {
       segments: segments,
       timestamp:
           json['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
-      isOutgoing: false,
-    );
-  }
-
-  static ChatMessage outgoing(String text) {
-    return ChatMessage(
-      sender: 'Me',
-      segments: [ChatSegment(text: text)],
-      timestamp: DateTime.now().millisecondsSinceEpoch,
-      isOutgoing: true,
-      plainText: text,
     );
   }
 }
@@ -154,7 +136,3 @@ class ChatModeEvent {
     return ChatModeEvent(started: type == 'CHAT_MODE_STARTED');
   }
 }
-
-enum ChatMessageResult { allow, modify, deny, pass }
-
-typedef ChatMessageListener = ChatMessageResult Function(ChatMessage message);

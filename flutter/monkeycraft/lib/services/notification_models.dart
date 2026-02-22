@@ -14,6 +14,12 @@ class TimedNotification {
   });
 }
 
+class ImmediateNotification {
+  final String? body;
+
+  const ImmediateNotification({required this.body});
+}
+
 class NudgeNotification {
   final String? title;
   final String? body;
@@ -58,6 +64,14 @@ TimedNotification? timedStatusFromJson(dynamic json) {
     body: body is String ? body : null,
     sound: sound is bool ? sound : true,
   );
+}
+
+ImmediateNotification? immediateFromJson(dynamic json) {
+  if (json is! Map) return null;
+  final type = json['type'];
+  if (type != 'IMMEDIATE') return null;
+  final body = json['body'];
+  return ImmediateNotification(body: body is String ? body : null);
 }
 
 NudgeNotification? nudgeFromJson(dynamic json) {

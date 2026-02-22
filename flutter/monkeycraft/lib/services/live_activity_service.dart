@@ -12,14 +12,10 @@ class LiveActivityService {
     if (!Platform.isIOS) return;
 
     final enabled = await _liveActivities.areActivitiesEnabled();
-    if (!enabled) {
-      print('LiveActivityService: Live Activities not enabled');
-      return;
-    }
+    if (!enabled) return;
 
     await _liveActivities.init(appGroupId: _appGroupId);
     _initialized = true;
-    print('LiveActivityService: Initialized successfully');
   }
 
   Future<void> startCountdown({
@@ -28,29 +24,20 @@ class LiveActivityService {
     String body = '',
     String countDownText = 'TBA',
   }) async {
-    if (!_initialized) {
-      print('LiveActivityService: Not initialized, skipping startCountdown');
-      return;
-    }
+    if (!_initialized) return;
 
     if (_currentFireAtEpochMs == fireAtEpochMs) {
       return;
     }
     _currentFireAtEpochMs = fireAtEpochMs;
 
-    print(
-      'LiveActivityService: Creating/updating activity with id=$_timedCountdownActivityId',
-    );
     try {
       await _liveActivities.createOrUpdateActivity(_timedCountdownActivityId, {
         'fireAtEpochMs': fireAtEpochMs,
         'body': body.isNotEmpty ? body : 'TBA',
         'countDownText': countDownText.isNotEmpty ? countDownText : 'TBA',
       }, removeWhenAppIsKilled: true);
-      print('LiveActivityService: Activity created/updated successfully');
-    } catch (e) {
-      print('LiveActivityService: Failed to create/update activity: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> updateCountdown({

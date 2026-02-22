@@ -15,9 +15,13 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.Style;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -169,12 +173,11 @@ public class MonkeycraftClient implements ClientModInitializer {
             LOGGER.info("Auto-launching Monkeycraft server...");
             int actualPort = startServerWithPortRange(config.getPort());
             if (actualPort > 0) {
-              sendSystemMessage(Component.translatable("monkeycraft.server.autolaunch"));
+              sendMonkeyMessage(Component.translatable("monkeycraft.server.autolaunch"));
               printLocalIps(actualPort);
             } else {
-              sendSystemMessage(
-                  Component.literal(
-                      "Monkeycraft: Failed to start server (no available port 9600-9700)"));
+              sendMonkeyMessage(
+                  Component.literal("Failed to start server (no available port 9600-9700)"));
             }
           }
         });
@@ -192,10 +195,10 @@ public class MonkeycraftClient implements ClientModInitializer {
       CommandDispatcher<FabricClientCommandSource> dispatcher,
       net.minecraft.commands.CommandBuildContext registryAccess) {
     dispatcher.register(
-        ClientCommandManager.literal("mkc")
+        ClientCommandManager.literal("monkey")
             .executes(
                 context -> {
-                  sendSystemMessage(Component.translatable("monkeycraft.command.help"));
+                  sendHelpMessage();
                   return 1;
                 })
             .then(
@@ -218,7 +221,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                         context -> {
                           ModConfig config = ModConfig.getInstance();
                           if (!config.isEnabled()) {
-                            sendSystemMessage(
+                            sendMonkeyMessage(
                                 Component.translatable("monkeycraft.server.disabled"));
                             return 0;
                           }
@@ -226,7 +229,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                           if (actualPort > 0) {
                             printLocalIps(actualPort);
                           } else {
-                            sendSystemMessage(Component.translatable("monkeycraft.server.failed"));
+                            sendMonkeyMessage(Component.translatable("monkeycraft.server.failed"));
                           }
                           return 1;
                         }))
@@ -243,8 +246,10 @@ public class MonkeycraftClient implements ClientModInitializer {
                         context -> {
                           WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
                           if (!handler.isRunning()) {
-                            sendSystemMessage(
-                                Component.literal("Server is not running. Use /mkc start first."));
+                            sendMonkeyMessage(
+                                Component.literal("Server is not running. Use ")
+                                    .append(clickableCommand("/monkey start"))
+                                    .append(Component.literal(" first.")));
                             return 0;
                           }
                           printLocalIps(handler.getCurrentPort());
@@ -256,9 +261,9 @@ public class MonkeycraftClient implements ClientModInitializer {
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
     boolean success = handler.startServer(port);
     if (success) {
-      sendSystemMessage(Component.translatable("monkeycraft.server.started", port));
+      sendMonkeyMessage(Component.translatable("monkeycraft.server.started", port));
     } else {
-      sendSystemMessage(Component.translatable("monkeycraft.server.port_unavailable", port));
+      sendMonkeyMessage(Component.translatable("monkeycraft.server.port_unavailable", port));
     }
   }
 
@@ -270,18 +275,18 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static void printLocalIps(int port) {
     java.util.List<String> ips = NetworkUtils.getLocalIpAddressesWithPort(port);
     if (ips.isEmpty()) {
-      sendSystemMessage(Component.literal("No local IP addresses found"));
+      sendMonkeyMessage(Component.literal("No local IP addresses found"));
     } else {
-      sendSystemMessage(Component.literal("Local IP addresses:"));
+      sendMonkeyMessage(Component.literal("Local IP addresses:"));
       for (String ip : ips) {
-        sendSystemMessage(Component.literal("  " + ip));
+        sendMonkeyMessage(Component.literal("  " + ip));
       }
     }
   }
 
   public static void stopServer() {
     WebSocketServerHandler.getInstance().stopServer();
-    sendSystemMessage(Component.translatable("monkeycraft.server.stopped"));
+    sendMonkeyMessage(Component.translatable("monkeycraft.server.stopped"));
   }
 
   public static void sendSystemMessage(Component message) {
@@ -289,5 +294,58 @@ public class MonkeycraftClient implements ClientModInitializer {
     if (mc.player != null) {
       mc.player.displayClientMessage(message, false);
     }
+  }
+
+  public static void sendMonkeyMessage(Component message) {
+    Minecraft mc = Minecraft.getInstance();
+    if (mc.player != null) {
+      Component prefix =
+          Component.literal("MONKEY: ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+      mc.player.displayClientMessage(prefix.copy().append(message), false);
+    }
+  }
+
+  public static void sendHelpMessage() {
+    Minecraft mc = Minecraft.getInstance();
+    if (mc.player == null) return;
+
+    Component prefix =
+        Component.literal("MONKEY: ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+
+    mc.player.displayClientMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey start"))
+            .append(Component.literal(" - Start server\n").withStyle(ChatFormatting.WHITE)),
+        false);
+    mc.player.displayClientMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey stop"))
+            .append(Component.literal(" - Stop server\n").withStyle(ChatFormatting.WHITE)),
+        false);
+    mc.player.displayClientMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey config"))
+            .append(Component.literal(" - Open settings\n").withStyle(ChatFormatting.WHITE)),
+        false);
+    mc.player.displayClientMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey ip"))
+            .append(Component.literal(" - Show local IPs").withStyle(ChatFormatting.WHITE)),
+        false);
+  }
+
+  public static Component clickableCommand(String command) {
+    return Component.literal(command)
+        .withStyle(
+            Style.EMPTY
+                .withColor(ChatFormatting.YELLOW)
+                .withUnderlined(true)
+                .withClickEvent(new ClickEvent.SuggestCommand(command))
+                .withHoverEvent(
+                    new HoverEvent.ShowText(Component.literal("Click to use command"))));
   }
 }

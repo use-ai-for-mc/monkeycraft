@@ -60,6 +60,8 @@ class _StreamScreenState extends State<StreamScreen>
   bool _reconnecting = false;
   bool _hibernating = false;
   String _hibernationMessage = '';
+  bool _hibernationAutoSwitchDone = false;
+  bool _autoNavigatedToChat = false;
   String? _server;
   String? _password;
   bool? _forcedOrientation;
@@ -168,7 +170,12 @@ class _StreamScreenState extends State<StreamScreen>
   void _showNotificationNow(TimedNotification notification) {
     final title = notification.title ?? 'MonkeyCraft';
     final body = notification.body ?? '';
-    final text = body.isEmpty ? title : '$title\n$body';
+    final countdown = notification.countDownText;
+    final parts = <String?>[
+      if (body.isNotEmpty) body,
+      countdown,
+    ].whereType<String>().toList();
+    final text = parts.isEmpty ? title : '$title\n${parts.join('\n')}';
 
     if (notification.sound) {
       _timedScheduler.playNotificationSound();
@@ -176,7 +183,11 @@ class _StreamScreenState extends State<StreamScreen>
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
+      SnackBar(
+        content: Text(text, textAlign: TextAlign.center),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -214,6 +225,7 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _enterHibernation(String message) async {
     if (_hibernating && message == _hibernationMessage) return;
     _hibernationMessage = message;
+    final wasHibernating = _hibernating;
     if (!_hibernating && mounted) {
       setState(() => _hibernating = true);
     } else if (mounted) {
@@ -224,15 +236,54 @@ class _StreamScreenState extends State<StreamScreen>
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
 
     await _pauseVideoPipeline();
+
+    if (!wasHibernating &&
+        _settings.autoSwitchRideChat &&
+        !_hibernationAutoSwitchDone &&
+        mounted) {
+      _hibernationAutoSwitchDone = true;
+      _autoNavigatedToChat = true;
+      await _openChatScreenAuto();
+    }
   }
 
   Future<void> _exitHibernation() async {
     if (!_hibernating) return;
+    _hibernationAutoSwitchDone = false;
     if (mounted) {
       setState(() => _hibernating = false);
     }
+
+    if (_autoNavigatedToChat && _settings.autoSwitchRideChat && mounted) {
+      _autoNavigatedToChat = false;
+      Navigator.of(context).pop();
+      return;
+    }
+
     await _restartStream();
     _refreshVideo();
+  }
+
+  Future<void> _openChatScreenAuto() async {
+    _input.releaseAll();
+    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
+    await _accessUnitSub?.cancel();
+    _accessUnitSub = null;
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(proxy: widget.proxy),
+        fullscreenDialog: true,
+      ),
+    );
+
+    _autoNavigatedToChat = false;
+
+    if (!mounted) return;
+    if (!_hibernating) {
+      await _restartStream();
+    }
   }
 
   void _refreshVideo() {
@@ -841,14 +892,10 @@ class _StreamScreenState extends State<StreamScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Hypersleep',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              textAlign: TextAlign.center,
+                            const Icon(
+                              Icons.bedtime,
+                              color: Colors.white,
+                              size: 48,
                             ),
                             const SizedBox(height: 12),
                             Column(

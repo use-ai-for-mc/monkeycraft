@@ -45,7 +45,7 @@ src/main/java/com/chenweikeng/monkeycraft/
 Main mod initializer implementing `ClientModInitializer`.
 
 **Responsibilities:**
-- Register client commands (`/mkc start`, `/mkc stop`, `/mkc ip`, `/mkc config`)
+- Register client commands (`/monkey start`, `/monkey stop`, `/monkey ip`, `/monkey config`)
 - Handle server auto-launch on world join
 - Process game tick events for video capture
 - Manage cursor/mouse state during streaming
@@ -54,11 +54,11 @@ Main mod initializer implementing `ClientModInitializer`.
 **Commands:**
 | Command | Description |
 |---------|-------------|
-| `/mkc` | Show help |
-| `/mkc start` | Start WebSocket server |
-| `/mkc stop` | Stop WebSocket server |
-| `/mkc ip` | Display local IP addresses |
-| `/mkc config` | Open configuration screen |
+| `/monkey` | Show help |
+| `/monkey start` | Start WebSocket server |
+| `/monkey stop` | Stop WebSocket server |
+| `/monkey ip` | Display local IP addresses |
+| `/monkey config` | Open configuration screen |
 
 **Tick Events:**
 - Detects Q key press to disconnect client (hold Q)
