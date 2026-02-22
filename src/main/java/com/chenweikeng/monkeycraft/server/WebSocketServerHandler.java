@@ -798,8 +798,6 @@ public class WebSocketServerHandler {
           }
           conn.send(GSON.toJson(timedStatus));
         }
-        MonkeycraftClient.sendMonkeyMessage(
-            Component.literal("New client authenticated from " + conn.getRemoteSocketAddress()));
       } else {
         sendAuthResponse(conn, false, "Invalid signature");
         conn.close();

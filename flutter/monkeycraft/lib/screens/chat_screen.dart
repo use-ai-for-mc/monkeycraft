@@ -498,7 +498,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } else if (_currentImmediate != null) {
       bannerText = _currentImmediate!.body ?? '';
       if (bannerText.isEmpty) return const SizedBox.shrink();
-      backgroundColor = const Color(0xFF1565C0);
+      backgroundColor = const Color(0xFF666666);
       textColor = Colors.white;
       onDismiss = () {
         setState(() {
@@ -528,10 +528,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
               bannerText,
               style: TextStyle(color: textColor, fontSize: 12, height: 1.3),
@@ -540,10 +541,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          GestureDetector(
-            onTap: onDismiss,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: onDismiss,
               child: Icon(
                 Icons.close,
                 size: 16,

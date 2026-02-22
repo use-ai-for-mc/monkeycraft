@@ -62,6 +62,7 @@ class _StreamScreenState extends State<StreamScreen>
   String _hibernationMessage = '';
   bool _hibernationAutoSwitchDone = false;
   bool _autoNavigatedToChat = false;
+  bool _chatScreenOpen = false;
   String? _server;
   String? _password;
   bool? _forcedOrientation;
@@ -271,12 +272,14 @@ class _StreamScreenState extends State<StreamScreen>
     _accessUnitSub = null;
 
     if (!mounted) return;
+    _chatScreenOpen = true;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ChatScreen(proxy: widget.proxy),
         fullscreenDialog: true,
       ),
     );
+    _chatScreenOpen = false;
 
     _autoNavigatedToChat = false;
 
@@ -298,9 +301,11 @@ class _StreamScreenState extends State<StreamScreen>
     _accessUnitSub = null;
 
     if (!mounted) return;
+    _chatScreenOpen = true;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => ChatScreen(proxy: widget.proxy)),
     );
+    _chatScreenOpen = false;
 
     if (!mounted) return;
     await _restartStream();
@@ -342,7 +347,7 @@ class _StreamScreenState extends State<StreamScreen>
     if (nudge.sound) {
       _timedScheduler.playNotificationSound();
     }
-    if (!mounted) return;
+    if (!mounted || _chatScreenOpen) return;
     final text = body.isEmpty ? title : '$title\n$body';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text), duration: const Duration(seconds: 2)),

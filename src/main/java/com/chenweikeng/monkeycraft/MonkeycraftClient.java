@@ -301,7 +301,8 @@ public class MonkeycraftClient implements ClientModInitializer {
     if (mc.player != null) {
       Component prefix =
           Component.literal("MONKEY: ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
-      mc.player.displayClientMessage(prefix.copy().append(message), false);
+      mc.player.displayClientMessage(
+          prefix.copy().append(message.copy().withStyle(ChatFormatting.WHITE)), false);
     }
   }
 
