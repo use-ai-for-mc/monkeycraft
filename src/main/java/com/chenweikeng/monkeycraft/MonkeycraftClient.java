@@ -112,13 +112,10 @@ public class MonkeycraftClient implements ClientModInitializer {
             long now = System.currentTimeMillis();
             if (now - lastCaptureTime >= interval) {
               lastCaptureTime = now;
-              long captureStart = System.nanoTime();
               try {
                 Screenshot.takeScreenshot(
                     client.getMainRenderTarget(),
                     (image) -> {
-                      long captureEnd = System.nanoTime();
-                      long captureMs = (captureEnd - captureStart) / 1_000_000;
                       try {
                         WebSocketServerHandler.StreamConfig config =
                             WebSocketServerHandler.getInstance().getStreamConfig();
@@ -144,14 +141,6 @@ public class MonkeycraftClient implements ClientModInitializer {
                         try {
                           com.mojang.blaze3d.platform.NativeImage resized =
                               ImageUtils.resize(cropped, targetWidth, targetHeight);
-
-                          long processEnd = System.nanoTime();
-                          long processMs = (processEnd - captureEnd) / 1_000_000;
-
-                          if (System.currentTimeMillis() % 60000 < 100) {
-                            LOGGER.info("Capture: {}ms, Resize/Crop: {}ms", captureMs, processMs);
-                          }
-
                           WebSocketServerHandler.getInstance().broadcastFrame(resized);
                         } finally {
                           cropped.close();
@@ -161,7 +150,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                       }
                     });
               } catch (Exception e) {
-                LOGGER.error("Error capturing stream frame", e);
+                LOGGER.info("Error capturing stream frame", e);
               }
             }
           }

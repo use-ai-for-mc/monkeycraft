@@ -74,9 +74,6 @@ public class ChatHandler {
     }
 
     Minecraft mc = Minecraft.getInstance();
-    String senderName = mc.player != null ? mc.player.getName().getString() : "Unknown";
-    String senderUuid = mc.player != null ? mc.player.getUUID().toString() : null;
-
     OutgoingChatContext context = new OutgoingChatContext(message.trim());
 
     ChatMessageResult result = MonkeycraftApi.OUTGOING_CHAT.invoker().onOutgoingChat(context);

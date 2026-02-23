@@ -14,7 +14,10 @@ import 'package:monkeycraft_client/services/chat_models.dart';
 class StreamProxy {
   ServerSocket? _serverSocket;
   WebSocketChannel? _wsChannel;
+  StreamSubscription? _wsSubscription;
   bool _authenticated = false;
+  bool _starting = false;
+  Completer<void>? _startCompleter;
   final List<Socket> _activeClients = [];
   final List<Socket> _pendingClients = [];
   final _MpegTsMuxer _ts = _MpegTsMuxer();
@@ -34,9 +37,15 @@ class StreamProxy {
   int _frameIndex = 0;
   int _port = 0;
   DateTime? _lastServerMessageTime;
+  DateTime? _heartbeatSentTime;
   bool _waitingForHeartbeatAck = false;
   Timer? _heartbeatTimer;
-  StreamController<void>? _connectionLostController;
+
+  // Lifecycle controllers - these persist across reconnections
+  final StreamController<void> _connectionLostController =
+      StreamController<void>.broadcast();
+  final StreamController<void> _connectionRestoredController =
+      StreamController<void>.broadcast();
 
   // Get the local proxy URL
   String get url => 'tcp://127.0.0.1:$_port';
@@ -62,8 +71,9 @@ class StreamProxy {
       _chatDeniedController?.stream ?? const Stream.empty();
   Stream<ChatModeEvent> get chatModeEvents =>
       _chatModeController?.stream ?? const Stream.empty();
-  Stream<void> get connectionLostEvents =>
-      _connectionLostController?.stream ?? const Stream.empty();
+  Stream<void> get connectionLostEvents => _connectionLostController.stream;
+  Stream<void> get connectionRestoredEvents =>
+      _connectionRestoredController.stream;
   bool get isConnected => _authenticated && _wsChannel != null;
 
   bool _isIdrFrame(List<int> data) {
@@ -128,51 +138,66 @@ class StreamProxy {
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
   }) async {
-    await stop();
-    _frameIndex = 0;
-    _authenticated = false;
-    _accessUnitsController = StreamController<Uint8List>.broadcast();
-    _playerPoseController = StreamController<PlayerPose>.broadcast();
-    _timedNotificationController =
-        StreamController<TimedNotification>.broadcast();
-    _immediateNotificationController =
-        StreamController<ImmediateNotification>.broadcast();
-    _nudgeNotificationController =
-        StreamController<NudgeNotification>.broadcast();
-    _hibernationController = StreamController<HibernationEvent>.broadcast();
-    _commandDeniedController = StreamController<CommandDeniedEvent>.broadcast();
-    _serverDisconnectController =
-        StreamController<ServerDisconnectEvent>.broadcast();
-    _chatMessageController = StreamController<ChatMessage>.broadcast();
-    _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
-    _chatModeController = StreamController<ChatModeEvent>.broadcast();
-    _connectionLostController = StreamController<void>.broadcast();
+    debugPrint(
+      '[StreamProxy] start() called with server=$server, starting=$_starting',
+    );
 
-    // 1. Start Local TCP Server
-    _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-    _port = _serverSocket!.port;
+    // If already starting, wait for the existing operation to complete
+    if (_starting && _startCompleter != null) {
+      try {
+        await _startCompleter!.future;
+      } catch (e) {
+        rethrow;
+      }
+      return;
+    }
 
-    _serverSocket!.listen((client) {
-      _pendingClients.add(client);
-
-      client.done
-          .then((_) {
-            _pendingClients.remove(client);
-            _activeClients.remove(client);
-          })
-          .catchError((_) {
-            _pendingClients.remove(client);
-            _activeClients.remove(client);
-            client.destroy();
-          });
-    });
-
-    // 2. Parse server string and build WebSocket URL
-    final wsUrl = _parseServerUrl(server);
-    debugPrint('[StreamProxy] Connecting to $wsUrl');
-
-    // 3. Connect to WebSocket
+    _starting = true;
+    _startCompleter = Completer<void>();
     try {
+      await stop();
+      _frameIndex = 0;
+      _authenticated = false;
+      _accessUnitsController = StreamController<Uint8List>.broadcast();
+      _playerPoseController = StreamController<PlayerPose>.broadcast();
+      _timedNotificationController =
+          StreamController<TimedNotification>.broadcast();
+      _immediateNotificationController =
+          StreamController<ImmediateNotification>.broadcast();
+      _nudgeNotificationController =
+          StreamController<NudgeNotification>.broadcast();
+      _hibernationController = StreamController<HibernationEvent>.broadcast();
+      _commandDeniedController =
+          StreamController<CommandDeniedEvent>.broadcast();
+      _serverDisconnectController =
+          StreamController<ServerDisconnectEvent>.broadcast();
+      _chatMessageController = StreamController<ChatMessage>.broadcast();
+      _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
+      _chatModeController = StreamController<ChatModeEvent>.broadcast();
+
+      // 1. Start Local TCP Server
+      _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      _port = _serverSocket!.port;
+
+      _serverSocket!.listen((client) {
+        _pendingClients.add(client);
+
+        client.done
+            .then((_) {
+              _pendingClients.remove(client);
+              _activeClients.remove(client);
+            })
+            .catchError((_) {
+              _pendingClients.remove(client);
+              _activeClients.remove(client);
+              client.destroy();
+            });
+      });
+
+      // 2. Parse server string and build WebSocket URL
+      final wsUrl = _parseServerUrl(server);
+
+      // 3. Connect to WebSocket
       _wsChannel = WebSocketChannel.connect(wsUrl);
       await _wsChannel!.ready.timeout(connectTimeout);
 
@@ -184,7 +209,7 @@ class StreamProxy {
 
       // 3. Listen for messages (including AUTH_RESPONSE)
       String? serverSalt;
-      _wsChannel!.stream.listen(
+      _wsSubscription = _wsChannel!.stream.listen(
         (message) {
           _lastServerMessageTime = DateTime.now();
           if (message is List<int>) {
@@ -248,6 +273,7 @@ class StreamProxy {
               } else if (data['type'] == 'AUTH_OK') {
                 _authenticated = true;
                 _startHeartbeatTimer();
+                _notifyConnectionRestored();
                 if (!authCompleter.isCompleted) {
                   authCompleter.complete();
                 }
@@ -256,6 +282,7 @@ class StreamProxy {
                 if (success) {
                   _authenticated = true;
                   _startHeartbeatTimer();
+                  _notifyConnectionRestored();
                   if (!authCompleter.isCompleted) {
                     authCompleter.complete();
                   }
@@ -293,11 +320,7 @@ class StreamProxy {
               } else if (data['type'] == 'CHAT_MESSAGE') {
                 _chatMessageController?.add(ChatMessage.fromJson(data));
               } else if (data['type'] == 'CACHED_CHAT_MESSAGES') {
-                debugPrint('[Chat] Received CACHED_CHAT_MESSAGES');
                 final messagesList = data['messages'] as List<dynamic>?;
-                debugPrint(
-                  '[Chat] messagesList is null: ${messagesList == null}, length: ${messagesList?.length}',
-                );
                 final cachedMessages =
                     messagesList
                         ?.map(
@@ -306,20 +329,9 @@ class StreamProxy {
                         )
                         .toList() ??
                     <ChatMessage>[];
-                debugPrint(
-                  '[Chat] Parsed ${cachedMessages.length} cached messages',
-                );
-                debugPrint(
-                  '[Chat] _chatSubscribeCompleter is null: ${_chatSubscribeCompleter == null}, isCompleted: ${_chatSubscribeCompleter?.isCompleted}',
-                );
                 if (_chatSubscribeCompleter != null &&
                     !_chatSubscribeCompleter!.isCompleted) {
                   _chatSubscribeCompleter!.complete(cachedMessages);
-                  debugPrint('[Chat] Completer completed with cached messages');
-                } else {
-                  debugPrint(
-                    '[Chat] WARNING: completer was null or already completed!',
-                  );
                 }
               } else if (data['type'] == 'CHAT_DENIED') {
                 _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
@@ -346,15 +358,16 @@ class StreamProxy {
               }
               if (data['type'] == 'HEARTBEAT_ACK') {
                 _waitingForHeartbeatAck = false;
+                _heartbeatSentTime = null;
               }
             } catch (e, st) {
-              debugPrint('[Chat] Exception parsing message: $e');
-              debugPrint('[Chat] Stack trace: $st');
+              // Ignore parsing errors
             }
           }
         },
         onError: (e, st) {
           _stopHeartbeatTimer();
+          _wsSubscription = null;
           _wsChannel = null;
           _authenticated = false;
           if (_timedNotificationController != null &&
@@ -372,6 +385,7 @@ class StreamProxy {
         },
         onDone: () {
           _stopHeartbeatTimer();
+          _wsSubscription = null;
           _wsChannel = null;
           _authenticated = false;
           if (_timedNotificationController != null &&
@@ -390,9 +404,14 @@ class StreamProxy {
       );
 
       await authCompleter.future.timeout(authTimeout);
+      _startCompleter?.complete();
     } catch (e) {
       await stop();
+      _startCompleter?.completeError(e);
       rethrow;
+    } finally {
+      _starting = false;
+      _startCompleter = null;
     }
   }
 
@@ -446,27 +465,37 @@ class StreamProxy {
     trySendCommand({'type': 'REQUEST_KEYFRAME'});
   }
 
+  void _notifyConnectionRestored() {
+    if (!_connectionRestoredController.isClosed) {
+      _connectionRestoredController.add(null);
+    }
+  }
+
   void _startHeartbeatTimer() {
     _heartbeatTimer?.cancel();
     _lastServerMessageTime = DateTime.now();
+    _heartbeatSentTime = null;
     _waitingForHeartbeatAck = false;
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_authenticated) return;
       final now = DateTime.now();
       final lastMessageAge = now.difference(_lastServerMessageTime ?? now);
-      if (lastMessageAge.inSeconds >= 10) {
-        if (_waitingForHeartbeatAck) {
-          debugPrint(
-            '[Heartbeat] No HEARTBEAT_ACK received, closing connection',
-          );
+
+      if (_waitingForHeartbeatAck && _heartbeatSentTime != null) {
+        final heartbeatAge = now.difference(_heartbeatSentTime!);
+        if (heartbeatAge.inSeconds >= 2) {
           _waitingForHeartbeatAck = false;
-          _connectionLostController?.add(null);
+          _heartbeatSentTime = null;
+          _connectionLostController.add(null);
           _wsChannel?.sink.close(status.normalClosure);
           return;
         }
-        debugPrint('[Heartbeat] Sending HEARTBEAT');
+      }
+
+      if (lastMessageAge.inSeconds >= 3 && !_waitingForHeartbeatAck) {
         trySendCommand({'type': 'HEARTBEAT'});
         _waitingForHeartbeatAck = true;
+        _heartbeatSentTime = now;
       }
     });
   }
@@ -475,6 +504,7 @@ class StreamProxy {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _waitingForHeartbeatAck = false;
+    _heartbeatSentTime = null;
   }
 
   bool trySendChatMessage(String message) {
@@ -527,6 +557,8 @@ class StreamProxy {
 
   Future<void> stop() async {
     _stopHeartbeatTimer();
+    await _wsSubscription?.cancel();
+    _wsSubscription = null;
     final ws = _wsChannel;
     if (ws != null) {
       try {
@@ -570,8 +602,7 @@ class StreamProxy {
     _chatDeniedController = null;
     await _chatModeController?.close();
     _chatModeController = null;
-    await _connectionLostController?.close();
-    _connectionLostController = null;
+    // Note: _connectionLostController and _connectionRestoredController persist
 
     for (final client in _activeClients) {
       client.destroy();

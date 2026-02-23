@@ -1,6 +1,5 @@
 package com.chenweikeng.monkeycraft.server;
 
-import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.mixin.NativeImageAccessor;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.nio.ByteBuffer;
@@ -72,7 +71,6 @@ public class H264Streamer {
 
     executor.submit(
         () -> {
-          long start = System.currentTimeMillis();
           try {
             if (needsIdr) {
               encoder = createEncoder();
@@ -81,7 +79,6 @@ public class H264Streamer {
 
             // Direct pixel access
             convertNativeImageToYuv(image, picture);
-            long convEnd = System.currentTimeMillis();
             try {
               image.close();
             } catch (Exception ignored) {
@@ -89,7 +86,6 @@ public class H264Streamer {
 
             // 2. Encode frame
             ByteBuffer encoded = encodeFrame(picture);
-            long encodeEnd = System.currentTimeMillis();
             int size = encoded.remaining();
 
             // 3. Send raw NAL units
@@ -99,26 +95,6 @@ public class H264Streamer {
               conn.send(data);
               pendingFrames.incrementAndGet();
             }
-            long sendEnd = System.currentTimeMillis();
-
-            // Log stats (debug level) every 60 seconds
-            if (sendEnd - lastLogTime >= 60000) {
-              lastLogTime = sendEnd;
-              long usedMb =
-                  (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())
-                      / (1024 * 1024);
-              MonkeycraftClient.LOGGER.info(
-                  "Frame Stats - Conv: {}ms, Enc: {}ms, Send: {}ms, Size: {} bytes, Pending: {}, DroppedBP: {}, DroppedBusy: {}, HeapUsedMB: {}",
-                  (convEnd - start),
-                  (encodeEnd - convEnd),
-                  (sendEnd - encodeEnd),
-                  size,
-                  pendingFrames.get(),
-                  droppedBackpressure.getAndSet(0),
-                  droppedBusy.getAndSet(0),
-                  usedMb);
-            }
-
           } catch (Exception e) {
             e.printStackTrace();
             needsIdr = true;

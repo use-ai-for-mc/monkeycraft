@@ -442,19 +442,24 @@ class _StreamScreenState extends State<StreamScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('[StreamScreen] App lifecycle changed: $state');
     if (state == AppLifecycleState.resumed) {
+      debugPrint(
+        '[StreamScreen] App resumed, foreground=$_foreground, reconnecting=$_reconnecting',
+      );
       _foreground = true;
       _resumeIfNeeded();
-      // Check immediately when app resumes (in case notification fired while in background)
       _checkNotificationTime();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
+      debugPrint('[StreamScreen] App inactive/paused, stopping streaming');
       _foreground = false;
       _pauseStreaming();
     }
   }
 
   Future<void> _pauseStreaming() async {
+    debugPrint('[StreamScreen] _pauseStreaming called, closing=$_closing');
     if (_closing) return;
     _input.releaseAll();
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
@@ -476,15 +481,27 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _resumeIfNeeded() async {
+    debugPrint(
+      '[StreamScreen] _resumeIfNeeded called, closing=$_closing, reconnecting=$_reconnecting',
+    );
     if (_closing || _reconnecting) return;
     if (!mounted) return;
     final server = _server;
     final password = _password;
-    if (server == null || password == null) return;
+    if (server == null || password == null) {
+      debugPrint(
+        '[StreamScreen] Cannot resume: server=$server, password=${password != null ? "set" : "null"}',
+      );
+      return;
+    }
 
     _reconnecting = true;
+    debugPrint('[StreamScreen] Starting reconnection to $server');
     try {
       await widget.proxy.start(server, password);
+      debugPrint(
+        '[StreamScreen] proxy.start() completed, isConnected=${widget.proxy.isConnected}',
+      );
       widget.proxy.sendPing();
       _attachProxyStreams();
       if (_supportedPlatform) {
@@ -495,7 +512,10 @@ class _StreamScreenState extends State<StreamScreen>
       if (!_hibernating) {
         await _restartStream();
       }
-    } catch (_) {
+      debugPrint('[StreamScreen] Reconnection complete');
+    } catch (e, st) {
+      debugPrint('[StreamScreen] Reconnection failed: $e');
+      debugPrint('[StreamScreen] Stack trace: $st');
     } finally {
       _reconnecting = false;
     }
