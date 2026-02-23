@@ -185,7 +185,7 @@ class _StreamScreenState extends State<StreamScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(text, textAlign: TextAlign.center),
+        content: Text(text, style: const TextStyle(fontSize: 12)),
         duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
       ),
@@ -266,13 +266,17 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openChatScreenAuto() async {
+    if (_chatScreenOpen) return;
+    _chatScreenOpen = true;
     _input.releaseAll();
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
-    if (!mounted) return;
-    _chatScreenOpen = true;
+    if (!mounted) {
+      _chatScreenOpen = false;
+      return;
+    }
     await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -316,13 +320,17 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openChatScreen() async {
+    if (_chatScreenOpen) return;
+    _chatScreenOpen = true;
     _input.releaseAll();
     widget.proxy.sendCommand({'type': 'STOP_STREAM'});
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
-    if (!mounted) return;
-    _chatScreenOpen = true;
+    if (!mounted) {
+      _chatScreenOpen = false;
+      return;
+    }
     await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
@@ -395,7 +403,10 @@ class _StreamScreenState extends State<StreamScreen>
     if (!mounted || _chatScreenOpen) return;
     final text = body.isEmpty ? title : '$title\n$body';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text), duration: const Duration(seconds: 2)),
+      SnackBar(
+        content: Text(text, style: const TextStyle(fontSize: 12)),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 

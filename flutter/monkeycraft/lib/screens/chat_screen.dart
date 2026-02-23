@@ -271,6 +271,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   StreamSubscription<TimedNotification>? _timedSubscription;
   StreamSubscription<ImmediateNotification>? _immediateSubscription;
   StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSubscription;
+  StreamSubscription<void>? _connectionLostSubscription;
   bool _loading = true;
   bool _reconnecting = false;
   String? _server;
@@ -300,6 +301,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _serverDisconnectSubscription = widget.proxy.serverDisconnectEvents.listen(
       _onServerDisconnect,
     );
+    _connectionLostSubscription = widget.proxy.connectionLostEvents.listen(
+      (_) => _onConnectionLost(),
+    );
     _loadReconnectCredentials();
     _loadCachedMessages();
   }
@@ -318,7 +322,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _messages.addAll(cachedMessages);
       _loading = false;
     });
-    _scrollToBottom(immediate: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom(immediate: true);
+      });
+    });
   }
 
   void _onChatMessage(ChatMessage message) {
@@ -387,6 +395,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  void _onConnectionLost() {
+    if (!mounted) return;
+    _reconnect();
+  }
+
   void _scrollToBottom({bool immediate = false}) {
     if (_scrollController.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -414,6 +427,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _nudgeSubscription?.cancel();
     _immediateSubscription?.cancel();
     _serverDisconnectSubscription?.cancel();
+    _connectionLostSubscription?.cancel();
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
@@ -424,25 +438,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _resumeIfNeeded();
+      _reconnect();
     }
   }
 
-  Future<void> _resumeIfNeeded() async {
+  Future<void> _reconnect() async {
     if (_reconnecting || !mounted) return;
     final server = _server;
     final password = _password;
     if (server == null || password == null) return;
 
-    if (!widget.proxy.isConnected) {
-      _reconnecting = true;
-      try {
-        await widget.proxy.start(server, password);
-        widget.proxy.sendPing();
-      } catch (_) {
-      } finally {
-        _reconnecting = false;
-      }
+    _reconnecting = true;
+    try {
+      await widget.proxy.start(server, password);
+      widget.proxy.sendPing();
+    } catch (_) {
+    } finally {
+      _reconnecting = false;
     }
 
     if (mounted && widget.proxy.isConnected) {
@@ -512,8 +524,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_hibernating &&
         !_hibernationBannerDismissed &&
         _hibernationMessage.isNotEmpty) {
-      final lines = _hibernationMessage.split('\n');
-      bannerText = lines.isNotEmpty ? lines.last : _hibernationMessage;
+      bannerText = _hibernationMessage;
       backgroundColor = const Color(0xFF2E7D32);
       textColor = Colors.white;
       onDismiss = _dismissHibernationBanner;
