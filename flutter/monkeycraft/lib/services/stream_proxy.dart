@@ -32,6 +32,7 @@ class StreamProxy {
   StreamController<ChatMessage>? _chatMessageController;
   StreamController<ChatDeniedEvent>? _chatDeniedController;
   StreamController<ChatModeEvent>? _chatModeController;
+  StreamController<DateTime>? _nonVideoPacketController;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
   int _fps = 20;
   int _frameIndex = 0;
@@ -71,6 +72,8 @@ class StreamProxy {
       _chatDeniedController?.stream ?? const Stream.empty();
   Stream<ChatModeEvent> get chatModeEvents =>
       _chatModeController?.stream ?? const Stream.empty();
+  Stream<DateTime> get nonVideoPackets =>
+      _nonVideoPacketController?.stream ?? const Stream.empty();
   Stream<void> get connectionLostEvents => _connectionLostController.stream;
   Stream<void> get connectionRestoredEvents =>
       _connectionRestoredController.stream;
@@ -174,7 +177,7 @@ class StreamProxy {
       _chatMessageController = StreamController<ChatMessage>.broadcast();
       _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
       _chatModeController = StreamController<ChatModeEvent>.broadcast();
-
+      _nonVideoPacketController = StreamController<DateTime>.broadcast();
       // 1. Start Local TCP Server
       _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       _port = _serverSocket!.port;
@@ -251,6 +254,7 @@ class StreamProxy {
             }
           } else {
             // Text Message
+            _nonVideoPacketController?.add(DateTime.now());
             try {
               final data = jsonDecode(message);
               if (data['type'] == 'HELLO') {
@@ -602,6 +606,8 @@ class StreamProxy {
     _chatDeniedController = null;
     await _chatModeController?.close();
     _chatModeController = null;
+    await _nonVideoPacketController?.close();
+    _nonVideoPacketController = null;
     // Note: _connectionLostController and _connectionRestoredController persist
 
     for (final client in _activeClients) {

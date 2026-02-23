@@ -47,6 +47,7 @@ class _StreamScreenState extends State<StreamScreen>
   StreamSubscription<TimedNotification>? _timedSub;
   StreamSubscription<NudgeNotification>? _nudgeSub;
   StreamSubscription<HibernationEvent>? _hibernationSub;
+  StreamSubscription<DateTime>? _nonVideoPacketSub;
   StreamSubscription<CommandDeniedEvent>? _commandDeniedSub;
   StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSub;
   int? _textureId;
@@ -61,6 +62,9 @@ class _StreamScreenState extends State<StreamScreen>
   bool _hibernating = false;
   String _hibernationMessage = '';
   bool _hibernationAutoSwitchDone = false;
+  DateTime? _lastFrameTime;
+  DateTime? _lastNonVideoPacketTime;
+  bool _waitingForStream = false;
   bool _autoNavigatedToChat = false;
   bool _chatScreenOpen = false;
   String? _server;
@@ -96,6 +100,7 @@ class _StreamScreenState extends State<StreamScreen>
     // Start notification checker timer (runs every second)
     _notificationCheckTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _checkNotificationTime();
+      _checkWaitingForStream();
     });
 
     if (_supportedPlatform) {
@@ -128,6 +133,10 @@ class _StreamScreenState extends State<StreamScreen>
     _serverDisconnectSub = widget.proxy.serverDisconnectEvents.listen(
       _handleServerDisconnect,
     );
+    _nonVideoPacketSub?.cancel();
+    _nonVideoPacketSub = widget.proxy.nonVideoPackets.listen((time) {
+      _lastNonVideoPacketTime = time;
+    });
   }
 
   void _handleTimedNotification(TimedNotification notification) {
@@ -165,6 +174,31 @@ class _StreamScreenState extends State<StreamScreen>
       _showNotificationNow(pending);
       _pendingNotification = null; // Clear pending notification
       _liveActivityService.cancel(); // Dismiss live activity when timer fires
+    }
+  }
+
+  void _checkWaitingForStream() {
+    if (!_foreground || _hibernating || _chatScreenOpen) {
+      if (_waitingForStream) {
+        setState(() => _waitingForStream = false);
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastFrame = _lastFrameTime;
+    final lastNonVideo = _lastNonVideoPacketTime;
+
+    if (lastFrame == null) return;
+
+    final frameAge = now.difference(lastFrame);
+    final shouldWait =
+        frameAge.inSeconds >= 3 &&
+        lastNonVideo != null &&
+        now.difference(lastNonVideo).inSeconds < 3;
+
+    if (shouldWait != _waitingForStream) {
+      setState(() => _waitingForStream = shouldWait);
     }
   }
 
@@ -251,6 +285,8 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _exitHibernation() async {
     if (!_hibernating) return;
     _hibernationAutoSwitchDone = false;
+    _waitingForStream = false;
+    _lastFrameTime = null;
     if (mounted) {
       setState(() => _hibernating = false);
     }
@@ -419,6 +455,7 @@ class _StreamScreenState extends State<StreamScreen>
     }
     _accessUnitSub = widget.proxy.accessUnits.listen((data) {
       _decoder?.pushAccessUnit(data);
+      _lastFrameTime = DateTime.now();
     });
   }
 
@@ -430,6 +467,7 @@ class _StreamScreenState extends State<StreamScreen>
     _timedSub?.cancel();
     _nudgeSub?.cancel();
     _hibernationSub?.cancel();
+    _nonVideoPacketSub?.cancel();
     _commandDeniedSub?.cancel();
     _serverDisconnectSub?.cancel();
     _notificationCheckTimer?.cancel();
@@ -948,7 +986,7 @@ class _StreamScreenState extends State<StreamScreen>
 
         final shouldSend = _lastIsPortrait != isPortrait;
         _lastIsPortrait = isPortrait;
-        if (shouldSend && !_hibernating) {
+        if (shouldSend && !_hibernating && !_waitingForStream) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _restartStream();
           });
@@ -1001,7 +1039,37 @@ class _StreamScreenState extends State<StreamScreen>
                     ),
                   ),
                 ),
-              if (showTouchControls && !_hibernating)
+              if (_waitingForStream && !_hibernating)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.black54,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.bedtime,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Waiting for video stream...',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (showTouchControls && !_hibernating && !_waitingForStream)
                 LookPad(
                   excludedRegions: [
                     ...safeAreaExclusions,
@@ -1029,7 +1097,7 @@ class _StreamScreenState extends State<StreamScreen>
                     widget.proxy.sendCommand({'type': 'CLICK', 'button': 1});
                   },
                 ),
-              if (showTouchControls && !_hibernating)
+              if (showTouchControls && !_hibernating && !_waitingForStream)
                 Positioned(
                   top: topBarY,
                   left: pad.left + 20,
@@ -1041,7 +1109,10 @@ class _StreamScreenState extends State<StreamScreen>
                     },
                   ),
                 ),
-              if (showTouchControls && _hotbarExpanded && !_hibernating)
+              if (showTouchControls &&
+                  _hotbarExpanded &&
+                  !_hibernating &&
+                  !_waitingForStream)
                 Positioned(
                   top: topBarY + hotbarToggleSize + 8,
                   left: pad.left + 20,
@@ -1117,7 +1188,7 @@ class _StreamScreenState extends State<StreamScreen>
                   onPressed: _openChatScreen,
                 ),
               ),
-              if (showTouchControls && !_hibernating)
+              if (showTouchControls && !_hibernating && !_waitingForStream)
                 SafeArea(
                   child: Stack(
                     children: [

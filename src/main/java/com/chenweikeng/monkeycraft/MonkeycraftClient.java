@@ -34,6 +34,8 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static volatile boolean automaticallyReleasedCursor = false;
   public static volatile int pendingMouseReleaseTicks = 0;
   public static volatile int pendingMouseButton = 0;
+  private int rightPressHoldTicks = 0;
+  private static final int RELEASE_MOUSE_HOLD_TICKS = 8;
   private long lastCaptureTime = 0;
 
   @Override
@@ -84,7 +86,13 @@ public class MonkeycraftClient implements ClientModInitializer {
           if (connectedNow
               && client.mouseHandler.isRightPressed()
               && client.mouseHandler.isMouseGrabbed()) {
-            client.mouseHandler.releaseMouse();
+            rightPressHoldTicks++;
+            if (rightPressHoldTicks >= RELEASE_MOUSE_HOLD_TICKS) {
+              client.mouseHandler.releaseMouse();
+              rightPressHoldTicks = 0;
+            }
+          } else {
+            rightPressHoldTicks = 0;
           }
 
           if (WebSocketServerHandler.getInstance().isStreaming()
@@ -265,17 +273,15 @@ public class MonkeycraftClient implements ClientModInitializer {
       }
     }
     sendMonkeyMessage(
-        Component.literal("For remote connection, use ")
+        Component.literal("For remote connection, please refer to ")
             .append(
-                Component.literal("ngrok")
+                Component.literal("this wiki page")
                     .withStyle(
                         Style.EMPTY
                             .withColor(ChatFormatting.BLUE)
                             .withBold(true)
                             .withClickEvent(
-                                new ClickEvent.OpenUrl(java.net.URI.create("https://ngrok.com/")))))
-            .append(Component.literal(" with").withStyle(Style.EMPTY))
-            .append(Component.literal(" ngrok http " + port).withStyle(ChatFormatting.GRAY)));
+                                new ClickEvent.OpenUrl(java.net.URI.create("https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections"))))));
   }
 
   public static void stopServer() {
