@@ -15,17 +15,20 @@ flutter/monkeycraft/lib/
 │   └── stream_settings_screen.dart  # Stream quality settings
 ├── services/                    # Business logic & communication
 │   ├── stream_proxy.dart        # WebSocket communication hub
+│   ├── session_controller.dart  # Session state management
 │   ├── game_input_controller.dart  # Movement/input state machine
 │   ├── hardware_h264_decoder.dart  # Native video decoder bridge
 │   ├── stream_settings.dart     # Settings persistence
 │   ├── stream_resolution.dart   # Resolution calculation
 │   ├── look_delta_coalescer.dart   # Look input batching
+│   ├── protocol_models.dart     # Protocol types (ClientMode, VideoState)
 │   ├── chat_models.dart         # Chat message types
 │   ├── notification_models.dart # Notification types
 │   ├── hibernation_models.dart  # Hibernation state types
 │   ├── timed_notification_service.dart
 │   ├── timed_notification_coordinator.dart
-│   └── ios_timed_notification_scheduler.dart
+│   ├── ios_timed_notification_scheduler.dart
+│   └── live_activity_service.dart   # iOS Live Activity
 └── widgets/                     # Reusable UI components
     ├── virtual_joystick.dart    # Movement joystick
     ├── look_pad.dart            # Camera look control
@@ -60,7 +63,7 @@ The main gameplay screen. Responsibilities:
 **Key state:**
 - `_decoder`: Hardware H.264 video decoder
 - `_input`: Game input controller
-- `_hibernating`: Hibernation state
+- `_sessionController`: Session state controller
 - `_textureId`: Native texture ID for video display
 
 ### ChatScreen (`screens/chat_screen.dart`)
@@ -69,6 +72,7 @@ Dedicated chat interface:
 - Sends chat messages (non-commands)
 - Handles chat denied events
 - Auto-scrolls to latest messages
+- Rich text rendering with click/hover events
 
 ### QrScanScreen (`screens/qr_scan_screen.dart`)
 Simple QR scanner using `mobile_scanner` package to capture password from Minecraft mod's QR display.
@@ -78,6 +82,7 @@ Configuration UI for:
 - Resolution preset (Low/Medium/High)
 - Color mode (Normal/High Perf/Retro/Grayscale)
 - FPS (1-20)
+- Auto-switch to chat during hibernation
 
 ---
 
@@ -105,6 +110,7 @@ Central communication hub between Flutter app and Minecraft mod.
 | Client→Server | `ENTER_CHAT` / `EXIT_CHAT` | Chat mode toggle |
 | Client→Server | `HIBERNATION_PING` | Keep-alive during hibernation |
 | Client→Server | `REQUEST_KEYFRAME` | Request I-frame |
+| Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps |
 | Server→Client | `TIMED` | Scheduled notification |
 | Server→Client | `NUDGE` | Immediate notification |
 | Server→Client | `HIBERNATION_START/END/STATUS/MESSAGE` | Hibernation events |
@@ -112,10 +118,32 @@ Central communication hub between Flutter app and Minecraft mod.
 | Server→Client | `DISCONNECT` | Server-initiated disconnect |
 | Server→Client | `CHAT_MESSAGE` | Incoming chat |
 | Server→Client | `CHAT_DENIED` | Outgoing chat blocked |
+| Server→Client | `SERVER_STATUS` | Server state broadcast |
+| Server→Client | `HEARTBEAT` | Server heartbeat |
+| Client→Server | `HEARTBEAT_ACK` | Heartbeat acknowledgment |
 
 **Internal MPEG-TS Muxer:**
 - Converts H.264 access units to MPEG-TS packets
 - Used for local TCP server that feeds native video decoder
+
+### SessionController (`services/session_controller.dart`)
+State machine managing the streaming session.
+
+**SessionState:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | `ClientMode` | `streaming` or `chat` |
+| `videoState` | `VideoState` | `active` or `hibernating` |
+| `connected` | bool | WebSocket connection status |
+| `foreground` | bool | App in foreground |
+| `waitingForStream` | bool | Waiting for video frames |
+| `timedNotification` | `TimedNotification?` | Active timed notification |
+
+**Key Logic:**
+- Frame time tracking for "waiting for stream" detection
+- Heartbeat monitoring for connection health
+- Automatic stream restart on resolution change
+- Hibernation state transitions
 
 ### GameInputController (`services/game_input_controller.dart`)
 State machine for movement input:
@@ -134,11 +162,55 @@ Platform channel bridge to native video decoder:
 Uses Flutter Texture widget to display decoded video.
 
 ### StreamSettings & StreamSettingsStore (`services/stream_settings.dart`)
-- `StreamSettings`: Data class for fps, colorMode, resolutionPreset
+- `StreamSettings`: Data class for fps, colorMode, resolutionPreset, autoSwitchRideChat
 - `StreamSettingsStore`: Persistence via SharedPreferences
 
 ### LookDeltaCoalescer (`services/look_delta_coalescer.dart`)
 Batches look delta events to reduce network overhead while maintaining responsiveness.
+
+---
+
+## Data Models
+
+### Protocol Models (`services/protocol_models.dart`)
+
+```dart
+enum ClientMode { streaming, chat }
+enum VideoState { active, hibernating }
+
+class ServerStatus {
+  final VideoState videoState;
+  final String? message;
+  final int? timedFireAtEpochMs;
+  final String? timedTitle;
+  final String? timedBody;
+  final bool timedSound;
+  final String? timedCountDownText;
+}
+```
+
+### ChatMessage (`services/chat_models.dart`)
+```dart
+class ChatMessage {
+  final String sender;
+  final String? senderUuid;
+  final String message;
+  final int timestamp;
+  final bool isOutgoing;
+  final List<ChatSegment> segments; // Rich text segments
+}
+```
+
+### HibernationEvent (`services/hibernation_models.dart`)
+Sealed class hierarchy:
+- `HibernationStart(message)` - Enter hibernation
+- `HibernationEnd` - Exit hibernation
+- `HibernationStatus(active, message)` - Status poll response
+- `HibernationMessage(message)` - Update display message
+
+### Notification Models (`services/notification_models.dart`)
+- `TimedNotification`: Scheduled at specific epoch timestamp with countdown text
+- `NudgeNotification`: Immediate notification
 
 ---
 
@@ -168,37 +240,15 @@ Simple press/release buttons with visual feedback.
 
 ---
 
-## Data Models
-
-### ChatMessage (`services/chat_models.dart`)
-```dart
-class ChatMessage {
-  final String sender;
-  final String? senderUuid;
-  final String message;
-  final int timestamp;
-  final bool isOutgoing;
-}
-```
-
-### HibernationEvent (`services/hibernation_models.dart`)
-Sealed class hierarchy:
-- `HibernationStart(message)` - Enter hibernation
-- `HibernationEnd` - Exit hibernation
-- `HibernationStatus(active, message)` - Status poll response
-- `HibernationMessage(message)` - Update display message
-
-### Notification Models (`services/notification_models.dart`)
-- `TimedNotification`: Scheduled at specific epoch timestamp
-- `NudgeNotification`: Immediate notification
-
----
-
 ## Platform-Specific Notes
 
 ### iOS
 - Uses VideoToolbox for hardware H.264 decoding
 - Native plugin in `ios/Runner/` handles decoder lifecycle
+- **Live Activity**: Shows countdown timer on lock screen via `LiveActivityService`
+  - Uses `live_activities` package
+  - App Group: `group.com.chenweikeng.monkeycraft`
+  - Activity ID: `timed_countdown`
 
 ### Android
 - Uses MediaCodec for hardware H.264 decoding

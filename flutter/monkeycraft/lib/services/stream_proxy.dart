@@ -154,9 +154,7 @@ class StreamProxy {
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
   }) async {
-    debugPrint(
-      '[StreamProxy] start() called with server=$server, starting=$_starting',
-    );
+    
 
     // If already starting, wait for the existing operation to complete
     if (_starting && _startCompleter != null) {
@@ -372,14 +370,10 @@ class StreamProxy {
                 // Parse SERVER_STATUS
                 if (data['type'] == 'SERVER_STATUS') {
                   final serverStatus = ServerStatus.fromJson(data);
-                  debugPrint(
-                    '[StreamProxy] SERVER_STATUS received: videoState=${serverStatus.videoState}, message="${serverStatus.message}"',
-                  );
+                  
                   _lastVideoStateEventTime = DateTime.now();
                   _videoState = serverStatus.videoState;
-                  debugPrint(
-                    '[StreamProxy] Video state: $_videoState, emitting to controller',
-                  );
+                  
                   _serverStatusController?.add(serverStatus);
                 }
               }
@@ -490,7 +484,7 @@ class StreamProxy {
       if (colorMode != null) cmd['colorMode'] = colorMode;
       if (fps != null) cmd['fps'] = fps;
     }
-    debugPrint('[StreamProxy] Sending CLIENT_STATUS: $cmd');
+    
     return trySendCommand(cmd);
   }
 
@@ -572,26 +566,18 @@ class StreamProxy {
   Future<List<ChatMessage>> subscribeToChat({
     Duration timeout = const Duration(seconds: 5),
   }) async {
-    debugPrint(
-      '[Chat] subscribeToChat called, authenticated=$_authenticated, wsChannel=${_wsChannel != null}',
-    );
+    
     if (!_authenticated || _wsChannel == null) {
-      debugPrint(
-        '[Chat] subscribeToChat: not authenticated or no ws channel, returning empty',
-      );
+      
       return <ChatMessage>[];
     }
     _chatSubscribeCompleter = Completer<List<ChatMessage>>();
-    debugPrint(
-      '[Chat] subscribeToChat: completer created, sending SUBSCRIBE_CHAT',
-    );
+    
     trySendCommand({'type': 'SUBSCRIBE_CHAT'});
     return _chatSubscribeCompleter!.future.timeout(
       timeout,
       onTimeout: () {
-        debugPrint(
-          '[Chat] subscribeToChat: TIMEOUT waiting for CACHED_CHAT_MESSAGES',
-        );
+        
         _chatSubscribeCompleter = null;
         return <ChatMessage>[];
       },

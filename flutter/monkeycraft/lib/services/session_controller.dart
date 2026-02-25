@@ -161,17 +161,17 @@ class SessionController extends ChangeNotifier {
   void initialize() {
     _attachToProxy();
     _updateState(_state.copyWith(connected: proxy.isConnected));
-    debugPrint('[SessionController] Initialized, state=$_state');
+    
   }
 
   void _attachToProxy() {
     _serverStatusSub?.cancel();
     _serverStatusSub = proxy.serverStatusEvents.listen(_handleServerStatus);
-    debugPrint('[SessionController] Attached to proxy serverStatusEvents');
+    
   }
 
   void reattachToProxy() {
-    debugPrint('[SessionController] reattachToProxy called');
+    
     _attachToProxy();
   }
 
@@ -179,7 +179,7 @@ class SessionController extends ChangeNotifier {
     if (_state != newState) {
       final oldState = _state;
       _state = newState;
-      debugPrint('[SessionController] State changed: $oldState -> $newState');
+      
       notifyListeners();
       _stateController.add(newState);
     }
@@ -205,16 +205,12 @@ class SessionController extends ChangeNotifier {
   }
 
   void _handleServerStatus(ServerStatus status) {
-    debugPrint(
-      '[SessionController] ServerStatus: videoState=${status.videoState}, message=${status.message}',
-    );
+    
 
     // Reset frame time when exiting hibernation so we don't immediately show "waiting"
     if (_state.videoState == VideoState.hibernating &&
         status.videoState == VideoState.active) {
-      debugPrint(
-        '[SessionController] Exiting hibernation, resetting frame time',
-      );
+      
       _lastFrameTime = null;
       setWaitingForStream(false);
     }
@@ -234,7 +230,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void setMode(ClientMode mode, {StreamResolution? resolution}) {
-    debugPrint('[SessionController] setMode: $mode');
+    
     _updateState(_state.copyWith(mode: mode));
     proxy.sendClientStatus(
       mode,
@@ -246,7 +242,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void syncStatus({StreamResolution? resolution}) {
-    debugPrint('[SessionController] syncStatus: mode=${_state.mode}');
+    
     proxy.sendClientStatus(
       _state.mode,
       width: resolution?.width,
@@ -279,9 +275,7 @@ class SessionController extends ChangeNotifier {
         _state.videoState == VideoState.hibernating ||
         _state.mode == ClientMode.chat) {
       if (_state.waitingForStream) {
-        debugPrint(
-          '[SessionController] checkWaitingForStream: clearing wait (foreground=${_state.foreground}, videoState=${_state.videoState}, mode=${_state.mode})',
-        );
+        
         setWaitingForStream(false);
       }
       return;
@@ -305,9 +299,7 @@ class SessionController extends ChangeNotifier {
         frameAge >= 3 && (heartbeatAckAge == null || heartbeatAckAge < 10);
 
     if (shouldWait != _state.waitingForStream) {
-      debugPrint(
-        '[SessionController] checkWaitingForStream: changing to $shouldWait (frameAge=${frameAge}s, heartbeatAckAge=${heartbeatAckAge}s, lastFrame=$lastFrame)',
-      );
+      
       setWaitingForStream(shouldWait);
     }
   }
@@ -316,9 +308,7 @@ class SessionController extends ChangeNotifier {
     StreamResolution target, {
     Future<void> Function()? onDecoderNeeded,
   }) async {
-    debugPrint(
-      '[SessionController] restartStream: ${target.width}x${target.height}, restarting=$_restarting, mode=${_state.mode}',
-    );
+    
 
     if (_restarting) {
       _pendingResolution = target;
@@ -326,14 +316,12 @@ class SessionController extends ChangeNotifier {
     }
 
     if (_state.mode != ClientMode.streaming) {
-      debugPrint(
-        '[SessionController] restartStream: not in streaming mode, returning',
-      );
+      
       return;
     }
 
     if (_state.videoState == VideoState.hibernating) {
-      debugPrint('[SessionController] restartStream: hibernating, returning');
+      
       return;
     }
 
@@ -362,7 +350,7 @@ class SessionController extends ChangeNotifier {
       return;
     }
 
-    debugPrint('[SessionController] restartStream complete');
+    
     _restarting = false;
   }
 

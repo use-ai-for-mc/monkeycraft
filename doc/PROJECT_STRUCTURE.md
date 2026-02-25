@@ -1,18 +1,17 @@
 # Project Structure
 
 ## Overview
-This is a **Fabric Minecraft Mod** project (Monkeycraft/Remotecraft) that enables remote control of Minecraft through WebSocket.
+This is a **Fabric Minecraft Mod** project (Monkeycraft) that enables remote control of Minecraft through WebSocket.
 
 ## Directory Structure
 
 ```
-remotecraft-template-1.21.11/
+monkeycraft/
 ├── src/                          # Source code
 │   └── main/
 │       ├── java/                 # Java source files
 │       │   └── com/chenweikeng/monkeycraft/
 │       │       ├── MonkeycraftClient.java    # Main entry point
-│       │       ├── api/v1/                   # Public API
 │       │       ├── config/                   # Configuration
 │       │       ├── integration/              # ModMenu integration
 │       │       ├── mixin/                    # Mixin classes
@@ -32,8 +31,9 @@ remotecraft-template-1.21.11/
 ├── doc/                          # Documentation
 │
 ├── build.gradle                  # Gradle build config
-├── gradle.properties             # Project properties
+├── gradle.properties             # Project properties (version, deps)
 ├── settings.gradle               # Gradle settings
+├── build-and-deploy.sh           # Build & deploy to local Modrinth
 ├── HOW-TO-USE.md                 # Usage guide
 └── LICENSE                       # MIT License
 ```
@@ -43,9 +43,8 @@ remotecraft-template-1.21.11/
 ### Java Source (`src/main/java/`)
 | Package | Purpose |
 |---------|---------|
-| `api/v1/` | Public API for external integrations |
 | `config/` | Mod configuration & settings screen |
-| `server/` | WebSocket server, H264 streaming, chat handling |
+| `server/` | WebSocket server, H264 streaming, chat handling, API provider |
 | `mixin/` | Minecraft code mixins for injection |
 | `ui/` | UI overlays (e.g., QR code display) |
 | `utils/` | Crypto, network, image utilities |
@@ -58,10 +57,8 @@ remotecraft-template-1.21.11/
 ### Flutter App (`flutter/monkeycraft/`)
 Companion mobile app for remote Minecraft control.
 
-## Cleaned Up Items
-
-The following were removed/cleaned:
-- `bin/` - Eclipse IDE output folder (was incorrectly present; already in .gitignore)
+### External Dependencies
+- **monkeycraft-api** (`com.github.weikengchen:monkeycraft-api`) - Public API library for external mod integrations
 
 ## Build Commands
 
@@ -69,4 +66,11 @@ The following were removed/cleaned:
 ./gradlew build        # Build the mod
 ./gradlew jar          # Create JAR
 ./gradlew clean        # Clean build artifacts
+./gradlew spotlessApply # Format code
+```
+
+## Deployment
+
+```bash
+./build-and-deploy.sh  # Build and copy to local Modrinth profile
 ```

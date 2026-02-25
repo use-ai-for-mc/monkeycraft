@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${SCRIPT_DIR}"
 TARGET_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profiles/ImagineFun/mods/"
 
-JAR_NAME="monkeycraft-1.0.1.jar"
+JAR_NAME="monkeycraft-1.1.0.jar"
 SOURCE_JAR="${PROJECT_DIR}/build/libs/${JAR_NAME}"
 TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 

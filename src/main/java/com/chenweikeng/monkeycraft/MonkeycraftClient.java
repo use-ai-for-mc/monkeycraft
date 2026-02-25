@@ -337,13 +337,13 @@ public class MonkeycraftClient implements ClientModInitializer {
         prefix
             .copy()
             .append(clickableCommand("/monkey start"))
-            .append(Component.literal(" - Start server\n").withStyle(ChatFormatting.WHITE)),
+            .append(Component.literal(" - Start server").withStyle(ChatFormatting.WHITE)),
         false);
     mc.player.displayClientMessage(
         prefix
             .copy()
             .append(clickableCommand("/monkey stop"))
-            .append(Component.literal(" - Stop server\n").withStyle(ChatFormatting.WHITE)),
+            .append(Component.literal(" - Stop server").withStyle(ChatFormatting.WHITE)),
         false);
     mc.player.displayClientMessage(
         prefix

@@ -118,7 +118,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   void _attachProxyStreams() {
-    debugPrint('[StreamScreen] _attachProxyStreams');
+    
     _nudgeSub?.cancel();
     _nudgeSub = widget.proxy.nudges.listen(_handleNudge);
     _commandDeniedSub?.cancel();
@@ -136,7 +136,7 @@ class _StreamScreenState extends State<StreamScreen>
     });
     _connectionLostSub?.cancel();
     _connectionLostSub = widget.proxy.connectionLostEvents.listen((_) {
-      debugPrint('[StreamScreen] Connection lost event received');
+      
       _handleConnectionLost();
     });
   }
@@ -144,7 +144,7 @@ class _StreamScreenState extends State<StreamScreen>
   void _attachSessionState() {
     _sessionStateSub?.cancel();
     _sessionStateSub = _session.stateStream.listen((state) {
-      debugPrint('[StreamScreen] Session state changed: $state');
+      
       if (mounted) setState(() {});
 
       // Handle state transitions
@@ -178,9 +178,7 @@ class _StreamScreenState extends State<StreamScreen>
     required VideoState toVideoState,
     required String message,
   }) async {
-    debugPrint(
-      '[StreamScreen] State transition: mode $fromMode -> $toMode, videoState $fromVideoState -> $toVideoState',
-    );
+    
 
     // Entering hibernation while streaming
     if (toVideoState == VideoState.hibernating &&
@@ -198,25 +196,25 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _handleEnterHibernation(String message) async {
-    debugPrint('[StreamScreen] _handleEnterHibernation: "$message"');
+    
     _input.releaseAll();
     await _pauseVideoPipeline();
 
     if (_session.shouldAutoNavigateToChat && mounted) {
-      debugPrint('[StreamScreen] Auto-navigating to chat');
+      
       await _openChatScreenAuto();
     }
   }
 
   Future<void> _handleExitHibernation() async {
-    debugPrint('[StreamScreen] _handleExitHibernation');
+    
     if (!mounted) return;
     await _restartStream();
     _session.refreshVideo();
   }
 
   void _handleConnectionLost() {
-    debugPrint('[StreamScreen] _handleConnectionLost');
+    
     if (_closing || _reconnecting) return;
     _scheduleReconnectRetry();
   }
@@ -224,16 +222,12 @@ class _StreamScreenState extends State<StreamScreen>
   void _scheduleReconnectRetry() {
     _reconnectRetryTimer?.cancel();
     if (_reconnectRetryCount >= _maxReconnectRetries) {
-      debugPrint(
-        '[StreamScreen] Max reconnect retries reached, returning to login',
-      );
+      
       _closeScreenAndReturnToLogin();
       return;
     }
     final delay = Duration(seconds: 1 << _reconnectRetryCount);
-    debugPrint(
-      '[StreamScreen] Scheduling reconnect retry ${_reconnectRetryCount + 1}/$_maxReconnectRetries in ${delay.inSeconds}s',
-    );
+    
     _reconnectRetryTimer = Timer(delay, () {
       if (!_closing && !_reconnecting && mounted) {
         _resumeIfNeededWithRetry();
@@ -316,9 +310,7 @@ class _StreamScreenState extends State<StreamScreen>
     }
     final age = widget.proxy.timeSinceLastVideoStateEvent;
     if (age != null && age.inSeconds >= 5) {
-      debugPrint(
-        '[StreamScreen] Video state stale (${age.inSeconds}s), sending PING',
-      );
+      
       widget.proxy.sendPing();
     }
   }
@@ -362,11 +354,11 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _pauseVideoPipeline() async {
-    debugPrint('[StreamScreen] _pauseVideoPipeline: cancelling accessUnitSub');
+    
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
     await _session.disposeDecoder();
-    debugPrint('[StreamScreen] _pauseVideoPipeline: complete');
+    
   }
 
   void _syncClientStatus() {
@@ -375,7 +367,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openChatScreenAuto() async {
-    debugPrint('[StreamScreen] _openChatScreenAuto');
+    
     _session.setMode(ClientMode.chat);
     _input.releaseAll();
     await _accessUnitSub?.cancel();
@@ -409,7 +401,7 @@ class _StreamScreenState extends State<StreamScreen>
         },
       ),
     );
-    debugPrint('[StreamScreen] Chat screen closed (auto)');
+    
 
     if (!mounted) return;
     // Switch back to streaming mode
@@ -419,13 +411,13 @@ class _StreamScreenState extends State<StreamScreen>
     );
 
     if (_session.state.videoState == VideoState.active) {
-      debugPrint('[StreamScreen] Returning to streaming mode');
+      
       await _restartStream();
     }
   }
 
   Future<void> _openChatScreen() async {
-    debugPrint('[StreamScreen] _openChatScreen: entering chat mode');
+    
     _session.setMode(ClientMode.chat);
     _input.releaseAll();
     await _accessUnitSub?.cancel();
@@ -460,9 +452,7 @@ class _StreamScreenState extends State<StreamScreen>
       ),
     );
 
-    debugPrint(
-      '[StreamScreen] _openChatScreen: chat closed, returning to streaming',
-    );
+    
     if (!mounted) return;
     _session.setMode(
       ClientMode.streaming,
@@ -505,7 +495,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _initHardwareDecoder() async {
-    debugPrint('[StreamScreen] _initHardwareDecoder: fps=${_settings.fps}');
+    
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
@@ -514,14 +504,12 @@ class _StreamScreenState extends State<StreamScreen>
     _session.decoder = decoder;
     _session.textureId = textureId;
 
-    debugPrint(
-      '[StreamScreen] _initHardwareDecoder: creating accessUnit subscription',
-    );
+    
     _accessUnitSub = widget.proxy.accessUnits.listen((data) {
       _session.decoder?.pushAccessUnit(data);
       _session.updateFrameTime();
     });
-    debugPrint('[StreamScreen] Decoder ready, textureId=$textureId');
+    
   }
 
   @override
@@ -547,21 +535,21 @@ class _StreamScreenState extends State<StreamScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('[StreamScreen] App lifecycle: $state');
+    
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[StreamScreen] App resumed');
+      
       _session.setForeground(true);
       _resumeIfNeeded();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      debugPrint('[StreamScreen] App inactive/paused');
+      
       _session.setForeground(false);
       _pauseStreaming();
     }
   }
 
   Future<void> _pauseStreaming() async {
-    debugPrint('[StreamScreen] _pauseStreaming, closing=$_closing');
+    
     if (_closing) return;
     _input.releaseAll();
     _reconnectRetryTimer?.cancel();
@@ -576,9 +564,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _resumeIfNeeded() async {
-    debugPrint(
-      '[StreamScreen] _resumeIfNeeded, closing=$_closing, reconnecting=$_reconnecting',
-    );
+    
     if (_closing || _reconnecting) return;
     if (!mounted) return;
     final server = _server;
@@ -586,12 +572,10 @@ class _StreamScreenState extends State<StreamScreen>
     if (server == null || password == null) return;
 
     _reconnecting = true;
-    debugPrint('[StreamScreen] Reconnecting to $server');
+    
     try {
       await widget.proxy.start(server, password);
-      debugPrint(
-        '[StreamScreen] Connected, isConnected=${widget.proxy.isConnected}',
-      );
+      
       _session.updateConnectionState(widget.proxy.isConnected);
       _session.reattachToProxy();
       widget.proxy.sendPing();
@@ -608,9 +592,9 @@ class _StreamScreenState extends State<StreamScreen>
 
       _reconnectRetryCount = 0;
       _reconnectRetryTimer?.cancel();
-      debugPrint('[StreamScreen] Reconnection complete');
+      
     } catch (e, st) {
-      debugPrint('[StreamScreen] Reconnection failed: $e\n$st');
+      
     } finally {
       _reconnecting = false;
     }
@@ -684,18 +668,14 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _restartStream() async {
     final target = _currentTargetResolution();
     if (!_session.state.shouldStreamVideo) {
-      debugPrint(
-        '[StreamScreen] _restartStream: cannot restart (mode=${_session.state.mode}, videoState=${_session.state.videoState})',
-      );
+      
       return;
     }
     await _session.restartStream(target, onDecoderNeeded: _initHardwareDecoder);
 
     // Ensure subscription is set up even if decoder was reused
     if (_session.decoder != null && _accessUnitSub == null) {
-      debugPrint(
-        '[StreamScreen] _restartStream: recreating accessUnit subscription',
-      );
+      
       _accessUnitSub = widget.proxy.accessUnits.listen((data) {
         _session.decoder?.pushAccessUnit(data);
         _session.updateFrameTime();

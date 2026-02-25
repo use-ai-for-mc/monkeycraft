@@ -1,0 +1,52 @@
+name: release-flutter-apk
+
+on:
+  push:
+    tags:
+      - 'flutter-v*'
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to use for release (e.g. flutter-v1.0.0)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.0'
+          channel: 'stable'
+          cache: true
+
+      - name: install dependencies
+        working-directory: flutter/monkeycraft
+        run: flutter pub get
+
+      - name: build apk
+        working-directory: flutter/monkeycraft
+        run: flutter build apk --release
+
+      - name: rename apk
+        working-directory: flutter/monkeycraft
+        run: |
+          VERSION=$(cat pubspec.yaml | grep '^version:' | awk '{print $2}')
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/monkeycraft-$VERSION.apk
+
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: flutter/monkeycraft/build/app/outputs/flutter-apk/monkeycraft-*.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -7,30 +7,27 @@ The Monkeycraft mod (`src/main/java/`) is a client-side Fabric mod that enables 
 ```
 src/main/java/com/chenweikeng/monkeycraft/
 ├── MonkeycraftClient.java       # Mod entry point & initialization
-├── api/v1/                      # Public API for other mods
-│   ├── MonkeycraftApi.java      # API facade with events
-│   ├── MonkeycraftConnectedListener.java
-│   ├── MonkeycraftDisconnectedListener.java
-│   ├── MonkeycraftCommandExecutionListener.java
-│   ├── MonkeycraftChatListener.java
-│   ├── CommandExecutionResult.java
-│   ├── ChatMessageContext.java
-│   └── ChatMessageResult.java
 ├── server/                      # Core server functionality
 │   ├── WebSocketServerHandler.java  # WebSocket protocol handler
+│   ├── WebSocketApiProvider.java    # External API adapter
 │   ├── H264Streamer.java        # Video encoding pipeline
-│   └── ChatHandler.java         # Chat message routing
+│   ├── ChatHandler.java         # Chat message routing
+│   └── ChatSegment.java         # Rich text chat formatting
 ├── config/                      # Configuration
 │   ├── ModConfig.java           # Config model & persistence
-│   └── ConfigScreenFactory.java # Cloth Config UI
+│   ├── ConfigScreenFactory.java # Cloth Config UI
+│   └── AllowConnectionsFrom.java # Connection restriction enum
 ├── ui/                          # User interface
 │   └── PasswordQrOverlay.java   # In-game QR code display
 ├── integration/                 # Third-party integrations
 │   └── ModMenuIntegration.java  # ModMenu config screen
 ├── mixin/                       # Minecraft mixins
 │   ├── MinecraftMixin.java      # Block pause screen during streaming
+│   ├── KeyboardMixin.java       # Track local keypress timestamps
 │   ├── ClientPacketListenerMixin.java  # Chat interception
-│   └── NativeImageAccessor.java # Access pixel data
+│   ├── NativeImageAccessor.java # Access pixel data
+│   ├── GameRendererAccessor.java # Access GuiRenderer
+│   └── GuiRendererAccessor.java # Access frame number
 └── utils/                       # Utilities
     ├── CryptoUtils.java         # HMAC-SHA256 authentication
     ├── NetworkUtils.java        # Local IP detection
@@ -110,6 +107,15 @@ Singleton managing the WebSocket server lifecycle and protocol.
 - `startHibernation()` / `endHibernation()` / `setHibernationMessage()`
 - `disconnectClient()`
 
+### WebSocketApiProvider.java
+Adapter implementing the external `MonkeycraftApiProvider` interface from `monkeycraft-api`.
+
+Bridges the external API to `WebSocketServerHandler` methods:
+- `setTimedNotification()` / `cancelTimedNotification()`
+- `sendImmediateNotification()`
+- `startHibernation()` / `setHibernationMessage()` / `endHibernation()`
+- `isClientConnected()` / `isHibernating()`
+
 ### H264Streamer.java
 Video encoding pipeline using JCodec.
 
@@ -144,6 +150,15 @@ Routes chat messages between Minecraft and connected client.
 - Invokes `OUTGOING_CHAT` API listeners
 - Sends to Minecraft server via `player.connection.sendChat()`
 
+### ChatSegment.java
+Converts Minecraft `Component` to structured JSON segments for rich text display.
+
+**Features:**
+- Parses color, bold, italic, underline, strikethrough, obfuscated
+- Extracts click events (OPEN_URL, RUN_COMMAND, SUGGEST_COMMAND, COPY_TO_CLIPBOARD)
+- Extracts hover events (SHOW_TEXT)
+- Handles legacy formatting codes
+
 ---
 
 ## Configuration
@@ -158,6 +173,7 @@ Singleton config persisted to `config/monkeycraft.json`.
 | `autoLaunch` | boolean | `false` | Auto-start server on world join |
 | `port` | int | `9600` | WebSocket server port |
 | `password` | String | random | Authentication password (Base58) |
+| `allowConnectionsFrom` | enum | `ONLY_LOCAL_NETWORK` | Connection restriction |
 | `commandAllowlist` | List | `["*"]` | Allowed command patterns |
 | `commandDenylist` | List | `["op *", "deop *"]` | Denied command patterns |
 | `defaultBehavior` | String | `"ALLOW"` | Default if not in list |
@@ -167,6 +183,15 @@ Singleton config persisted to `config/monkeycraft.json`.
 - `"gamemode *"` matches commands starting with `gamemode`
 - `"home"` matches exact command
 
+### AllowConnectionsFrom.java
+Enum controlling which clients can connect:
+
+| Value | Description |
+|-------|-------------|
+| `ONLY_LOCALHOST` | Only 127.0.0.1 |
+| `ONLY_LOCAL_NETWORK` | Only LAN IPs (default) |
+| `ANYWHERE` | No restrictions |
+
 ### ConfigScreenFactory.java
 Creates Cloth Config UI for in-game configuration.
 
@@ -175,6 +200,7 @@ Creates Cloth Config UI for in-game configuration.
 - Auto-launch toggle
 - Port number field
 - Password text field
+- Allow connections from dropdown
 - Command allowlist (string list)
 - Command denylist (string list)
 - Default behavior dropdown
@@ -203,6 +229,12 @@ Prevents unwanted UI behavior during streaming.
 - `setScreen`: Blocks `PauseScreen` when cursor auto-released
 - `setWindowActive`: Prevents window inactive handling during streaming
 
+### KeyboardMixin.java
+Tracks local keyboard activity for idle detection.
+
+**Injections:**
+- `keyPress`: Records timestamp of last local keypress in `MonkeycraftClient.lastLocalKeyInputTime`
+
 ### ClientPacketListenerMixin.java
 Intercepts incoming chat messages.
 
@@ -216,6 +248,12 @@ Accessor mixin to access private `getPixelABGR` method.
 **Purpose:**
 - Direct pixel access for RGBA→YUV conversion
 - Avoids reflection overhead in hot path
+
+### GameRendererAccessor.java
+Accessor for `GameRenderer.guiRenderer`.
+
+### GuiRendererAccessor.java
+Accessor for `GuiRenderer.frameNumber`.
 
 ---
 
@@ -244,59 +282,19 @@ Image manipulation utilities.
 
 ---
 
-## API Package (v1)
+## External API
 
-### MonkeycraftApi.java
-Public API facade exposing events and methods for external mods.
+The public API is provided by the separate `monkeycraft-api` library (`com.github.weikengchen:monkeycraft-api` on JitPack).
 
-**Events:**
-| Event | Listener | Description |
-|-------|----------|-------------|
-| `CONNECTION` | `MonkeycraftConnectedListener` | Client authenticated |
-| `DISCONNECTION` | `MonkeycraftDisconnectedListener` | Client disconnected |
-| `COMMAND_EXECUTION` | `MonkeycraftCommandExecutionListener` | Command from client |
-| `INCOMING_CHAT` | `MonkeycraftChatListener` | Chat from server |
-| `OUTGOING_CHAT` | `MonkeycraftChatListener` | Chat to server |
+See: https://github.com/weikengchen/monkeycraft-api
 
-**Methods:**
-- `setTimedNotification(fireAtEpochMs, title, body, sound)`
-- `cancelTimedNotification()`
-- `sendImmediateNotification(title, body, sound)`
-- `startHibernation(message)`
-- `setHibernationMessage(message)`
-- `endHibernation()`
-- `isClientConnected()`
-- `isHibernating()`
-
-### ChatMessageContext.java
-Mutable context passed to chat listeners.
-
-**Fields:**
-| Field | Type | Modifiable |
-|-------|------|------------|
-| `message` | String | Yes (via `setMessage()`) |
-| `senderUuid` | String | No |
-| `senderName` | String | No |
-| `outgoing` | boolean | No |
-
-### ChatMessageResult.java
-Enum for chat listener return values.
-
-| Value | Meaning |
-|-------|---------|
-| `ALLOW` | Allow message unchanged |
-| `MODIFY` | Allow with modified message |
-| `DENY` | Block message entirely |
-| `PASS` | Continue to next listener |
-
-### CommandExecutionResult.java
-Enum for command listener return values.
-
-| Value | Meaning |
-|-------|---------|
-| `ALLOW` | Allow immediately |
-| `DENY` | Deny immediately |
-| `PASS` | Continue to config allowlist/denylist |
+**API Features:**
+- Connection events (connect/disconnect)
+- Command execution interception
+- Chat message interception (incoming/outgoing)
+- Timed notifications
+- Hibernation control
+- Client state queries
 
 ---
 
@@ -318,8 +316,11 @@ Mixin configuration.
 
 **Registered Mixins:**
 - `MinecraftMixin`
+- `KeyboardMixin`
 - `NativeImageAccessor`
 - `ClientPacketListenerMixin`
+- `GameRendererAccessor`
+- `GuiRendererAccessor`
 
 ---
 
@@ -334,3 +335,4 @@ From `build.gradle`:
 | Cloth Config | Config UI |
 | ModMenu | Mod menu integration |
 | Fabric API | Minecraft mod framework |
+| monkeycraft-api | Public API for external mods |
