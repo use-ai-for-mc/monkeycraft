@@ -178,6 +178,7 @@ class H264DecoderPlugin(
             format.setByteBuffer("csd-1", ByteBuffer.wrap(AnnexB.withStartCode(ppsBytes)))
             if (Build.VERSION.SDK_INT >= 23) {
                 format.setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
+                format.setInteger(MediaFormat.KEY_PRIORITY, 0)
             }
             format.setInteger(MediaFormat.KEY_FRAME_RATE, fps.coerceAtLeast(1))
 
