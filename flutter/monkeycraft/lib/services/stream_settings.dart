@@ -18,9 +18,9 @@ class StreamSettings {
   });
 
   static const StreamSettings defaults = StreamSettings(
-    fps: 20,
+    fps: 10,
     colorMode: 0,
-    resolutionPreset: ResolutionPreset.high,
+    resolutionPreset: ResolutionPreset.medium,
     invertLookY: true,
     autoSwitchRideChat: false,
   );

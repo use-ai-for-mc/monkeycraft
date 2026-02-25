@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _passController,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: 'Password (scan the QR code from the client)',
                     suffixIcon: IconButton(
                       onPressed: _isLoading
                           ? null
@@ -205,37 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 32),
-                if (isPortrait) ...[
-                  ElevatedButton(
-                    onPressed: _isLoading ? _cancelConnect : _connect,
-                    child: _isLoading
-                        ? const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Text('Cancel'),
-                            ],
-                          )
-                        : const Text('Connect'),
-                  ),
-                  if (Platform.isAndroid) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: () {
-                        if (_isLoading) _cancelConnect();
-                        _exitApp();
-                      },
-                      child: const Text('Exit'),
-                    ),
-                  ],
-                ] else ...[
+                if (Platform.isAndroid)
                   Row(
                     children: [
                       Expanded(
@@ -259,21 +229,58 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text('Connect'),
                         ),
                       ),
-                      if (Platform.isAndroid) ...[
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              if (_isLoading) _cancelConnect();
-                              _exitApp();
-                            },
-                            child: const Text('Exit'),
-                          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            if (_isLoading) _cancelConnect();
+                            _exitApp();
+                          },
+                          child: const Text('Exit'),
                         ),
-                      ],
+                      ),
                     ],
+                  )
+                else if (isPortrait)
+                  ElevatedButton(
+                    onPressed: _isLoading ? _cancelConnect : _connect,
+                    child: _isLoading
+                        ? const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Text('Cancel'),
+                            ],
+                          )
+                        : const Text('Connect'),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: _isLoading ? _cancelConnect : _connect,
+                    child: _isLoading
+                        ? const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Text('Cancel'),
+                            ],
+                          )
+                        : const Text('Connect'),
                   ),
-                ],
               ],
             ),
           ),

@@ -32,7 +32,7 @@ func getCountDownText(from appGroupId: String, prefix: UUID) -> String {
 struct MonkeycraftWidgetLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
-      HStack(alignment: .top) {
+      HStack(alignment: .center) {
         Text(getCountDownText(from: context.state.appGroupId, prefix: context.attributes.id))
           .font(.headline)
           .foregroundColor(.primary)
@@ -47,7 +47,7 @@ struct MonkeycraftWidgetLiveActivity: Widget {
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.center) {
-          HStack(alignment: .top) {
+          HStack(alignment: .center) {
             Text(getCountDownText(from: context.state.appGroupId, prefix: context.attributes.id))
               .font(.headline)
               .foregroundColor(.white)

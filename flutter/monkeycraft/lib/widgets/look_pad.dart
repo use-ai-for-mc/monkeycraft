@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/services/look_delta_coalescer.dart';
 
 typedef LookDeltaSender = void Function(double yawDelta, double pitchDelta);
@@ -14,6 +15,8 @@ class LookPad extends StatefulWidget {
   final LookDeltaSender onDelta;
   final TapSender? onTap;
   final LongPressSender? onLongPress;
+  final Duration longPressDelay;
+  final double moveThreshold;
 
   const LookPad({
     super.key,
@@ -24,6 +27,8 @@ class LookPad extends StatefulWidget {
     this.invertY = false,
     this.onTap,
     this.onLongPress,
+    this.longPressDelay = const Duration(milliseconds: 200),
+    this.moveThreshold = 800,
   });
 
   @override
@@ -31,15 +36,14 @@ class LookPad extends StatefulWidget {
 }
 
 class _LookPadState extends State<LookPad> {
-  int? _pointerId;
+  int? _dragPointerId;
   Offset? _last;
-  Offset? _downAt;
-  DateTime? _downTime;
-  double _maxMoveSq = 0;
   LookDeltaCoalescer? _coalescer;
 
+  Offset? _tapDownPos;
   Timer? _longPressTimer;
   bool _longPressTriggered = false;
+  bool _tapCancelled = false;
 
   void _startCoalescer() {
     _coalescer ??= LookDeltaCoalescer(onFlush: widget.onDelta);
@@ -48,6 +52,12 @@ class _LookPadState extends State<LookPad> {
 
   void _stopCoalescer() {
     _coalescer?.stop();
+  }
+
+  void _cancelTap() {
+    _longPressTimer?.cancel();
+    _tapDownPos = null;
+    _tapCancelled = true;
   }
 
   @override
@@ -59,79 +69,87 @@ class _LookPadState extends State<LookPad> {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
+    return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        if (_pointerId != null) return;
-        if (isPointExcluded(event.localPosition, widget.excludedRegions))
+      onTapDown: (details) {
+        if (isPointExcluded(details.localPosition, widget.excludedRegions)) {
           return;
-        _pointerId = event.pointer;
-        _last = event.localPosition;
-        _downAt = event.localPosition;
-        _downTime = DateTime.now();
-        _maxMoveSq = 0;
+        }
+        _tapDownPos = details.localPosition;
+        _tapCancelled = false;
         _longPressTriggered = false;
         _longPressTimer?.cancel();
-        _longPressTimer = Timer(const Duration(milliseconds: 500), () {
-          _longPressTriggered = true;
-          widget.onLongPress?.call(event.localPosition);
+        _longPressTimer = Timer(widget.longPressDelay, () {
+          if (!_tapCancelled && _tapDownPos != null) {
+            _longPressTriggered = true;
+            HapticFeedback.heavyImpact();
+            widget.onLongPress?.call(_tapDownPos!);
+          }
         });
-        _startCoalescer();
       },
-      onPointerMove: (event) {
-        if (_pointerId != event.pointer) return;
-        final last = _last;
-        if (last == null) return;
-        final current = event.localPosition;
-        final dx = current.dx - last.dx;
-        final dy = current.dy - last.dy;
-        _last = current;
-        final downAt = _downAt;
-        if (downAt != null) {
-          final mx = current.dx - downAt.dx;
-          final my = current.dy - downAt.dy;
-          final d2 = (mx * mx) + (my * my);
-          if (d2 > _maxMoveSq) _maxMoveSq = d2;
-          if (_maxMoveSq > 100) {
-            _longPressTimer?.cancel();
-          }
+      onTapUp: (details) {
+        if (_tapCancelled || _longPressTriggered) {
+          _cancelTap();
+          return;
         }
+        HapticFeedback.lightImpact();
+        widget.onTap?.call(details.localPosition);
+        _cancelTap();
+      },
+      onTapCancel: () {
+        _cancelTap();
+      },
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          if (_dragPointerId != null) return;
+          if (isPointExcluded(event.localPosition, widget.excludedRegions)) {
+            return;
+          }
+          _dragPointerId = event.pointer;
+          _last = event.localPosition;
+          _startCoalescer();
+        },
+        onPointerMove: (event) {
+          if (_dragPointerId != event.pointer) return;
+          final last = _last;
+          if (last == null) return;
+          final current = event.localPosition;
+          final dx = current.dx - last.dx;
+          final dy = current.dy - last.dy;
+          _last = current;
 
-        final yaw = dx * widget.sensitivityX;
-        final pitchRaw = dy * widget.sensitivityY;
-        final pitch = widget.invertY ? pitchRaw : -pitchRaw;
-        _coalescer?.add(yaw: yaw, pitch: pitch);
-      },
-      onPointerUp: (event) {
-        _longPressTimer?.cancel();
-        if (_pointerId != event.pointer) return;
-        final downAt = _downAt;
-        if (downAt != null && !_longPressTriggered) {
-          const maxMoveSq = 100.0;
-          if (_maxMoveSq <= maxMoveSq) {
-            widget.onTap?.call(event.localPosition);
+          final yaw = dx * widget.sensitivityX;
+          final pitchRaw = dy * widget.sensitivityY;
+          final pitch = widget.invertY ? pitchRaw : -pitchRaw;
+          _coalescer?.add(yaw: yaw, pitch: pitch);
+
+          if (_tapDownPos != null && !_longPressTriggered) {
+            final moveSq =
+                (current.dx - _tapDownPos!.dx) *
+                    (current.dx - _tapDownPos!.dx) +
+                (current.dy - _tapDownPos!.dy) * (current.dy - _tapDownPos!.dy);
+            if (moveSq > widget.moveThreshold) {
+              _cancelTap();
+            }
           }
-        }
-        _pointerId = null;
-        _last = null;
-        _downAt = null;
-        _downTime = null;
-        _maxMoveSq = 0;
-        _coalescer?.flush();
-        _stopCoalescer();
-      },
-      onPointerCancel: (event) {
-        _longPressTimer?.cancel();
-        if (_pointerId != event.pointer) return;
-        _pointerId = null;
-        _last = null;
-        _downAt = null;
-        _downTime = null;
-        _maxMoveSq = 0;
-        _coalescer?.flush();
-        _stopCoalescer();
-      },
-      child: const SizedBox.expand(),
+        },
+        onPointerUp: (event) {
+          if (_dragPointerId != event.pointer) return;
+          _dragPointerId = null;
+          _last = null;
+          _coalescer?.flush();
+          _stopCoalescer();
+        },
+        onPointerCancel: (event) {
+          if (_dragPointerId != event.pointer) return;
+          _dragPointerId = null;
+          _last = null;
+          _coalescer?.flush();
+          _stopCoalescer();
+        },
+        child: const SizedBox.expand(),
+      ),
     );
   }
 }

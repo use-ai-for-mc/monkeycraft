@@ -4,30 +4,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/services/chat_models.dart';
-import 'package:monkeycraft_client/services/hibernation_models.dart';
+import 'package:monkeycraft_client/services/protocol_models.dart';
 import 'package:monkeycraft_client/services/notification_models.dart';
 import 'package:monkeycraft_client/services/stream_proxy.dart';
+import 'package:monkeycraft_client/services/session_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-class _SmartQuotesFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final text = newValue.text
-        .replaceAll('"', '"')
-        .replaceAll('"', '"')
-        .replaceAll(''', "'")
-        .replaceAll(''', "'");
-    if (text == newValue.text) return newValue;
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
 
 class _RichText extends StatefulWidget {
   final List<ChatSegment> segments;
@@ -252,11 +234,13 @@ class _RichTextState extends State<_RichText> {
 
 class ChatScreen extends StatefulWidget {
   final StreamProxy proxy;
+  final SessionController? session;
   final bool manageConnection;
 
   const ChatScreen({
     super.key,
     required this.proxy,
+    this.session,
     this.manageConnection = false,
   });
 
@@ -271,9 +255,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final List<ChatMessage> _messages = [];
   StreamSubscription<ChatMessage>? _chatSubscription;
   StreamSubscription<ChatDeniedEvent>? _chatDeniedSubscription;
-  StreamSubscription<HibernationEvent>? _hibernationSubscription;
+  StreamSubscription<SessionState>? _sessionStateSubscription;
   StreamSubscription<NudgeNotification>? _nudgeSubscription;
-  StreamSubscription<TimedNotification>? _timedSubscription;
   StreamSubscription<ImmediateNotification>? _immediateSubscription;
   StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSubscription;
   StreamSubscription<void>? _connectionLostSubscription;
@@ -284,8 +267,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _password;
   bool _credentialsLoaded = false;
   int _reconnectAttempts = 0;
-  bool _hibernating = false;
-  String _hibernationMessage = '';
+
+  VideoState _videoState = VideoState.active;
+  String _videoStateMessage = '';
   bool _hibernationBannerDismissed = false;
   NudgeNotification? _currentNudge;
   ImmediateNotification? _currentImmediate;
@@ -294,14 +278,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    debugPrint('[ChatScreen] initState');
     WidgetsBinding.instance.addObserver(this);
     _chatSubscription = widget.proxy.chatMessages.listen(_onChatMessage);
     _chatDeniedSubscription = widget.proxy.chatDeniedEvents.listen(
       _onChatDenied,
-    );
-    _hibernationSubscription = widget.proxy.hibernationEvents.listen(
-      _onHibernationEvent,
     );
     _nudgeSubscription = widget.proxy.nudges.listen(_onNudge);
     _immediateSubscription = widget.proxy.immediateNotifications.listen(
@@ -315,8 +295,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
     _connectionRestoredSubscription = widget.proxy.connectionRestoredEvents
         .listen((_) => _onConnectionRestored());
+
+    if (widget.session != null) {
+      _sessionStateSubscription = widget.session!.stateStream.listen(
+        _onSessionStateChanged,
+      );
+      _videoState = widget.session!.state.videoState;
+      _videoStateMessage = widget.session!.state.videoStateMessage;
+    }
+
     _loadReconnectCredentials();
     _loadCachedMessages();
+  }
+
+  void _onSessionStateChanged(SessionState state) {
+    if (!mounted) return;
+    setState(() {
+      if (state.videoState == VideoState.hibernating) {
+        _videoState = state.videoState;
+        _videoStateMessage = state.videoStateMessage;
+        _hibernationBannerDismissed = false;
+      } else if (state.videoState == VideoState.active) {
+        _videoState = state.videoState;
+        _videoStateMessage = '';
+        _hibernationBannerDismissed = false;
+      }
+    });
   }
 
   Future<void> _loadReconnectCredentials() async {
@@ -324,7 +328,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _server = prefs.getString('server') ?? '127.0.0.1:9600';
     _password = prefs.getString('password') ?? '';
     _credentialsLoaded = true;
-    debugPrint('[ChatScreen] Credentials loaded: server=$_server');
   }
 
   Future<void> _loadCachedMessages() async {
@@ -363,25 +366,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _onHibernationEvent(HibernationEvent event) {
-    if (!mounted) return;
-    if (event is HibernationStatus) {
-      setState(() {
-        if (event.active) {
-          if (!_hibernating) {
-            _hibernationBannerDismissed = false;
-          }
-          _hibernating = true;
-          _hibernationMessage = event.message ?? _hibernationMessage;
-        } else {
-          _hibernating = false;
-          _hibernationMessage = '';
-          _hibernationBannerDismissed = false;
-        }
-      });
-    }
-  }
-
   void _onNudge(NudgeNotification nudge) {
     if (!mounted) return;
     setState(() {
@@ -409,13 +393,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onConnectionLost() {
-    debugPrint('[ChatScreen] Connection lost event received');
     if (!mounted) return;
     _reconnect();
   }
 
   void _onConnectionRestored() {
-    debugPrint('[ChatScreen] Connection restored event received');
     if (!mounted) return;
     _reattachChatStreams();
     _loadCachedMessages();
@@ -444,7 +426,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _chatSubscription?.cancel();
     _chatDeniedSubscription?.cancel();
-    _hibernationSubscription?.cancel();
+    _sessionStateSubscription?.cancel();
     _nudgeSubscription?.cancel();
     _immediateSubscription?.cancel();
     _serverDisconnectSubscription?.cancel();
@@ -459,96 +441,55 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint(
-      '[ChatScreen] App lifecycle changed: $state, manageConnection=${widget.manageConnection}',
-    );
     if (state == AppLifecycleState.resumed) {
-      debugPrint(
-        '[ChatScreen] App resumed, isConnected=${widget.proxy.isConnected}, reconnecting=$_reconnecting',
-      );
       if (widget.manageConnection) {
-        // This screen owns the connection, reconnect it
         if (!_credentialsLoaded) {
-          debugPrint('[ChatScreen] Credentials not loaded yet, waiting...');
           _loadReconnectCredentials().then((_) => _reconnect());
         } else {
           _reconnect();
         }
       } else {
-        // Connection managed externally, just re-attach streams if connected
         if (widget.proxy.isConnected) {
-          debugPrint('[ChatScreen] Already connected, re-attaching streams');
           _reattachChatStreams();
           _loadCachedMessages();
-        } else {
-          debugPrint(
-            '[ChatScreen] Not connected, waiting for external reconnection',
-          );
         }
       }
     }
   }
 
   Future<void> _reconnect() async {
-    debugPrint(
-      '[ChatScreen] _reconnect() called, reconnecting=$_reconnecting, mounted=$mounted',
-    );
     if (_reconnecting || !mounted) return;
     final server = _server;
     final password = _password;
-    if (server == null || password == null) {
-      debugPrint(
-        '[ChatScreen] Cannot reconnect: server=$server, password=${password != null ? "set" : "null"}',
-      );
-      return;
-    }
+    if (server == null || password == null) return;
 
     _reconnecting = true;
     _reconnectAttempts++;
-    debugPrint(
-      '[ChatScreen] Starting reconnection attempt #$_reconnectAttempts to $server',
-    );
     try {
       await widget.proxy.start(server, password);
-      debugPrint(
-        '[ChatScreen] proxy.start() completed, isConnected=${widget.proxy.isConnected}',
-      );
       widget.proxy.sendPing();
-    } catch (e, st) {
-      debugPrint('[ChatScreen] Reconnection failed: $e');
-      debugPrint('[ChatScreen] Stack trace: $st');
+    } catch (e) {
     } finally {
       _reconnecting = false;
     }
 
     if (mounted && widget.proxy.isConnected) {
-      debugPrint('[ChatScreen] Reconnection successful, reattaching streams');
       _reattachChatStreams();
       await _loadCachedMessages();
       _reconnectAttempts = 0;
-    } else {
-      debugPrint(
-        '[ChatScreen] Reconnection not successful, mounted=$mounted, isConnected=${widget.proxy.isConnected}',
-      );
     }
   }
 
   void _reattachChatStreams() {
-    debugPrint('[ChatScreen] Reattaching all chat streams');
     _chatSubscription?.cancel();
     _chatDeniedSubscription?.cancel();
-    _hibernationSubscription?.cancel();
     _nudgeSubscription?.cancel();
-    _timedSubscription?.cancel();
     _serverDisconnectSubscription?.cancel();
     _connectionLostSubscription?.cancel();
     _connectionRestoredSubscription?.cancel();
     _chatSubscription = widget.proxy.chatMessages.listen(_onChatMessage);
     _chatDeniedSubscription = widget.proxy.chatDeniedEvents.listen(
       _onChatDenied,
-    );
-    _hibernationSubscription = widget.proxy.hibernationEvents.listen(
-      _onHibernationEvent,
     );
     _nudgeSubscription = widget.proxy.nudges.listen(_onNudge);
     _immediateSubscription = widget.proxy.immediateNotifications.listen(
@@ -562,7 +503,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
     _connectionRestoredSubscription = widget.proxy.connectionRestoredEvents
         .listen((_) => _onConnectionRestored());
-    debugPrint('[ChatScreen] All streams reattached');
   }
 
   void _sendMessage() {
@@ -604,10 +544,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     Color textColor;
     VoidCallback onDismiss;
 
-    if (_hibernating &&
+    if (_videoState == VideoState.hibernating &&
         !_hibernationBannerDismissed &&
-        _hibernationMessage.isNotEmpty) {
-      bannerText = _hibernationMessage;
+        _videoStateMessage.isNotEmpty) {
+      bannerText = _videoStateMessage;
       backgroundColor = const Color(0xFF2E7D32);
       textColor = Colors.white;
       onDismiss = _dismissHibernationBanner;
@@ -621,7 +561,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _currentImmediate = null;
         });
       };
-    } else if (!_hibernating &&
+    } else if (_videoState == VideoState.active &&
         _currentNudge != null &&
         !_nudgeBannerDismissed) {
       final title = _currentNudge!.title ?? '';
@@ -754,7 +694,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           style: const TextStyle(color: Colors.white),
                           textInputAction: TextInputAction.send,
                           keyboardType: TextInputType.text,
-                          inputFormatters: [_SmartQuotesFormatter()],
+                          inputFormatters: [],
                           decoration: const InputDecoration(
                             hintText: 'Type a message...',
                             hintStyle: TextStyle(color: Colors.white54),

@@ -54,6 +54,24 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(portEntry);
 
+    AbstractConfigListEntry<AllowConnectionsFrom> allowConnectionsFromEntry =
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.monkeycraft.option.allowConnectionsFrom"),
+                AllowConnectionsFrom.class,
+                config.getAllowConnectionsFrom())
+            .setDefaultValue(AllowConnectionsFrom.ONLY_LOCAL_NETWORK)
+            .setTooltip(
+                Component.translatable("config.monkeycraft.option.allowConnectionsFrom.tooltip"))
+            .setSaveConsumer(config::setAllowConnectionsFrom)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.monkeycraft.option.allowConnectionsFrom."
+                            + mode.name().toLowerCase()))
+            .build();
+    general.addEntry(allowConnectionsFromEntry);
+
     String randomPassword = ModConfig.generateRandomPassword();
     AbstractConfigListEntry<String> passwordEntry =
         entryBuilder

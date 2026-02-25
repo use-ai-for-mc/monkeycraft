@@ -2,6 +2,8 @@ package com.chenweikeng.monkeycraft;
 
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.mixin.GameRendererAccessor;
+import com.chenweikeng.monkeycraft.mixin.GuiRendererAccessor;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
@@ -19,6 +21,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -34,9 +37,18 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static volatile boolean automaticallyReleasedCursor = false;
   public static volatile int pendingMouseReleaseTicks = 0;
   public static volatile int pendingMouseButton = 0;
+  public static volatile long lastLocalKeyInputTime = 0;
+  private static final long LOCAL_INPUT_GRACE_PERIOD_MS = 10000;
+
+  public static boolean hasRecentLocalKeyInput() {
+    if (lastLocalKeyInputTime == 0) return false;
+    return System.currentTimeMillis() - lastLocalKeyInputTime < LOCAL_INPUT_GRACE_PERIOD_MS;
+  }
+
   private int rightPressHoldTicks = 0;
   private static final int RELEASE_MOUSE_HOLD_TICKS = 8;
   private long lastCaptureTime = 0;
+  private int lastFrameNumber = -1;
 
   @Override
   public void onInitializeClient() {
@@ -97,7 +109,8 @@ public class MonkeycraftClient implements ClientModInitializer {
 
           if (WebSocketServerHandler.getInstance().isStreaming()
               && client.screen != null
-              && !(client.screen instanceof ChatScreen)) {
+              && !(client.screen instanceof ChatScreen)
+              && !hasRecentLocalKeyInput()) {
             client.screen.removed();
           }
 
@@ -119,6 +132,20 @@ public class MonkeycraftClient implements ClientModInitializer {
 
             long now = System.currentTimeMillis();
             if (now - lastCaptureTime >= interval) {
+              GameRenderer gameRenderer = client.gameRenderer;
+              if (gameRenderer == null) {
+                return;
+              }
+              var guiRenderer = ((GameRendererAccessor) gameRenderer).monkeycraft$getGuiRenderer();
+              if (guiRenderer == null) {
+                return;
+              }
+              int currentFrameNumber =
+                  ((GuiRendererAccessor) guiRenderer).monkeycraft$getFrameNumber();
+              if (currentFrameNumber == lastFrameNumber) {
+                return;
+              }
+              lastFrameNumber = currentFrameNumber;
               lastCaptureTime = now;
               try {
                 Screenshot.takeScreenshot(
@@ -142,7 +169,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                         }
 
                         int startX = (image.getWidth() - cropWidth) / 2;
-                        int startY = (image.getHeight() - cropHeight) / 2;
+                        int startY = image.getHeight() - cropHeight;
 
                         com.mojang.blaze3d.platform.NativeImage cropped =
                             ImageUtils.crop(image, startX, startY, cropWidth, cropHeight);
@@ -239,21 +266,6 @@ public class MonkeycraftClient implements ClientModInitializer {
                         context -> {
                           stopServer();
                           return 1;
-                        }))
-            .then(
-                ClientCommandManager.literal("ip")
-                    .executes(
-                        context -> {
-                          WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-                          if (!handler.isRunning()) {
-                            sendMonkeyMessage(
-                                Component.literal("Server is not running. Use ")
-                                    .append(clickableCommand("/monkey start"))
-                                    .append(Component.literal(" first.")));
-                            return 0;
-                          }
-                          printLocalIps(handler.getCurrentPort());
-                          return 1;
                         })));
   }
 
@@ -275,13 +287,15 @@ public class MonkeycraftClient implements ClientModInitializer {
     sendMonkeyMessage(
         Component.literal("For remote connection, please refer to ")
             .append(
-                Component.literal("this wiki page")
+                Component.literal("this wiki")
                     .withStyle(
                         Style.EMPTY
                             .withColor(ChatFormatting.BLUE)
                             .withBold(true)
                             .withClickEvent(
-                                new ClickEvent.OpenUrl(java.net.URI.create("https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections"))))));
+                                new ClickEvent.OpenUrl(
+                                    java.net.URI.create(
+                                        "https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections"))))));
   }
 
   public static void stopServer() {
@@ -335,14 +349,23 @@ public class MonkeycraftClient implements ClientModInitializer {
         prefix
             .copy()
             .append(clickableCommand("/monkey config"))
-            .append(Component.literal(" - Open settings\n").withStyle(ChatFormatting.WHITE)),
+            .append(Component.literal(" - Open settings").withStyle(ChatFormatting.WHITE)),
         false);
-    mc.player.displayClientMessage(
-        prefix
-            .copy()
-            .append(clickableCommand("/monkey ip"))
-            .append(Component.literal(" - Show local IPs").withStyle(ChatFormatting.WHITE)),
-        false);
+
+    WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+    if (handler.isRunning()) {
+      if (!handler.isClientConnected()) {
+        handler.resetHasEverConnected();
+      }
+      mc.player.displayClientMessage(
+          prefix
+              .copy()
+              .append(
+                  Component.literal("Server running on port " + handler.getCurrentPort())
+                      .withStyle(ChatFormatting.GREEN)),
+          false);
+      printLocalIps(handler.getCurrentPort());
+    }
   }
 
   public static Component clickableCommand(String command) {

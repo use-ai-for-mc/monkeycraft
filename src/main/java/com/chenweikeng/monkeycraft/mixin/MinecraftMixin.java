@@ -14,6 +14,7 @@ public class MinecraftMixin {
   @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
   private void monkeycraft$blockPauseScreen(Screen screen, CallbackInfo ci) {
     if (!MonkeycraftClient.automaticallyReleasedCursor) return;
+    if (MonkeycraftClient.hasRecentLocalKeyInput()) return;
     if (screen instanceof PauseScreen) {
       ci.cancel();
     }

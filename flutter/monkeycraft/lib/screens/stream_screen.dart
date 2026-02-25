@@ -5,9 +5,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/services/game_input_controller.dart';
-import 'package:monkeycraft_client/services/hibernation_models.dart';
 import 'package:monkeycraft_client/services/ios_timed_notification_scheduler.dart';
 import 'package:monkeycraft_client/services/notification_models.dart';
+import 'package:monkeycraft_client/services/protocol_models.dart';
 import 'package:monkeycraft_client/services/stream_proxy.dart';
 import 'package:monkeycraft_client/services/hardware_h264_decoder.dart';
 import 'package:monkeycraft_client/services/live_activity_service.dart';
@@ -15,6 +15,7 @@ import 'package:monkeycraft_client/services/stream_resolution.dart';
 import 'package:monkeycraft_client/services/stream_settings.dart';
 import 'package:monkeycraft_client/services/timed_notification_coordinator.dart';
 import 'package:monkeycraft_client/services/timed_notification_service.dart';
+import 'package:monkeycraft_client/services/session_controller.dart';
 import 'package:monkeycraft_client/screens/stream_settings_screen.dart';
 import 'package:monkeycraft_client/screens/chat_screen.dart';
 import 'package:monkeycraft_client/widgets/hotbar_selector.dart';
@@ -35,44 +36,40 @@ class StreamScreen extends StatefulWidget {
 
 class _StreamScreenState extends State<StreamScreen>
     with WidgetsBindingObserver {
-  HardwareH264Decoder? _decoder;
   late final GameInputController _input;
   late final TimedNotificationCoordinator _timedCoordinator;
   late final IosTimedNotificationScheduler _timedScheduler;
   late final StreamSettingsStore _settingsStore;
+  late final SessionController _session;
+
   final _liveActivityService = LiveActivityService();
   bool _hotbarExpanded = false;
   int _selectedHotbarSlot = 0;
   StreamSettings _settings = StreamSettings.defaults;
-  StreamSubscription<TimedNotification>? _timedSub;
+
   StreamSubscription<NudgeNotification>? _nudgeSub;
-  StreamSubscription<HibernationEvent>? _hibernationSub;
-  StreamSubscription<DateTime>? _nonVideoPacketSub;
+  StreamSubscription<DateTime>? _heartbeatAckSub;
   StreamSubscription<CommandDeniedEvent>? _commandDeniedSub;
   StreamSubscription<ServerDisconnectEvent>? _serverDisconnectSub;
-  int? _textureId;
   StreamSubscription<Uint8List>? _accessUnitSub;
-  TimedNotification? _pendingNotification;
+  StreamSubscription<SessionState>? _sessionStateSub;
+  StreamSubscription<void>? _connectionLostSub;
+
   Timer? _notificationCheckTimer;
+  Timer? _reconnectRetryTimer;
+  int _reconnectRetryCount = 0;
+  static const int _maxReconnectRetries = 3;
   bool? _lastIsPortrait;
-  bool _restarting = false;
+  Size? _lastScreenSize;
   bool _closing = false;
-  bool _foreground = true;
   bool _reconnecting = false;
-  bool _hibernating = false;
-  String _hibernationMessage = '';
-  bool _hibernationAutoSwitchDone = false;
-  DateTime? _lastFrameTime;
-  DateTime? _lastNonVideoPacketTime;
-  bool _waitingForStream = false;
-  bool _autoNavigatedToChat = false;
-  bool _chatScreenOpen = false;
   String? _server;
   String? _password;
   bool? _forcedOrientation;
-  int _streamWidth = 0;
-  int _streamHeight = 0;
-  StreamResolution? _pendingResolution;
+
+  ClientMode? _lastHandledMode;
+  VideoState? _lastHandledVideoState;
+  int? _lastFiredTimedNotificationMs;
 
   bool get _supportedPlatform => Platform.isIOS || Platform.isAndroid;
 
@@ -92,39 +89,38 @@ class _StreamScreenState extends State<StreamScreen>
       scheduler: _timedScheduler,
     );
     _settingsStore = StreamSettingsStore();
+    _session = SessionController(
+      proxy: widget.proxy,
+      settingsStore: _settingsStore,
+    );
     _loadStreamSettings();
     _liveActivityService.init();
+    _session.initialize();
     _attachProxyStreams();
+    _attachSessionState();
     _loadReconnectCredentials();
 
-    // Start notification checker timer (runs every second)
     _notificationCheckTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _checkNotificationTime();
-      _checkWaitingForStream();
+      _checkTimedNotification();
+      _session.checkWaitingForStream();
+      _checkVideoStateStaleness();
     });
 
     if (_supportedPlatform) {
       _initHardwareDecoder().then((_) {
-        if (mounted) _restartStream();
+        if (mounted) _syncClientStatus();
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _restartStream();
+        if (mounted) _syncClientStatus();
       });
     }
   }
 
   void _attachProxyStreams() {
-    _timedSub?.cancel();
-    _timedSub = widget.proxy.timedNotifications.listen(
-      _handleTimedNotification,
-    );
+    debugPrint('[StreamScreen] _attachProxyStreams');
     _nudgeSub?.cancel();
     _nudgeSub = widget.proxy.nudges.listen(_handleNudge);
-    _hibernationSub?.cancel();
-    _hibernationSub = widget.proxy.hibernationEvents.listen(
-      _handleHibernationEvent,
-    );
     _commandDeniedSub?.cancel();
     _commandDeniedSub = widget.proxy.commandDeniedEvents.listen(
       _handleCommandDenied,
@@ -133,21 +129,154 @@ class _StreamScreenState extends State<StreamScreen>
     _serverDisconnectSub = widget.proxy.serverDisconnectEvents.listen(
       _handleServerDisconnect,
     );
-    _nonVideoPacketSub?.cancel();
-    _nonVideoPacketSub = widget.proxy.nonVideoPackets.listen((time) {
-      _lastNonVideoPacketTime = time;
+    _heartbeatAckSub?.cancel();
+    _heartbeatAckSub = widget.proxy.heartbeatAcks.listen((time) {
+      _session.updateHeartbeatAckTime();
+      _reconnectRetryCount = 0;
+    });
+    _connectionLostSub?.cancel();
+    _connectionLostSub = widget.proxy.connectionLostEvents.listen((_) {
+      debugPrint('[StreamScreen] Connection lost event received');
+      _handleConnectionLost();
     });
   }
 
+  void _attachSessionState() {
+    _sessionStateSub?.cancel();
+    _sessionStateSub = _session.stateStream.listen((state) {
+      debugPrint('[StreamScreen] Session state changed: $state');
+      if (mounted) setState(() {});
+
+      // Handle state transitions
+      final modeChanged = _lastHandledMode != state.mode;
+      final videoStateChanged = _lastHandledVideoState != state.videoState;
+
+      if (modeChanged || videoStateChanged) {
+        _handleStateTransition(
+          fromMode: _lastHandledMode,
+          toMode: state.mode,
+          fromVideoState: _lastHandledVideoState,
+          toVideoState: state.videoState,
+          message: state.videoStateMessage,
+        );
+      }
+
+      // Handle timed notification
+      if (state.hasTimedNotification) {
+        _handleTimedNotification(state.timedNotification!);
+      }
+
+      _lastHandledMode = state.mode;
+      _lastHandledVideoState = state.videoState;
+    });
+  }
+
+  Future<void> _handleStateTransition({
+    ClientMode? fromMode,
+    required ClientMode toMode,
+    VideoState? fromVideoState,
+    required VideoState toVideoState,
+    required String message,
+  }) async {
+    debugPrint(
+      '[StreamScreen] State transition: mode $fromMode -> $toMode, videoState $fromVideoState -> $toVideoState',
+    );
+
+    // Entering hibernation while streaming
+    if (toVideoState == VideoState.hibernating &&
+        fromVideoState != VideoState.hibernating &&
+        toMode == ClientMode.streaming) {
+      _handleEnterHibernation(message);
+    }
+
+    // Exiting hibernation while streaming
+    if (toVideoState == VideoState.active &&
+        fromVideoState == VideoState.hibernating &&
+        toMode == ClientMode.streaming) {
+      _handleExitHibernation();
+    }
+  }
+
+  Future<void> _handleEnterHibernation(String message) async {
+    debugPrint('[StreamScreen] _handleEnterHibernation: "$message"');
+    _input.releaseAll();
+    await _pauseVideoPipeline();
+
+    if (_session.shouldAutoNavigateToChat && mounted) {
+      debugPrint('[StreamScreen] Auto-navigating to chat');
+      await _openChatScreenAuto();
+    }
+  }
+
+  Future<void> _handleExitHibernation() async {
+    debugPrint('[StreamScreen] _handleExitHibernation');
+    if (!mounted) return;
+    await _restartStream();
+    _session.refreshVideo();
+  }
+
+  void _handleConnectionLost() {
+    debugPrint('[StreamScreen] _handleConnectionLost');
+    if (_closing || _reconnecting) return;
+    _scheduleReconnectRetry();
+  }
+
+  void _scheduleReconnectRetry() {
+    _reconnectRetryTimer?.cancel();
+    if (_reconnectRetryCount >= _maxReconnectRetries) {
+      debugPrint(
+        '[StreamScreen] Max reconnect retries reached, returning to login',
+      );
+      _closeScreenAndReturnToLogin();
+      return;
+    }
+    final delay = Duration(seconds: 1 << _reconnectRetryCount);
+    debugPrint(
+      '[StreamScreen] Scheduling reconnect retry ${_reconnectRetryCount + 1}/$_maxReconnectRetries in ${delay.inSeconds}s',
+    );
+    _reconnectRetryTimer = Timer(delay, () {
+      if (!_closing && !_reconnecting && mounted) {
+        _resumeIfNeededWithRetry();
+      }
+    });
+  }
+
+  Future<void> _closeScreenAndReturnToLogin() async {
+    if (_closing) return;
+    _closing = true;
+
+    _input.releaseAll();
+    SystemChrome.setPreferredOrientations([]);
+
+    await _accessUnitSub?.cancel();
+    _accessUnitSub = null;
+    await _nudgeSub?.cancel();
+    _nudgeSub = null;
+    await _connectionLostSub?.cancel();
+    _connectionLostSub = null;
+    _reconnectRetryTimer?.cancel();
+
+    await _session.disposeDecoder();
+    _session.dispose();
+    _liveActivityService.dispose();
+    await widget.proxy.stop();
+
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  Future<void> _resumeIfNeededWithRetry() async {
+    await _resumeIfNeeded();
+    if (!widget.proxy.isConnected &&
+        _reconnectRetryCount < _maxReconnectRetries) {
+      _reconnectRetryCount++;
+      _scheduleReconnectRetry();
+    }
+  }
+
   void _handleTimedNotification(TimedNotification notification) {
-    // This handles both TIMED and TIMED_STATUS messages
-    // Store notification (replacing any previous one)
-    _pendingNotification = notification;
-
-    // Schedule with OS for when app is inactive
     _timedCoordinator.handle(notification);
-
-    // Start Live Activity countdown on iOS 16.1+
     if (notification.fireAtEpochMs != null) {
       _liveActivityService.startCountdown(
         fireAtEpochMs: notification.fireAtEpochMs!,
@@ -158,64 +287,49 @@ class _StreamScreenState extends State<StreamScreen>
     } else {
       _liveActivityService.cancel();
     }
-
-    // Check immediately if it should have already fired
-    _checkNotificationTime();
   }
 
-  void _checkNotificationTime() {
-    if (!_foreground) return; // Only check when app is active
+  void _checkTimedNotification() {
+    if (!_session.state.foreground) return;
+    final notification = _session.state.timedNotification;
+    if (notification == null || notification.fireAtEpochMs == null) return;
+    final fireAtMs = notification.fireAtEpochMs!;
 
-    final pending = _pendingNotification;
-    if (pending == null || pending.fireAtEpochMs == null) return;
+    // Skip if we already fired this notification
+    if (_lastFiredTimedNotificationMs == fireAtMs) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (pending.fireAtEpochMs! <= now) {
-      _showNotificationNow(pending);
-      _pendingNotification = null; // Clear pending notification
-      _liveActivityService.cancel(); // Dismiss live activity when timer fires
+    if (fireAtMs <= now) {
+      _lastFiredTimedNotificationMs = fireAtMs;
+      _showNotificationNow(notification);
+      widget.proxy.sendPing();
+      _liveActivityService.cancel();
     }
   }
 
-  void _checkWaitingForStream() {
-    if (!_foreground || _hibernating || _chatScreenOpen) {
-      if (_waitingForStream) {
-        setState(() => _waitingForStream = false);
-      }
+  void _checkVideoStateStaleness() {
+    final state = _session.state;
+    if (state.videoState != VideoState.hibernating ||
+        !state.foreground ||
+        !widget.proxy.isConnected) {
       return;
     }
-
-    final now = DateTime.now();
-    final lastFrame = _lastFrameTime;
-    final lastNonVideo = _lastNonVideoPacketTime;
-
-    if (lastFrame == null) return;
-
-    final frameAge = now.difference(lastFrame);
-    final shouldWait =
-        frameAge.inSeconds >= 3 &&
-        lastNonVideo != null &&
-        now.difference(lastNonVideo).inSeconds < 3;
-
-    if (shouldWait != _waitingForStream) {
-      setState(() => _waitingForStream = shouldWait);
+    final age = widget.proxy.timeSinceLastVideoStateEvent;
+    if (age != null && age.inSeconds >= 5) {
+      debugPrint(
+        '[StreamScreen] Video state stale (${age.inSeconds}s), sending PING',
+      );
+      widget.proxy.sendPing();
     }
   }
 
   void _showNotificationNow(TimedNotification notification) {
     final title = notification.title ?? 'MonkeyCraft';
     final body = notification.body ?? '';
-    final countdown = notification.countDownText;
-    final parts = <String?>[
-      if (body.isNotEmpty) body,
-      countdown,
-    ].whereType<String>().toList();
-    final text = parts.isEmpty ? title : '$title\n${parts.join('\n')}';
-
+    final text = body.isEmpty ? title : '$title\n$body';
     if (notification.sound) {
       _timedScheduler.playNotificationSound();
     }
-
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -247,76 +361,31 @@ class _StreamScreenState extends State<StreamScreen>
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  void _handleHibernationEvent(HibernationEvent event) {
-    if (event is HibernationStatus) {
-      if (event.active) {
-        _enterHibernation(event.message ?? _hibernationMessage);
-      } else {
-        _exitHibernation();
-      }
-    }
+  Future<void> _pauseVideoPipeline() async {
+    debugPrint('[StreamScreen] _pauseVideoPipeline: cancelling accessUnitSub');
+    await _accessUnitSub?.cancel();
+    _accessUnitSub = null;
+    await _session.disposeDecoder();
+    debugPrint('[StreamScreen] _pauseVideoPipeline: complete');
   }
 
-  Future<void> _enterHibernation(String message) async {
-    if (_hibernating && message == _hibernationMessage) return;
-    _hibernationMessage = message;
-    final wasHibernating = _hibernating;
-    if (!_hibernating && mounted) {
-      setState(() => _hibernating = true);
-    } else if (mounted) {
-      setState(() {});
-    }
-
-    _input.releaseAll();
-    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
-
-    await _pauseVideoPipeline();
-
-    if (!wasHibernating &&
-        _settings.autoSwitchRideChat &&
-        !_hibernationAutoSwitchDone &&
-        mounted) {
-      _hibernationAutoSwitchDone = true;
-      _autoNavigatedToChat = true;
-      await _openChatScreenAuto();
-    }
-  }
-
-  Future<void> _exitHibernation() async {
-    if (!_hibernating) return;
-    _hibernationAutoSwitchDone = false;
-    _waitingForStream = false;
-    _lastFrameTime = null;
-    if (mounted) {
-      setState(() => _hibernating = false);
-    }
-
-    if (_autoNavigatedToChat && _settings.autoSwitchRideChat && mounted) {
-      _autoNavigatedToChat = false;
-      Navigator.of(context).pop();
-      return;
-    }
-
-    await _restartStream();
-    _refreshVideo();
+  void _syncClientStatus() {
+    final resolution = _currentTargetResolution();
+    _session.syncStatus(resolution: resolution);
   }
 
   Future<void> _openChatScreenAuto() async {
-    if (_chatScreenOpen) return;
-    _chatScreenOpen = true;
+    debugPrint('[StreamScreen] _openChatScreenAuto');
+    _session.setMode(ClientMode.chat);
     _input.releaseAll();
-    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
-    if (!mounted) {
-      _chatScreenOpen = false;
-      return;
-    }
+    if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            ChatScreen(proxy: widget.proxy),
+            ChatScreen(proxy: widget.proxy, session: _session),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           if (animation.status == AnimationStatus.reverse) {
             return FadeTransition(
@@ -340,37 +409,33 @@ class _StreamScreenState extends State<StreamScreen>
         },
       ),
     );
-    _chatScreenOpen = false;
-
-    _autoNavigatedToChat = false;
+    debugPrint('[StreamScreen] Chat screen closed (auto)');
 
     if (!mounted) return;
-    if (!_hibernating) {
+    // Switch back to streaming mode
+    _session.setMode(
+      ClientMode.streaming,
+      resolution: _currentTargetResolution(),
+    );
+
+    if (_session.state.videoState == VideoState.active) {
+      debugPrint('[StreamScreen] Returning to streaming mode');
       await _restartStream();
     }
   }
 
-  void _refreshVideo() {
-    _decoder?.reset();
-    widget.proxy.requestKeyframe();
-  }
-
   Future<void> _openChatScreen() async {
-    if (_chatScreenOpen) return;
-    _chatScreenOpen = true;
+    debugPrint('[StreamScreen] _openChatScreen: entering chat mode');
+    _session.setMode(ClientMode.chat);
     _input.releaseAll();
-    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
-    if (!mounted) {
-      _chatScreenOpen = false;
-      return;
-    }
+    if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            ChatScreen(proxy: widget.proxy),
+            ChatScreen(proxy: widget.proxy, session: _session),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           if (animation.status == AnimationStatus.reverse) {
             return FadeTransition(
@@ -394,26 +459,16 @@ class _StreamScreenState extends State<StreamScreen>
         },
       ),
     );
-    _chatScreenOpen = false;
 
+    debugPrint(
+      '[StreamScreen] _openChatScreen: chat closed, returning to streaming',
+    );
     if (!mounted) return;
+    _session.setMode(
+      ClientMode.streaming,
+      resolution: _currentTargetResolution(),
+    );
     await _restartStream();
-  }
-
-  Future<void> _pauseVideoPipeline() async {
-    await _accessUnitSub?.cancel();
-    _accessUnitSub = null;
-    if (mounted) {
-      setState(() {
-        _textureId = null;
-      });
-    } else {
-      _textureId = null;
-    }
-
-    final decoder = _decoder;
-    _decoder = null;
-    await decoder?.dispose();
   }
 
   Future<void> _loadReconnectCredentials() async {
@@ -425,18 +480,21 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _loadStreamSettings() async {
     final settings = await _settingsStore.load();
     if (!mounted) return;
-    setState(() => _settings = settings);
+    setState(() {
+      _settings = settings;
+      _session.updateSettings(settings);
+    });
   }
 
   void _handleNudge(NudgeNotification nudge) {
-    if (!_foreground) return;
+    if (!_session.state.foreground) return;
     final title = nudge.title ?? 'MonkeyCraft';
     final body = nudge.body ?? '';
     _timedScheduler.showImmediate(title, body, nudge.sound);
     if (nudge.sound) {
       _timedScheduler.playNotificationSound();
     }
-    if (!mounted || _chatScreenOpen) return;
+    if (!mounted || _session.state.isInChat) return;
     final text = body.isEmpty ? title : '$title\n$body';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -447,16 +505,23 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _initHardwareDecoder() async {
+    debugPrint('[StreamScreen] _initHardwareDecoder: fps=${_settings.fps}');
+    await _accessUnitSub?.cancel();
+    _accessUnitSub = null;
+
     final decoder = HardwareH264Decoder();
     final textureId = await decoder.createDecoder(fps: _settings.fps);
-    _decoder = decoder;
-    if (mounted) {
-      setState(() => _textureId = textureId);
-    }
+    _session.decoder = decoder;
+    _session.textureId = textureId;
+
+    debugPrint(
+      '[StreamScreen] _initHardwareDecoder: creating accessUnit subscription',
+    );
     _accessUnitSub = widget.proxy.accessUnits.listen((data) {
-      _decoder?.pushAccessUnit(data);
-      _lastFrameTime = DateTime.now();
+      _session.decoder?.pushAccessUnit(data);
+      _session.updateFrameTime();
     });
+    debugPrint('[StreamScreen] Decoder ready, textureId=$textureId');
   }
 
   @override
@@ -464,14 +529,16 @@ class _StreamScreenState extends State<StreamScreen>
     WidgetsBinding.instance.removeObserver(this);
     _input.releaseAll();
     _accessUnitSub?.cancel();
-    _timedSub?.cancel();
     _nudgeSub?.cancel();
-    _hibernationSub?.cancel();
-    _nonVideoPacketSub?.cancel();
+    _heartbeatAckSub?.cancel();
     _commandDeniedSub?.cancel();
     _serverDisconnectSub?.cancel();
+    _sessionStateSub?.cancel();
+    _connectionLostSub?.cancel();
     _notificationCheckTimer?.cancel();
-    _decoder?.dispose().catchError((_) {});
+    _reconnectRetryTimer?.cancel();
+    _session.disposeDecoder();
+    _session.dispose();
     _liveActivityService.dispose();
     widget.proxy.stop();
     SystemChrome.setPreferredOrientations([]);
@@ -480,80 +547,70 @@ class _StreamScreenState extends State<StreamScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('[StreamScreen] App lifecycle changed: $state');
+    debugPrint('[StreamScreen] App lifecycle: $state');
     if (state == AppLifecycleState.resumed) {
-      debugPrint(
-        '[StreamScreen] App resumed, foreground=$_foreground, reconnecting=$_reconnecting',
-      );
-      _foreground = true;
+      debugPrint('[StreamScreen] App resumed');
+      _session.setForeground(true);
       _resumeIfNeeded();
-      _checkNotificationTime();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      debugPrint('[StreamScreen] App inactive/paused, stopping streaming');
-      _foreground = false;
+      debugPrint('[StreamScreen] App inactive/paused');
+      _session.setForeground(false);
       _pauseStreaming();
     }
   }
 
   Future<void> _pauseStreaming() async {
-    debugPrint('[StreamScreen] _pauseStreaming called, closing=$_closing');
+    debugPrint('[StreamScreen] _pauseStreaming, closing=$_closing');
     if (_closing) return;
     _input.releaseAll();
-    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
-
+    _reconnectRetryTimer?.cancel();
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
-    await _timedSub?.cancel();
-    _timedSub = null;
     await _nudgeSub?.cancel();
     _nudgeSub = null;
-    await _hibernationSub?.cancel();
-    _hibernationSub = null;
-
-    final decoder = _decoder;
-    _decoder = null;
-    await decoder?.dispose();
-
+    await _heartbeatAckSub?.cancel();
+    _heartbeatAckSub = null;
+    await _session.disposeDecoder();
     await widget.proxy.stop();
   }
 
   Future<void> _resumeIfNeeded() async {
     debugPrint(
-      '[StreamScreen] _resumeIfNeeded called, closing=$_closing, reconnecting=$_reconnecting',
+      '[StreamScreen] _resumeIfNeeded, closing=$_closing, reconnecting=$_reconnecting',
     );
     if (_closing || _reconnecting) return;
     if (!mounted) return;
     final server = _server;
     final password = _password;
-    if (server == null || password == null) {
-      debugPrint(
-        '[StreamScreen] Cannot resume: server=$server, password=${password != null ? "set" : "null"}',
-      );
-      return;
-    }
+    if (server == null || password == null) return;
 
     _reconnecting = true;
-    debugPrint('[StreamScreen] Starting reconnection to $server');
+    debugPrint('[StreamScreen] Reconnecting to $server');
     try {
       await widget.proxy.start(server, password);
       debugPrint(
-        '[StreamScreen] proxy.start() completed, isConnected=${widget.proxy.isConnected}',
+        '[StreamScreen] Connected, isConnected=${widget.proxy.isConnected}',
       );
+      _session.updateConnectionState(widget.proxy.isConnected);
+      _session.reattachToProxy();
       widget.proxy.sendPing();
       _attachProxyStreams();
       if (_supportedPlatform) {
         await _initHardwareDecoder();
       }
       _lastIsPortrait = null;
+      _session.resetFrameTime();
       await Future<void>.delayed(const Duration(milliseconds: 100));
-      if (!_hibernating) {
-        await _restartStream();
-      }
+
+      // Sync our current mode to the server
+      _syncClientStatus();
+
+      _reconnectRetryCount = 0;
+      _reconnectRetryTimer?.cancel();
       debugPrint('[StreamScreen] Reconnection complete');
     } catch (e, st) {
-      debugPrint('[StreamScreen] Reconnection failed: $e');
-      debugPrint('[StreamScreen] Stack trace: $st');
+      debugPrint('[StreamScreen] Reconnection failed: $e\n$st');
     } finally {
       _reconnecting = false;
     }
@@ -564,20 +621,14 @@ class _StreamScreenState extends State<StreamScreen>
     _closing = true;
 
     _input.releaseAll();
-    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
     SystemChrome.setPreferredOrientations([]);
 
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
-    await _timedSub?.cancel();
-    _timedSub = null;
     await _nudgeSub?.cancel();
     _nudgeSub = null;
 
-    final decoder = _decoder;
-    _decoder = null;
-    await decoder?.dispose();
-
+    await _session.disposeDecoder();
     await widget.proxy.stop();
 
     if (mounted) {
@@ -597,16 +648,18 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Widget _buildTextureWithAspectRatio(EdgeInsets pad) {
-    if (_streamWidth <= 0 || _streamHeight <= 0) {
+    final sw = _session.streamWidth;
+    final sh = _session.streamHeight;
+    if (sw <= 0 || sh <= 0) {
       return Padding(
         padding: pad,
-        child: SizedBox.expand(child: Texture(textureId: _textureId!)),
+        child: SizedBox.expand(child: Texture(textureId: _session.textureId!)),
       );
     }
     final mq = MediaQuery.of(context);
     final availableWidth = mq.size.width - pad.left - pad.right;
     final availableHeight = mq.size.height - pad.top - pad.bottom;
-    final streamAspect = _streamWidth / _streamHeight;
+    final streamAspect = sw / sh;
     final availableAspect = availableWidth / availableHeight;
     double displayWidth, displayHeight;
     if (availableAspect > streamAspect) {
@@ -622,7 +675,7 @@ class _StreamScreenState extends State<StreamScreen>
         child: SizedBox(
           width: displayWidth,
           height: displayHeight,
-          child: Texture(textureId: _textureId!),
+          child: Texture(textureId: _session.textureId!),
         ),
       ),
     );
@@ -630,43 +683,24 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _restartStream() async {
     final target = _currentTargetResolution();
-    if (_restarting) {
-      _pendingResolution = target;
+    if (!_session.state.shouldStreamVideo) {
+      debugPrint(
+        '[StreamScreen] _restartStream: cannot restart (mode=${_session.state.mode}, videoState=${_session.state.videoState})',
+      );
       return;
     }
-    if (_hibernating) return;
-    _restarting = true;
-    _input.releaseAll();
-    widget.proxy.sendCommand({'type': 'STOP_STREAM'});
-    if (_supportedPlatform) {
-      if (_decoder == null) {
-        await _initHardwareDecoder();
-      } else {
-        await _decoder?.reset();
-      }
+    await _session.restartStream(target, onDecoderNeeded: _initHardwareDecoder);
+
+    // Ensure subscription is set up even if decoder was reused
+    if (_session.decoder != null && _accessUnitSub == null) {
+      debugPrint(
+        '[StreamScreen] _restartStream: recreating accessUnit subscription',
+      );
+      _accessUnitSub = widget.proxy.accessUnits.listen((data) {
+        _session.decoder?.pushAccessUnit(data);
+        _session.updateFrameTime();
+      });
     }
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    _streamWidth = target.width;
-    _streamHeight = target.height;
-    debugPrint(
-      'Stream target ${target.width}x${target.height} '
-      'fps=${_settings.fps} colorMode=${_settings.colorMode} preset=${_settings.resolutionPreset.name}',
-    );
-    widget.proxy.sendCommand({
-      'type': 'START_STREAM',
-      'width': target.width,
-      'height': target.height,
-      'colorMode': _settings.colorMode,
-      'fps': _settings.fps,
-    });
-    final pending = _pendingResolution;
-    _pendingResolution = null;
-    if (pending != null) {
-      _restarting = false;
-      await _restartStream();
-      return;
-    }
-    _restarting = false;
   }
 
   Future<void> _openSettings() async {
@@ -678,7 +712,10 @@ class _StreamScreenState extends State<StreamScreen>
     if (next == null || next == _settings) return;
     await _settingsStore.save(next);
     if (!mounted) return;
-    setState(() => _settings = next);
+    setState(() {
+      _settings = next;
+      _session.updateSettings(next);
+    });
     await _pauseStreaming();
     if (mounted) {
       await _resumeIfNeeded();
@@ -869,10 +906,12 @@ class _StreamScreenState extends State<StreamScreen>
         ),
       );
     }
+
+    final state = _session.state;
+
     return OrientationBuilder(
       builder: (context, orientation) {
         final isPortrait = orientation == Orientation.portrait;
-        final showTouchControls = Platform.isIOS || Platform.isAndroid;
         final mq = MediaQuery.of(context);
         final screenSize = mq.size;
         final pad = mq.padding;
@@ -901,6 +940,7 @@ class _StreamScreenState extends State<StreamScreen>
                 28.0,
                 40.0,
               );
+
         final joystickRect = Rect.fromLTWH(
           pad.left + 16,
           screenSize.height - (pad.bottom + 16 + joystickSize),
@@ -984,24 +1024,30 @@ class _StreamScreenState extends State<StreamScreen>
             ),
         ];
 
-        final shouldSend = _lastIsPortrait != isPortrait;
+        final shouldSend =
+            _lastIsPortrait != isPortrait ||
+            _lastScreenSize == null ||
+            (_lastScreenSize!.width - screenSize.width).abs() > 10 ||
+            (_lastScreenSize!.height - screenSize.height).abs() > 10;
         _lastIsPortrait = isPortrait;
-        if (shouldSend && !_hibernating && !_waitingForStream) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _restartStream();
+        _lastScreenSize = screenSize;
+        if (shouldSend && state.shouldStreamVideo) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _session.state.shouldStreamVideo) {
+              _restartStream();
+            }
           });
         }
+
+        final showTouchControls = _supportedPlatform;
 
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
             children: [
-              Center(
-                child: _textureId == null
-                    ? const SizedBox.shrink()
-                    : _buildTextureWithAspectRatio(pad),
-              ),
-              if (_hibernating)
+              if (state.shouldShowVideo && _session.textureId != null)
+                Center(child: _buildTextureWithAspectRatio(pad)),
+              if (state.shouldShowHibernation)
                 Positioned.fill(
                   child: ColoredBox(
                     color: Colors.black54,
@@ -1019,7 +1065,7 @@ class _StreamScreenState extends State<StreamScreen>
                             const SizedBox(height: 12),
                             Column(
                               mainAxisSize: MainAxisSize.min,
-                              children: _hibernationMessage
+                              children: state.videoStateMessage
                                   .split('\n')
                                   .map(
                                     (line) => Text(
@@ -1039,10 +1085,10 @@ class _StreamScreenState extends State<StreamScreen>
                     ),
                   ),
                 ),
-              if (_waitingForStream && !_hibernating)
+              if (state.shouldShowWaiting)
                 Positioned.fill(
                   child: ColoredBox(
-                    color: Colors.black54,
+                    color: Colors.black,
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1069,7 +1115,7 @@ class _StreamScreenState extends State<StreamScreen>
                     ),
                   ),
                 ),
-              if (showTouchControls && !_hibernating && !_waitingForStream)
+              if (showTouchControls && state.shouldShowVideo)
                 LookPad(
                   excludedRegions: [
                     ...safeAreaExclusions,
@@ -1089,30 +1135,25 @@ class _StreamScreenState extends State<StreamScreen>
                     'yaw': yaw,
                     'pitch': pitch,
                   }),
-                  onTap: (pos) {
-                    widget.proxy.sendCommand({'type': 'CLICK', 'button': 0});
-                  },
+                  onTap: (pos) =>
+                      widget.proxy.sendCommand({'type': 'CLICK', 'button': 0}),
                   onLongPress: (pos) {
                     HapticFeedback.heavyImpact();
                     widget.proxy.sendCommand({'type': 'CLICK', 'button': 1});
                   },
                 ),
-              if (showTouchControls && !_hibernating && !_waitingForStream)
+              if (showTouchControls && state.shouldShowVideo)
                 Positioned(
                   top: topBarY,
                   left: pad.left + 20,
                   child: HotbarToggleButton(
                     size: hotbarToggleSize,
                     expanded: _hotbarExpanded,
-                    onPressed: () {
-                      setState(() => _hotbarExpanded = !_hotbarExpanded);
-                    },
+                    onPressed: () =>
+                        setState(() => _hotbarExpanded = !_hotbarExpanded),
                   ),
                 ),
-              if (showTouchControls &&
-                  _hotbarExpanded &&
-                  !_hibernating &&
-                  !_waitingForStream)
+              if (showTouchControls && _hotbarExpanded && state.shouldShowVideo)
                 Positioned(
                   top: topBarY + hotbarToggleSize + 8,
                   left: pad.left + 20,
@@ -1161,14 +1202,7 @@ class _StreamScreenState extends State<StreamScreen>
                 top: topBarY,
                 right: pad.right + 176,
                 child: IconButton(
-                  icon: Icon(
-                    _forcedOrientation == true
-                        ? Icons.stay_current_portrait
-                        : (_forcedOrientation == false
-                              ? Icons.stay_current_landscape
-                              : Icons.screen_rotation),
-                    color: Colors.white,
-                  ),
+                  icon: const Icon(Icons.screen_rotation, color: Colors.white),
                   onPressed: _toggleOrientation,
                 ),
               ),
@@ -1176,19 +1210,11 @@ class _StreamScreenState extends State<StreamScreen>
                 top: topBarY,
                 right: pad.right + 228,
                 child: IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  onPressed: _refreshVideo,
-                ),
-              ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 280,
-                child: IconButton(
                   icon: const Icon(Icons.chat, color: Colors.white),
                   onPressed: _openChatScreen,
                 ),
               ),
-              if (showTouchControls && !_hibernating && !_waitingForStream)
+              if (showTouchControls && state.shouldShowVideo)
                 SafeArea(
                   child: Stack(
                     children: [

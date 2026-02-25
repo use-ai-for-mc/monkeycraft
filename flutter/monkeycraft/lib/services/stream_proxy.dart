@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
-import 'package:monkeycraft_client/services/hibernation_models.dart';
+import 'package:monkeycraft_client/services/protocol_models.dart';
 import 'package:monkeycraft_client/services/notification_models.dart';
 import 'package:monkeycraft_client/services/chat_models.dart';
 
@@ -26,17 +26,19 @@ class StreamProxy {
   StreamController<TimedNotification>? _timedNotificationController;
   StreamController<ImmediateNotification>? _immediateNotificationController;
   StreamController<NudgeNotification>? _nudgeNotificationController;
-  StreamController<HibernationEvent>? _hibernationController;
+  StreamController<ServerStatus>? _serverStatusController;
   StreamController<CommandDeniedEvent>? _commandDeniedController;
   StreamController<ServerDisconnectEvent>? _serverDisconnectController;
   StreamController<ChatMessage>? _chatMessageController;
   StreamController<ChatDeniedEvent>? _chatDeniedController;
   StreamController<ChatModeEvent>? _chatModeController;
   StreamController<DateTime>? _nonVideoPacketController;
+  StreamController<DateTime>? _heartbeatAckController;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
-  int _fps = 20;
+  int _fps = 10;
   int _frameIndex = 0;
   int _port = 0;
+  int _colorMode = 0;
   DateTime? _lastServerMessageTime;
   DateTime? _heartbeatSentTime;
   bool _waitingForHeartbeatAck = false;
@@ -47,6 +49,15 @@ class StreamProxy {
       StreamController<void>.broadcast();
   final StreamController<void> _connectionRestoredController =
       StreamController<void>.broadcast();
+
+  // Video state tracking (for staleness check)
+  VideoState _videoState = VideoState.active;
+  DateTime? _lastVideoStateEventTime;
+  VideoState get videoState => _videoState;
+  Duration? get timeSinceLastVideoStateEvent {
+    final t = _lastVideoStateEventTime;
+    return t == null ? null : DateTime.now().difference(t);
+  }
 
   // Get the local proxy URL
   String get url => 'tcp://127.0.0.1:$_port';
@@ -60,8 +71,8 @@ class StreamProxy {
       _immediateNotificationController?.stream ?? const Stream.empty();
   Stream<NudgeNotification> get nudges =>
       _nudgeNotificationController?.stream ?? const Stream.empty();
-  Stream<HibernationEvent> get hibernationEvents =>
-      _hibernationController?.stream ?? const Stream.empty();
+  Stream<ServerStatus> get serverStatusEvents =>
+      _serverStatusController?.stream ?? const Stream.empty();
   Stream<CommandDeniedEvent> get commandDeniedEvents =>
       _commandDeniedController?.stream ?? const Stream.empty();
   Stream<ServerDisconnectEvent> get serverDisconnectEvents =>
@@ -74,6 +85,8 @@ class StreamProxy {
       _chatModeController?.stream ?? const Stream.empty();
   Stream<DateTime> get nonVideoPackets =>
       _nonVideoPacketController?.stream ?? const Stream.empty();
+  Stream<DateTime> get heartbeatAcks =>
+      _heartbeatAckController?.stream ?? const Stream.empty();
   Stream<void> get connectionLostEvents => _connectionLostController.stream;
   Stream<void> get connectionRestoredEvents =>
       _connectionRestoredController.stream;
@@ -169,7 +182,7 @@ class StreamProxy {
           StreamController<ImmediateNotification>.broadcast();
       _nudgeNotificationController =
           StreamController<NudgeNotification>.broadcast();
-      _hibernationController = StreamController<HibernationEvent>.broadcast();
+      _serverStatusController = StreamController<ServerStatus>.broadcast();
       _commandDeniedController =
           StreamController<CommandDeniedEvent>.broadcast();
       _serverDisconnectController =
@@ -178,6 +191,7 @@ class StreamProxy {
       _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
       _chatModeController = StreamController<ChatModeEvent>.broadcast();
       _nonVideoPacketController = StreamController<DateTime>.broadcast();
+      _heartbeatAckController = StreamController<DateTime>.broadcast();
       // 1. Start Local TCP Server
       _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       _port = _serverSocket!.port;
@@ -355,16 +369,26 @@ class StreamProxy {
                 if (nudge != null) {
                   _nudgeNotificationController?.add(nudge);
                 }
-                final status = hibernationStatusFromJson(data);
-                if (status != null) {
-                  _hibernationController?.add(status);
+                // Parse SERVER_STATUS
+                if (data['type'] == 'SERVER_STATUS') {
+                  final serverStatus = ServerStatus.fromJson(data);
+                  debugPrint(
+                    '[StreamProxy] SERVER_STATUS received: videoState=${serverStatus.videoState}, message="${serverStatus.message}"',
+                  );
+                  _lastVideoStateEventTime = DateTime.now();
+                  _videoState = serverStatus.videoState;
+                  debugPrint(
+                    '[StreamProxy] Video state: $_videoState, emitting to controller',
+                  );
+                  _serverStatusController?.add(serverStatus);
                 }
               }
               if (data['type'] == 'HEARTBEAT_ACK') {
                 _waitingForHeartbeatAck = false;
                 _heartbeatSentTime = null;
+                _heartbeatAckController?.add(DateTime.now());
               }
-            } catch (e, st) {
+            } catch (e) {
               // Ignore parsing errors
             }
           }
@@ -430,24 +454,44 @@ class StreamProxy {
       _authenticated = false;
       return false;
     }
-    if (command['type'] == 'START_STREAM') {
+    if (command['type'] == 'CLIENT_STATUS') {
       final fps = command['fps'];
       if (fps is int && fps > 0) {
         _fps = fps;
       }
+      final colorMode = command['colorMode'];
+      if (colorMode is int) {
+        _colorMode = colorMode;
+      }
       _frameIndex = 0;
       _ts.reset();
-    } else if (command['type'] == 'STOP_STREAM') {
-      _frameIndex = 0;
-      _ts.reset();
-      _pendingClients.addAll(_activeClients);
-      _activeClients.clear();
     }
     return true;
   }
 
   void sendCommand(Map<String, dynamic> command) {
     trySendCommand(command);
+  }
+
+  bool sendClientStatus(
+    ClientMode mode, {
+    int? width,
+    int? height,
+    int? colorMode,
+    int? fps,
+  }) {
+    final cmd = <String, dynamic>{
+      'type': 'CLIENT_STATUS',
+      'mode': mode == ClientMode.streaming ? 'STREAMING' : 'CHAT',
+    };
+    if (mode == ClientMode.streaming) {
+      if (width != null) cmd['width'] = width;
+      if (height != null) cmd['height'] = height;
+      if (colorMode != null) cmd['colorMode'] = colorMode;
+      if (fps != null) cmd['fps'] = fps;
+    }
+    debugPrint('[StreamProxy] Sending CLIENT_STATUS: $cmd');
+    return trySendCommand(cmd);
   }
 
   bool trySendRunCommand(String command) {
@@ -594,8 +638,8 @@ class StreamProxy {
     _immediateNotificationController = null;
     await _nudgeNotificationController?.close();
     _nudgeNotificationController = null;
-    await _hibernationController?.close();
-    _hibernationController = null;
+    await _serverStatusController?.close();
+    _serverStatusController = null;
     await _commandDeniedController?.close();
     _commandDeniedController = null;
     await _serverDisconnectController?.close();
@@ -608,6 +652,8 @@ class StreamProxy {
     _chatModeController = null;
     await _nonVideoPacketController?.close();
     _nonVideoPacketController = null;
+    await _heartbeatAckController?.close();
+    _heartbeatAckController = null;
     // Note: _connectionLostController and _connectionRestoredController persist
 
     for (final client in _activeClients) {

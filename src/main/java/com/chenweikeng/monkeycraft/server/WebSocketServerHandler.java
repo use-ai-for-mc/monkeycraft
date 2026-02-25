@@ -1,6 +1,7 @@
 package com.chenweikeng.monkeycraft.server;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
+import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
@@ -10,6 +11,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.mojang.blaze3d.platform.NativeImage;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,6 +22,11 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 public class WebSocketServerHandler {
+  public enum ClientMode {
+    STREAMING,
+    CHAT
+  }
+
   private static WebSocketServerHandler instance;
   private MonkeycraftWebSocketServer server;
   private int currentPort = -1;
@@ -39,6 +46,9 @@ public class WebSocketServerHandler {
 
   private boolean turnLeft, turnRight, lookUp, lookDown;
   private boolean isChatSubscribed = false;
+
+  private ClientMode clientMode = ClientMode.STREAMING;
+  private boolean hasReceivedClientStatus = false;
 
   public boolean isTurningLeft() {
     return turnLeft;
@@ -148,6 +158,52 @@ public class WebSocketServerHandler {
     return hasEverConnected.get();
   }
 
+  public void resetHasEverConnected() {
+    hasEverConnected.set(false);
+  }
+
+  private boolean isIpAddressAllowed(InetAddress addr) {
+    AllowConnectionsFrom setting = ModConfig.getInstance().getAllowConnectionsFrom();
+
+    if (setting == AllowConnectionsFrom.ANYWHERE) {
+      return true;
+    }
+
+    byte[] bytes = addr.getAddress();
+
+    // Check localhost (127.0.0.0/8 for IPv4, ::1 for IPv6)
+    if (addr.isLoopbackAddress()) {
+      return true;
+    }
+
+    if (setting == AllowConnectionsFrom.ONLY_LOCALHOST) {
+      return false;
+    }
+
+    // ONLY_LOCAL_NETWORK: check private IP ranges
+    if (addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
+      return true;
+    }
+
+    // Additional explicit checks for common private ranges
+    if (bytes.length == 4) {
+      // 10.0.0.0/8
+      if (bytes[0] == 10) {
+        return true;
+      }
+      // 172.16.0.0/12 (172.16.x.x - 172.31.x.x)
+      if ((bytes[0] & 0xFF) == 172 && (bytes[1] & 0xFF) >= 16 && (bytes[1] & 0xFF) <= 31) {
+        return true;
+      }
+      // 192.168.0.0/16
+      if ((bytes[0] & 0xFF) == 192 && (bytes[1] & 0xFF) == 168) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   public int getCurrentPort() {
     return currentPort;
   }
@@ -163,15 +219,21 @@ public class WebSocketServerHandler {
   }
 
   public void broadcastFrame(NativeImage image) {
-    if (server != null && isStreaming && streamer != null) {
-      WebSocket conn = server.authenticatedSession;
-      if (conn != null && conn.isOpen()) {
-        streamer.encodeAndSend(image, conn);
-      } else {
-        // Stop streaming if client disconnected
-        isStreaming = false;
-        image.close();
-      }
+    if (server == null || streamer == null || !hasReceivedClientStatus) {
+      image.close();
+      return;
+    }
+
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) {
+      isStreaming = false;
+      image.close();
+      return;
+    }
+
+    // Only stream if: STREAMING mode AND ACTIVE video state AND isStreaming flag set
+    if (clientMode == ClientMode.STREAMING && !isHibernating && isStreaming) {
+      streamer.encodeAndSend(image, conn);
     } else {
       image.close();
     }
@@ -198,22 +260,7 @@ public class WebSocketServerHandler {
     pendingTimedNotificationSound = sound;
     pendingTimedNotificationCountDownText = countDownText;
 
-    if (server == null) return;
-    WebSocket conn = server.authenticatedSession;
-    if (conn == null || !conn.isOpen()) return;
-
-    JsonObject msg = new JsonObject();
-    msg.addProperty("type", "TIMED_STATUS");
-    if (fireAtEpochMs != null) {
-      msg.addProperty("fireAtEpochMs", fireAtEpochMs);
-    } else {
-      msg.add("fireAtEpochMs", null);
-    }
-    if (title != null) msg.addProperty("title", title);
-    if (body != null) msg.addProperty("body", body);
-    msg.addProperty("sound", sound);
-    if (countDownText != null) msg.addProperty("countDownText", countDownText);
-    conn.send(GSON.toJson(msg));
+    sendServerStatus();
   }
 
   public void cancelTimedNotification() {
@@ -224,7 +271,7 @@ public class WebSocketServerHandler {
     pendingTimedNotificationSound = true;
     pendingTimedNotificationCountDownText = null;
 
-    sendTimedNotification(null, null, null, false, null);
+    sendServerStatus();
   }
 
   public void sendNudge(String title, String body, boolean sound) {
@@ -240,15 +287,56 @@ public class WebSocketServerHandler {
     conn.send(GSON.toJson(msg));
   }
 
-  private void sendHibernationStatus() {
+  private void sendServerStatus() {
     if (server == null) return;
     WebSocket conn = server.authenticatedSession;
     if (conn == null || !conn.isOpen()) return;
     JsonObject msg = new JsonObject();
-    msg.addProperty("type", "HIBERNATION_STATUS");
-    msg.addProperty("active", isHibernating);
-    if (isHibernating) {
+    msg.addProperty("type", "SERVER_STATUS");
+    msg.addProperty("videoState", isHibernating ? "HIBERNATING" : "ACTIVE");
+    if (isHibernating && hibernationMessage != null && !hibernationMessage.isEmpty()) {
       msg.addProperty("message", hibernationMessage);
+    }
+    if (pendingTimedNotificationFireAt != null) {
+      msg.addProperty("timedFireAtEpochMs", pendingTimedNotificationFireAt);
+      if (pendingTimedNotificationTitle != null) {
+        msg.addProperty("timedTitle", pendingTimedNotificationTitle);
+      }
+      if (pendingTimedNotificationBody != null) {
+        msg.addProperty("timedBody", pendingTimedNotificationBody);
+      }
+      msg.addProperty("timedSound", pendingTimedNotificationSound);
+      if (pendingTimedNotificationCountDownText != null) {
+        msg.addProperty("timedCountDownText", pendingTimedNotificationCountDownText);
+      }
+    } else {
+      msg.add("timedFireAtEpochMs", null);
+    }
+    conn.send(GSON.toJson(msg));
+  }
+
+  private void sendServerStatus(WebSocket conn) {
+    if (conn == null || !conn.isOpen()) return;
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "SERVER_STATUS");
+    msg.addProperty("videoState", isHibernating ? "HIBERNATING" : "ACTIVE");
+    if (isHibernating && hibernationMessage != null && !hibernationMessage.isEmpty()) {
+      msg.addProperty("message", hibernationMessage);
+    }
+    if (pendingTimedNotificationFireAt != null) {
+      msg.addProperty("timedFireAtEpochMs", pendingTimedNotificationFireAt);
+      if (pendingTimedNotificationTitle != null) {
+        msg.addProperty("timedTitle", pendingTimedNotificationTitle);
+      }
+      if (pendingTimedNotificationBody != null) {
+        msg.addProperty("timedBody", pendingTimedNotificationBody);
+      }
+      msg.addProperty("timedSound", pendingTimedNotificationSound);
+      if (pendingTimedNotificationCountDownText != null) {
+        msg.addProperty("timedCountDownText", pendingTimedNotificationCountDownText);
+      }
+    } else {
+      msg.add("timedFireAtEpochMs", null);
     }
     conn.send(GSON.toJson(msg));
   }
@@ -257,19 +345,19 @@ public class WebSocketServerHandler {
     isHibernating = true;
     hibernationMessage = message == null ? "" : message;
     isStreaming = false;
-    sendHibernationStatus();
+    sendServerStatus();
   }
 
   public void endHibernation() {
     isHibernating = false;
     hibernationMessage = "";
-    sendHibernationStatus();
+    sendServerStatus();
   }
 
   public void setHibernationMessage(String message) {
     if (!isHibernating) return;
     hibernationMessage = message == null ? "" : message;
-    sendHibernationStatus();
+    sendServerStatus();
   }
 
   public void disconnectClient() {
@@ -284,7 +372,7 @@ public class WebSocketServerHandler {
   }
 
   public void sendChatMessage(String jsonMessage) {
-    if (server == null) return;
+    if (server == null || !isChatSubscribed) return;
     WebSocket conn = server.authenticatedSession;
     if (conn == null || !conn.isOpen()) return;
     conn.send(jsonMessage);
@@ -342,6 +430,23 @@ public class WebSocketServerHandler {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
+      // Check if connection is allowed based on IP address
+      InetSocketAddress remoteAddr = conn.getRemoteSocketAddress();
+      if (remoteAddr != null) {
+        InetAddress clientAddr = remoteAddr.getAddress();
+        if (!isIpAddressAllowed(clientAddr)) {
+          MonkeycraftClient.LOGGER.warn(
+              "Connection rejected from {} (not allowed by allowConnectionsFrom setting)",
+              clientAddr);
+          JsonObject error = new JsonObject();
+          error.addProperty("type", "ERROR");
+          error.addProperty("message", "Connection not allowed from this address");
+          conn.send(GSON.toJson(error));
+          conn.close();
+          return;
+        }
+      }
+
       String serverSalt = CryptoUtils.generateSalt();
       conn.setAttachment(serverSalt);
       JsonObject hello = new JsonObject();
@@ -356,6 +461,8 @@ public class WebSocketServerHandler {
         authenticatedSession = null;
         isStreaming = false;
         isChatSubscribed = false;
+        clientMode = ClientMode.STREAMING;
+        hasReceivedClientStatus = false;
         MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
       }
     }
@@ -375,10 +482,8 @@ public class WebSocketServerHandler {
             sendError(conn, "Unauthorized");
             conn.close();
           } else {
-            if ("START_STREAM".equals(type)) {
-              handleStartStream(conn, json);
-            } else if ("STOP_STREAM".equals(type)) {
-              handleStopStream(conn);
+            if ("CLIENT_STATUS".equals(type)) {
+              handleClientStatus(conn, json);
             } else if ("INPUT".equals(type)) {
               handleInput(json);
             } else if ("LOOK_DELTA".equals(type)) {
@@ -562,26 +667,7 @@ public class WebSocketServerHandler {
     }
 
     private void handlePing(WebSocket conn) {
-      sendHibernationStatus();
-
-      JsonObject timedStatus = new JsonObject();
-      timedStatus.addProperty("type", "TIMED_STATUS");
-      if (pendingTimedNotificationFireAt != null) {
-        timedStatus.addProperty("fireAtEpochMs", pendingTimedNotificationFireAt);
-        if (pendingTimedNotificationTitle != null) {
-          timedStatus.addProperty("title", pendingTimedNotificationTitle);
-        }
-        if (pendingTimedNotificationBody != null) {
-          timedStatus.addProperty("body", pendingTimedNotificationBody);
-        }
-        timedStatus.addProperty("sound", pendingTimedNotificationSound);
-        if (pendingTimedNotificationCountDownText != null) {
-          timedStatus.addProperty("countDownText", pendingTimedNotificationCountDownText);
-        }
-      } else {
-        timedStatus.add("fireAtEpochMs", null);
-      }
-      conn.send(GSON.toJson(timedStatus));
+      sendServerStatus(conn);
     }
 
     private void handleHeartbeat(WebSocket conn) {
@@ -676,70 +762,67 @@ public class WebSocketServerHandler {
           });
     }
 
-    private void handleStartStream(WebSocket conn, JsonObject json) {
-      if (isHibernating) {
-        sendError(conn, "Hibernating");
-        return;
-      }
-      int colorMode = 0;
-      int fps = 20;
-      int requestedWidth;
-      int requestedHeight;
+    private void handleClientStatus(WebSocket conn, JsonObject json) {
+      // Parse mode
+      String modeStr = json.has("mode") ? json.get("mode").getAsString() : "STREAMING";
+      clientMode = "CHAT".equals(modeStr) ? ClientMode.CHAT : ClientMode.STREAMING;
+      hasReceivedClientStatus = true;
 
-      if (!json.has("width") || !json.has("height")) {
-        sendError(conn, "Missing width/height");
-        return;
-      }
-      requestedWidth = json.get("width").getAsInt();
-      requestedHeight = json.get("height").getAsInt();
-      if (json.has("colorMode")) {
-        colorMode = json.get("colorMode").getAsInt();
-      }
-      if (json.has("fps")) {
-        fps = json.get("fps").getAsInt();
+      MonkeycraftClient.LOGGER.info(
+          "CLIENT_STATUS received: mode={}, hibernating={}", modeStr, isHibernating);
+
+      // Parse resolution if STREAMING mode
+      if (clientMode == ClientMode.STREAMING && json.has("width") && json.has("height")) {
+        int requestedWidth = json.get("width").getAsInt();
+        int requestedHeight = json.get("height").getAsInt();
+        int colorMode = json.has("colorMode") ? json.get("colorMode").getAsInt() : 0;
+        int fps = json.has("fps") ? json.get("fps").getAsInt() : 10;
+
         if (fps < 1) fps = 1;
         if (fps > 20) fps = 20;
+
+        int targetWidth = requestedWidth;
+        int targetHeight = requestedHeight;
+        int maxDim = 1920;
+        if (targetWidth > maxDim) targetWidth = maxDim;
+        if (targetHeight > maxDim) targetHeight = maxDim;
+        if (targetWidth < 2) targetWidth = 2;
+        if (targetHeight < 2) targetHeight = 2;
+
+        // Ensure even dimensions
+        targetWidth = (targetWidth / 2) * 2;
+        targetHeight = (targetHeight / 2) * 2;
+
+        // Recreate streamer if needed
+        if (streamer == null
+            || streamConfig.width != targetWidth
+            || streamConfig.height != targetHeight
+            || streamConfig.colorMode != colorMode
+            || streamConfig.fps != fps) {
+
+          if (streamer != null) streamer.close();
+
+          streamConfig.width = targetWidth;
+          streamConfig.height = targetHeight;
+          streamConfig.colorMode = colorMode;
+          streamConfig.fps = fps;
+
+          streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps);
+        }
+
+        if (streamer != null) {
+          streamer.resetBackpressure();
+        }
+
+        // Only set isStreaming if not hibernating
+        isStreaming = !isHibernating;
+      } else if (clientMode == ClientMode.CHAT) {
+        // CHAT mode - stop streaming
+        isStreaming = false;
       }
 
-      int targetWidth = requestedWidth;
-      int targetHeight = requestedHeight;
-      int maxDim = 1920;
-      if (targetWidth > maxDim) targetWidth = maxDim;
-      if (targetHeight > maxDim) targetHeight = maxDim;
-      if (targetWidth < 2) targetWidth = 2;
-      if (targetHeight < 2) targetHeight = 2;
-
-      // Ensure even dimensions
-      targetWidth = (targetWidth / 2) * 2;
-      targetHeight = (targetHeight / 2) * 2;
-
-      // Recreate streamer if needed
-      if (streamer == null
-          || streamConfig.width != targetWidth
-          || streamConfig.height != targetHeight
-          || streamConfig.colorMode != colorMode
-          || streamConfig.fps != fps) {
-
-        if (streamer != null) streamer.close();
-
-        streamConfig.width = targetWidth;
-        streamConfig.height = targetHeight;
-        streamConfig.colorMode = colorMode;
-        streamConfig.fps = fps;
-
-        streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps);
-      }
-
-      if (streamer != null) {
-        streamer.resetBackpressure();
-      }
-      isStreaming = true;
-      sendResponse(conn, "STREAM_STARTED", true, "Streaming started");
-    }
-
-    private void handleStopStream(WebSocket conn) {
-      isStreaming = false;
-      sendResponse(conn, "STREAM_STOPPED", true, "Streaming stopped");
+      // Always respond with current server status
+      sendServerStatus(conn);
     }
 
     private void handleAuth(WebSocket conn, JsonObject json) {

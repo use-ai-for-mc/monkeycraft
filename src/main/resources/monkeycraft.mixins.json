@@ -4,8 +4,11 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"MinecraftMixin",
+		"KeyboardMixin",
 		"NativeImageAccessor",
-		"ClientPacketListenerMixin"
+		"ClientPacketListenerMixin",
+		"GameRendererAccessor",
+		"GuiRendererAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

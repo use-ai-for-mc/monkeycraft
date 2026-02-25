@@ -16,14 +16,22 @@ StreamResolution computeTargetResolution({
   required double scale,
   int maxDim = 1920,
 }) {
-  final visibleW = math.max(0.0, logicalSize.width - padding.left - padding.right);
-  final visibleH = math.max(0.0, logicalSize.height - padding.top - padding.bottom);
+  final visibleW = math.max(
+    0.0,
+    logicalSize.width - padding.left - padding.right,
+  );
+  final visibleH = math.max(
+    0.0,
+    logicalSize.height - padding.top - padding.bottom,
+  );
 
-  final rawW = (visibleW * devicePixelRatio * scale).round();
-  final rawH = (visibleH * devicePixelRatio * scale).round();
+  final rawW = visibleW * devicePixelRatio * scale;
+  final rawH = visibleH * devicePixelRatio * scale;
 
-  int w = math.max(2, math.min(maxDim, rawW));
-  int h = math.max(2, math.min(maxDim, rawH));
+  final scaleFactor = math.min(1.0, math.min(maxDim / rawW, maxDim / rawH));
+
+  int w = (rawW * scaleFactor).round();
+  int h = (rawH * scaleFactor).round();
 
   w = (w ~/ 2) * 2;
   h = (h ~/ 2) * 2;

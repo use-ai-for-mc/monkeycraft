@@ -5,6 +5,7 @@ import android.media.MediaFormat
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.view.Surface
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -145,6 +146,9 @@ class H264DecoderPlugin(
                 stopCodec()
                 surface?.release()
                 surface = null
+            }
+            // entry.release() must be called on the main/UI thread
+            Handler(Looper.getMainLooper()).post {
                 entry.release()
             }
             thread.quitSafely()

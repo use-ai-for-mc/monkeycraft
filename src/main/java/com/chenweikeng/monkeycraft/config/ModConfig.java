@@ -2,6 +2,8 @@ package com.chenweikeng.monkeycraft.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonSerializer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,7 +20,24 @@ public class ModConfig {
   private static final int MAX_PORT = 65535;
   private static final Path CONFIG_PATH =
       FabricLoader.getInstance().getConfigDir().resolve("monkeycraft.json");
-  private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+  private static final Gson GSON =
+      new GsonBuilder()
+          .setPrettyPrinting()
+          .registerTypeAdapter(
+              AllowConnectionsFrom.class,
+              (JsonDeserializer<AllowConnectionsFrom>)
+                  (json, type, context) -> {
+                    try {
+                      return AllowConnectionsFrom.valueOf(json.getAsString());
+                    } catch (Exception e) {
+                      return AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
+                    }
+                  })
+          .registerTypeAdapter(
+              AllowConnectionsFrom.class,
+              (JsonSerializer<AllowConnectionsFrom>)
+                  (src, type, context) -> context.serialize(src.name()))
+          .create();
 
   private static ModConfig INSTANCE;
 
@@ -26,6 +45,7 @@ public class ModConfig {
   private boolean autoLaunch = false;
   private int port = 9600;
   private String password;
+  private AllowConnectionsFrom allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
   private List<String> commandAllowlist = new ArrayList<>(List.of("*"));
   private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
   private String defaultBehavior = "ALLOW";
@@ -59,6 +79,20 @@ public class ModConfig {
 
   public void setPort(int port) {
     this.port = Math.max(MIN_PORT, Math.min(MAX_PORT, port));
+  }
+
+  public AllowConnectionsFrom getAllowConnectionsFrom() {
+    if (allowConnectionsFrom == null) {
+      allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
+    }
+    return allowConnectionsFrom;
+  }
+
+  public void setAllowConnectionsFrom(AllowConnectionsFrom allowConnectionsFrom) {
+    this.allowConnectionsFrom =
+        allowConnectionsFrom != null
+            ? allowConnectionsFrom
+            : AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
   }
 
   public String getPassword() {
@@ -171,6 +205,9 @@ public class ModConfig {
         }
         if (config.defaultBehavior == null || config.defaultBehavior.isEmpty()) {
           config.defaultBehavior = "ALLOW";
+        }
+        if (config.allowConnectionsFrom == null) {
+          config.allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
         }
         return config;
       } catch (IOException e) {
