@@ -71,3 +71,13 @@ flutter:
         - asset: assets/fonts/Mulish-VariableFont_wght.ttf
         - asset: assets/fonts/Mulish-Italic-VariableFont_wght.ttf
           style: italic
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/Montserrat-VariableFont_wght.ttf
+        - asset: assets/fonts/Montserrat-Italic-VariableFont_wght.ttf
+          style: italic
+    - family: NunitoSans
+      fonts:
+        - asset: assets/fonts/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf
+        - asset: assets/fonts/NunitoSans-Italic-VariableFont_YTLC,opsz,wdth,wght.ttf
+          style: italic

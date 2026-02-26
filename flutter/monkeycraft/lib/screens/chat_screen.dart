@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/services/chat_models.dart';
 import 'package:monkeycraft_client/services/protocol_models.dart';
 import 'package:monkeycraft_client/services/notification_models.dart';
@@ -13,13 +14,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 class _RichText extends StatefulWidget {
   final List<ChatSegment> segments;
-  final TextStyle baseStyle;
+  final TextStyle? baseStyle;
   final StreamProxy? proxy;
   final void Function(String command)? onSuggestCommand;
 
   const _RichText({
     required this.segments,
-    required this.baseStyle,
+    this.baseStyle,
     this.proxy,
     this.onSuggestCommand,
   });
@@ -147,8 +148,10 @@ class _RichTextState extends State<_RichText> {
   }
 
   TextStyle _getStyleForSegment(ChatSegment seg, Color? color) {
-    return widget.baseStyle.copyWith(
-      color: color ?? widget.baseStyle.color,
+    final defaultStyle = DefaultTextStyle.of(context).style;
+    final base = widget.baseStyle ?? defaultStyle;
+    return base.copyWith(
+      color: color ?? base.color,
       fontWeight: seg.bold ? FontWeight.bold : null,
       fontStyle: seg.italic ? FontStyle.italic : null,
       decoration: TextDecoration.combine([
@@ -652,9 +655,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: _RichText(
                           segments: msg.segments,
-                          baseStyle: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
+                          baseStyle: appSettings.textStyleWithFont(
+                            const TextStyle(color: Colors.white, fontSize: 14),
                           ),
                           proxy: widget.proxy,
                           onSuggestCommand: _onSuggestCommand,
@@ -691,15 +693,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         child: TextField(
                           controller: _messageController,
                           focusNode: _messageFocusNode,
-                          style: const TextStyle(color: Colors.white),
+                          style: appSettings.textStyleWithFont(
+                            const TextStyle(color: Colors.white),
+                          ),
                           textInputAction: TextInputAction.send,
                           keyboardType: TextInputType.text,
                           inputFormatters: [],
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: 'Type a message...',
-                            hintStyle: TextStyle(color: Colors.white54),
+                            hintStyle: appSettings.textStyleWithFont(
+                              const TextStyle(color: Colors.white54),
+                            ),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 12,
                             ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:monkeycraft_client/main.dart';
+import 'package:monkeycraft_client/services/app_settings.dart';
 import 'package:monkeycraft_client/services/stream_settings.dart';
 
 class StreamSettingsScreen extends StatefulWidget {
@@ -34,6 +36,20 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          DropdownButtonFormField<AppFont>(
+            initialValue: appSettings.font,
+            decoration: const InputDecoration(labelText: 'Font'),
+            items: AppFont.values
+                .map(
+                  (f) => DropdownMenuItem(value: f, child: Text(f.displayName)),
+                )
+                .toList(),
+            onChanged: (v) {
+              if (v == null) return;
+              appSettings.setFont(v);
+            },
+          ),
+          const SizedBox(height: 16),
           DropdownButtonFormField<ResolutionPreset>(
             initialValue: _settings.resolutionPreset,
             decoration: const InputDecoration(labelText: 'Resolution'),

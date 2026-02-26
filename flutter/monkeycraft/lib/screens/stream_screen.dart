@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/services/game_input_controller.dart';
 import 'package:monkeycraft_client/services/ios_timed_notification_scheduler.dart';
 import 'package:monkeycraft_client/services/notification_models.dart';
@@ -118,7 +119,6 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   void _attachProxyStreams() {
-    
     _nudgeSub?.cancel();
     _nudgeSub = widget.proxy.nudges.listen(_handleNudge);
     _commandDeniedSub?.cancel();
@@ -136,7 +136,6 @@ class _StreamScreenState extends State<StreamScreen>
     });
     _connectionLostSub?.cancel();
     _connectionLostSub = widget.proxy.connectionLostEvents.listen((_) {
-      
       _handleConnectionLost();
     });
   }
@@ -144,7 +143,6 @@ class _StreamScreenState extends State<StreamScreen>
   void _attachSessionState() {
     _sessionStateSub?.cancel();
     _sessionStateSub = _session.stateStream.listen((state) {
-      
       if (mounted) setState(() {});
 
       // Handle state transitions
@@ -178,8 +176,6 @@ class _StreamScreenState extends State<StreamScreen>
     required VideoState toVideoState,
     required String message,
   }) async {
-    
-
     // Entering hibernation while streaming
     if (toVideoState == VideoState.hibernating &&
         fromVideoState != VideoState.hibernating &&
@@ -196,25 +192,21 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _handleEnterHibernation(String message) async {
-    
     _input.releaseAll();
     await _pauseVideoPipeline();
 
     if (_session.shouldAutoNavigateToChat && mounted) {
-      
       await _openChatScreenAuto();
     }
   }
 
   Future<void> _handleExitHibernation() async {
-    
     if (!mounted) return;
     await _restartStream();
     _session.refreshVideo();
   }
 
   void _handleConnectionLost() {
-    
     if (_closing || _reconnecting) return;
     _scheduleReconnectRetry();
   }
@@ -222,12 +214,11 @@ class _StreamScreenState extends State<StreamScreen>
   void _scheduleReconnectRetry() {
     _reconnectRetryTimer?.cancel();
     if (_reconnectRetryCount >= _maxReconnectRetries) {
-      
       _closeScreenAndReturnToLogin();
       return;
     }
     final delay = Duration(seconds: 1 << _reconnectRetryCount);
-    
+
     _reconnectRetryTimer = Timer(delay, () {
       if (!_closing && !_reconnecting && mounted) {
         _resumeIfNeededWithRetry();
@@ -310,7 +301,6 @@ class _StreamScreenState extends State<StreamScreen>
     }
     final age = widget.proxy.timeSinceLastVideoStateEvent;
     if (age != null && age.inSeconds >= 5) {
-      
       widget.proxy.sendPing();
     }
   }
@@ -354,11 +344,9 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _pauseVideoPipeline() async {
-    
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
     await _session.disposeDecoder();
-    
   }
 
   void _syncClientStatus() {
@@ -367,7 +355,6 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openChatScreenAuto() async {
-    
     _session.setMode(ClientMode.chat);
     _input.releaseAll();
     await _accessUnitSub?.cancel();
@@ -401,7 +388,6 @@ class _StreamScreenState extends State<StreamScreen>
         },
       ),
     );
-    
 
     if (!mounted) return;
     // Switch back to streaming mode
@@ -411,13 +397,11 @@ class _StreamScreenState extends State<StreamScreen>
     );
 
     if (_session.state.videoState == VideoState.active) {
-      
       await _restartStream();
     }
   }
 
   Future<void> _openChatScreen() async {
-    
     _session.setMode(ClientMode.chat);
     _input.releaseAll();
     await _accessUnitSub?.cancel();
@@ -452,7 +436,6 @@ class _StreamScreenState extends State<StreamScreen>
       ),
     );
 
-    
     if (!mounted) return;
     _session.setMode(
       ClientMode.streaming,
@@ -495,7 +478,6 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _initHardwareDecoder() async {
-    
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
@@ -504,12 +486,10 @@ class _StreamScreenState extends State<StreamScreen>
     _session.decoder = decoder;
     _session.textureId = textureId;
 
-    
     _accessUnitSub = widget.proxy.accessUnits.listen((data) {
       _session.decoder?.pushAccessUnit(data);
       _session.updateFrameTime();
     });
-    
   }
 
   @override
@@ -535,21 +515,17 @@ class _StreamScreenState extends State<StreamScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    
     if (state == AppLifecycleState.resumed) {
-      
       _session.setForeground(true);
       _resumeIfNeeded();
     } else if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      
       _session.setForeground(false);
       _pauseStreaming();
     }
   }
 
   Future<void> _pauseStreaming() async {
-    
     if (_closing) return;
     _input.releaseAll();
     _reconnectRetryTimer?.cancel();
@@ -564,7 +540,6 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _resumeIfNeeded() async {
-    
     if (_closing || _reconnecting) return;
     if (!mounted) return;
     final server = _server;
@@ -572,10 +547,10 @@ class _StreamScreenState extends State<StreamScreen>
     if (server == null || password == null) return;
 
     _reconnecting = true;
-    
+
     try {
       await widget.proxy.start(server, password);
-      
+
       _session.updateConnectionState(widget.proxy.isConnected);
       _session.reattachToProxy();
       widget.proxy.sendPing();
@@ -592,9 +567,7 @@ class _StreamScreenState extends State<StreamScreen>
 
       _reconnectRetryCount = 0;
       _reconnectRetryTimer?.cancel();
-      
     } catch (e, st) {
-      
     } finally {
       _reconnecting = false;
     }
@@ -668,14 +641,12 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _restartStream() async {
     final target = _currentTargetResolution();
     if (!_session.state.shouldStreamVideo) {
-      
       return;
     }
     await _session.restartStream(target, onDecoderNeeded: _initHardwareDecoder);
 
     // Ensure subscription is set up even if decoder was reused
     if (_session.decoder != null && _accessUnitSub == null) {
-      
       _accessUnitSub = widget.proxy.accessUnits.listen((data) {
         _session.decoder?.pushAccessUnit(data);
         _session.updateFrameTime();
@@ -781,12 +752,14 @@ class _StreamScreenState extends State<StreamScreen>
                             ),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
+                          Text(
                             'Command',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                            style: appSettings.textStyleWithFont(
+                              const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -794,7 +767,9 @@ class _StreamScreenState extends State<StreamScreen>
                             controller: controller,
                             autofocus: true,
                             textInputAction: TextInputAction.send,
-                            style: const TextStyle(color: Colors.white),
+                            style: appSettings.textStyleWithFont(
+                              const TextStyle(color: Colors.white),
+                            ),
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[ -~]'),
@@ -802,10 +777,12 @@ class _StreamScreenState extends State<StreamScreen>
                             ],
                             decoration: InputDecoration(
                               hintText: '/warp home',
-                              hintStyle: const TextStyle(color: Colors.white38),
+                              hintStyle: appSettings.textStyleWithFont(
+                                const TextStyle(color: Colors.white38),
+                              ),
                               helperText: 'Must start with /',
-                              helperStyle: const TextStyle(
-                                color: Colors.white54,
+                              helperStyle: appSettings.textStyleWithFont(
+                                const TextStyle(color: Colors.white54),
                               ),
                               filled: true,
                               fillColor: const Color(0x33111111),
@@ -859,19 +836,23 @@ class _StreamScreenState extends State<StreamScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     'Unsupported platform',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                    style: appSettings.textStyleWithFont(
+                      const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'This client supports iOS and Android only.',
-                    style: TextStyle(color: Colors.white70),
+                    style: appSettings.textStyleWithFont(
+                      const TextStyle(color: Colors.white70),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
@@ -1050,9 +1031,11 @@ class _StreamScreenState extends State<StreamScreen>
                                   .map(
                                     (line) => Text(
                                       line,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
+                                      style: appSettings.textStyleWithFont(
+                                        const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -1081,11 +1064,13 @@ class _StreamScreenState extends State<StreamScreen>
                               size: 48,
                             ),
                             const SizedBox(height: 12),
-                            const Text(
+                            Text(
                               'Waiting for video stream...',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
+                              style: appSettings.textStyleWithFont(
+                                const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
                               ),
                               textAlign: TextAlign.center,
                             ),
