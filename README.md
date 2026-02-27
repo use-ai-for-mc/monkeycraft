@@ -10,11 +10,16 @@
 
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21+-green.svg)](https://www.minecraft.net/)
 [![Fabric](https://img.shields.io/badge/Fabric-0.16.0+-orange.svg)](https://fabricmc.net/)
-[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-CC0--1.0-purple.svg)](LICENSE)
 
 </div>
 
 ---
+
+iOS client is avilable in TestFlight and has passed Beta Review by Apple App Store Connect. Android client is clear for closed testing. Please refer to the [wiki](https://github.com/weikengchen/monkeycraft/wiki) for the latest client release information. 
+
+---
+
 
 ## ✨ What Can You Do?
 

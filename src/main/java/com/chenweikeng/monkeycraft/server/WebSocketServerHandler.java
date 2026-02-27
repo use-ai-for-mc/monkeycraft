@@ -5,8 +5,8 @@ import static org.lwjgl.glfw.GLFW.*;
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ModConfig;
-import com.chenweikeng.monkeycraft.mixin.AbstractContainerScreenAccessor;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
+import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
@@ -58,10 +58,6 @@ public class WebSocketServerHandler {
   private boolean hasReceivedClientStatus = false;
 
   private boolean isScreenOpen = false;
-  private int screenGuiX = 0;
-  private int screenGuiY = 0;
-  private int screenGuiWidth = 0;
-  private int screenGuiHeight = 0;
 
   public boolean isTurningLeft() {
     return turnLeft;
@@ -100,40 +96,13 @@ public class WebSocketServerHandler {
     return isScreenOpen;
   }
 
-  public int getScreenGuiX() {
-    return screenGuiX;
-  }
-
-  public int getScreenGuiY() {
-    return screenGuiY;
-  }
-
-  public int getScreenGuiWidth() {
-    return screenGuiWidth;
-  }
-
-  public int getScreenGuiHeight() {
-    return screenGuiHeight;
-  }
-
   public void updateScreenState(net.minecraft.client.gui.screens.Screen screen) {
     boolean wasOpen = isScreenOpen;
 
-    if (screen
-        instanceof
-        net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> containerScreen) {
-      AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) containerScreen;
+    if (ScreenHelper.hasSpecialCropping(screen)) {
       isScreenOpen = true;
-      screenGuiX = accessor.monkeycraft$getLeftPos();
-      screenGuiY = accessor.monkeycraft$getTopPos();
-      screenGuiWidth = accessor.monkeycraft$getImageWidth();
-      screenGuiHeight = accessor.monkeycraft$getImageHeight();
     } else {
       isScreenOpen = false;
-      screenGuiX = 0;
-      screenGuiY = 0;
-      screenGuiWidth = 0;
-      screenGuiHeight = 0;
     }
 
     if (wasOpen != isScreenOpen) {
@@ -816,23 +785,24 @@ public class WebSocketServerHandler {
             net.minecraft.client.gui.screens.Screen screen = mc.screen;
             if (screen == null) return;
 
-            int guiX = getScreenGuiX();
-            int guiY = getScreenGuiY();
-            int guiW = getScreenGuiWidth();
-            int guiH = getScreenGuiHeight();
-
             int padding = 16;
-            int cropGuiX = Math.max(0, guiX - padding);
-            int cropGuiY = Math.max(0, guiY - padding);
-            int cropGuiWidth = Math.min(screen.width - cropGuiX, guiW + 2 * padding);
-            int cropGuiHeight = Math.min(screen.height - cropGuiY, guiH + 2 * padding);
+            int[] bounds = ScreenHelper.getClickableBounds(screen, padding);
+            if (bounds == null) return;
+
+            int cropGuiX = bounds[0];
+            int cropGuiY = bounds[1];
+            int cropGuiWidth = bounds[2];
+            int cropGuiHeight = bounds[3];
 
             double screenX = cropGuiX + normX * cropGuiWidth;
             double screenY = cropGuiY + normY * cropGuiHeight;
 
             double guiScale = mc.getWindow().getGuiScale();
+            double framebufferX = screenX * guiScale;
+            double framebufferY = screenY * guiScale;
+
             long windowHandle = mc.getWindow().handle();
-            glfwSetCursorPos(windowHandle, screenX * guiScale, screenY * guiScale);
+            glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
 
             int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
             MouseButtonEvent mouseEvent =

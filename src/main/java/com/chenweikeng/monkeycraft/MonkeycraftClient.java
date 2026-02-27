@@ -9,6 +9,7 @@ import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
 import com.chenweikeng.monkeycraft.utils.ImageUtils;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
+import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApiRegistration;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ClientModInitializer;
@@ -20,8 +21,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -112,8 +111,7 @@ public class MonkeycraftClient implements ClientModInitializer {
 
           if (WebSocketServerHandler.getInstance().isStreaming()
               && client.screen != null
-              && !(client.screen instanceof ChatScreen)
-              && !(client.screen instanceof AbstractContainerScreen<?>)
+              && !ScreenHelper.shouldKeepScreen(client.screen)
               && !hasRecentLocalKeyInput()) {
             client.screen.removed();
           }
@@ -163,28 +161,24 @@ public class MonkeycraftClient implements ClientModInitializer {
                         int targetHeight = config.height;
 
                         int cropX, cropY, cropWidth, cropHeight;
+                        int resizeWidth = targetWidth;
+                        int resizeHeight = targetHeight;
 
-                        if (handler.isScreenOpen()
-                            && client.screen instanceof AbstractContainerScreen<?>) {
-                          double scaleFactor = client.getWindow().getGuiScale();
-                          int guiX = (int) (handler.getScreenGuiX() * scaleFactor);
-                          int guiY = (int) (handler.getScreenGuiY() * scaleFactor);
-                          int guiW = (int) (handler.getScreenGuiWidth() * scaleFactor);
-                          int guiH = (int) (handler.getScreenGuiHeight() * scaleFactor);
+                        double scaleFactor = client.getWindow().getGuiScale();
+                        int[] cropBounds =
+                            ScreenHelper.getCropBounds(
+                                client.screen,
+                                image.getWidth(),
+                                image.getHeight(),
+                                targetWidth,
+                                targetHeight,
+                                scaleFactor);
 
-                          int padding = (int) (16 * scaleFactor);
-
-                          cropX = Math.max(0, guiX - padding);
-                          cropY = Math.max(0, guiY - padding);
-                          cropWidth = Math.min(image.getWidth() - cropX, guiW + padding * 2);
-                          cropHeight = Math.min(image.getHeight() - cropY, guiH + padding * 2);
-
-                          if (cropX + cropWidth > image.getWidth()) {
-                            cropWidth = image.getWidth() - cropX;
-                          }
-                          if (cropY + cropHeight > image.getHeight()) {
-                            cropHeight = image.getHeight() - cropY;
-                          }
+                        if (handler.isScreenOpen() && cropBounds != null) {
+                          cropX = cropBounds[0];
+                          cropY = cropBounds[1];
+                          cropWidth = cropBounds[2];
+                          cropHeight = cropBounds[3];
                         } else {
                           double targetAspect = (double) targetWidth / (double) targetHeight;
                           cropWidth = image.getWidth();
@@ -204,7 +198,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                             ImageUtils.crop(image, cropX, cropY, cropWidth, cropHeight);
                         try {
                           com.mojang.blaze3d.platform.NativeImage resized =
-                              ImageUtils.resize(cropped, targetWidth, targetHeight);
+                              ImageUtils.resize(cropped, resizeWidth, resizeHeight);
                           handler.broadcastFrame(resized);
                         } finally {
                           cropped.close();
