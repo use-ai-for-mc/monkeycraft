@@ -117,6 +117,17 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(defaultBehaviorEntry);
 
+    AbstractConfigListEntry<Boolean> alwaysAutoJumpEntry =
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.monkeycraft.option.alwaysAutoJump"),
+                config.isAlwaysAutoJump())
+            .setDefaultValue(true)
+            .setTooltip(Component.translatable("config.monkeycraft.option.alwaysAutoJump.tooltip"))
+            .setSaveConsumer(config::setAlwaysAutoJump)
+            .build();
+    general.addEntry(alwaysAutoJumpEntry);
+
     builder.setSavingRunnable(config::save);
     return builder.build();
   }

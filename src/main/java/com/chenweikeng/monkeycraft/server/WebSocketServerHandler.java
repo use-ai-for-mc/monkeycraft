@@ -1,8 +1,11 @@
 package com.chenweikeng.monkeycraft.server;
 
+import static org.lwjgl.glfw.GLFW.*;
+
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.mixin.AbstractContainerScreenAccessor;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
@@ -17,6 +20,10 @@ import java.net.ServerSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -50,6 +57,12 @@ public class WebSocketServerHandler {
   private ClientMode clientMode = ClientMode.STREAMING;
   private boolean hasReceivedClientStatus = false;
 
+  private boolean isScreenOpen = false;
+  private int screenGuiX = 0;
+  private int screenGuiY = 0;
+  private int screenGuiWidth = 0;
+  private int screenGuiHeight = 0;
+
   public boolean isTurningLeft() {
     return turnLeft;
   }
@@ -81,6 +94,65 @@ public class WebSocketServerHandler {
 
   public void unsubscribeChat() {
     isChatSubscribed = false;
+  }
+
+  public boolean isScreenOpen() {
+    return isScreenOpen;
+  }
+
+  public int getScreenGuiX() {
+    return screenGuiX;
+  }
+
+  public int getScreenGuiY() {
+    return screenGuiY;
+  }
+
+  public int getScreenGuiWidth() {
+    return screenGuiWidth;
+  }
+
+  public int getScreenGuiHeight() {
+    return screenGuiHeight;
+  }
+
+  public void updateScreenState(net.minecraft.client.gui.screens.Screen screen) {
+    boolean wasOpen = isScreenOpen;
+
+    if (screen
+        instanceof
+        net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> containerScreen) {
+      AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor) containerScreen;
+      isScreenOpen = true;
+      screenGuiX = accessor.monkeycraft$getLeftPos();
+      screenGuiY = accessor.monkeycraft$getTopPos();
+      screenGuiWidth = accessor.monkeycraft$getImageWidth();
+      screenGuiHeight = accessor.monkeycraft$getImageHeight();
+    } else {
+      isScreenOpen = false;
+      screenGuiX = 0;
+      screenGuiY = 0;
+      screenGuiWidth = 0;
+      screenGuiHeight = 0;
+    }
+
+    if (wasOpen != isScreenOpen) {
+      sendScreenState();
+      if (streamer != null) {
+        streamer.resetBackpressure();
+      }
+    }
+  }
+
+  private void sendScreenState() {
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "SCREEN_STATE");
+    msg.addProperty("isOpen", isScreenOpen);
+    conn.send(GSON.toJson(msg));
   }
 
   public static class StreamConfig {
@@ -514,6 +586,14 @@ public class WebSocketServerHandler {
               handlePing(conn);
             } else if ("HEARTBEAT".equals(type)) {
               handleHeartbeat(conn);
+            } else if ("SCREEN_TAP".equals(type)) {
+              handleScreenTap(json);
+            } else if ("SCREEN_KEY".equals(type)) {
+              handleScreenKey(json);
+            } else if ("SCREEN_CLICK".equals(type)) {
+              handleScreenClick(json);
+            } else if ("SCREEN_MODIFIER".equals(type)) {
+              handleScreenModifier(json);
             } else {
               MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
@@ -674,6 +754,109 @@ public class WebSocketServerHandler {
       JsonObject ack = new JsonObject();
       ack.addProperty("type", "HEARTBEAT_ACK");
       conn.send(GSON.toJson(ack));
+    }
+
+    private void handleScreenTap(JsonObject json) {
+      if (!json.has("normalizedX") || !json.has("normalizedY")) return;
+      double normX = json.get("normalizedX").getAsDouble();
+      double normY = json.get("normalizedY").getAsDouble();
+
+      Minecraft mc = Minecraft.getInstance();
+      mc.execute(
+          () -> {
+            net.minecraft.client.gui.screens.Screen screen = mc.screen;
+            if (screen == null) return;
+
+            int screenX = (int) (normX * screen.width);
+            int screenY = (int) (normY * screen.height);
+
+            MonkeycraftClient.LOGGER.debug("Screen tap at ({}, {})", screenX, screenY);
+          });
+    }
+
+    private void handleScreenKey(JsonObject json) {
+      if (!json.has("key") || !json.has("pressed")) return;
+      String key = json.get("key").getAsString();
+      boolean pressed = json.get("pressed").getAsBoolean();
+
+      Minecraft mc = Minecraft.getInstance();
+      mc.execute(
+          () -> {
+            net.minecraft.client.gui.screens.Screen screen = mc.screen;
+            if (screen == null) return;
+
+            int keyCode =
+                switch (key) {
+                  case "ESCAPE" -> GLFW_KEY_ESCAPE;
+                  default -> -1;
+                };
+
+            if (keyCode >= 0) {
+              int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
+              KeyEvent keyEvent = new KeyEvent(keyCode, 0, modifiers);
+              if (pressed) {
+                screen.keyPressed(keyEvent);
+              } else {
+                screen.keyReleased(keyEvent);
+              }
+            }
+          });
+    }
+
+    private void handleScreenClick(JsonObject json) {
+      if (!json.has("button") || !json.has("normalizedX") || !json.has("normalizedY")) return;
+
+      int button = json.get("button").getAsInt();
+      double normX = json.get("normalizedX").getAsDouble();
+      double normY = json.get("normalizedY").getAsDouble();
+
+      Minecraft mc = Minecraft.getInstance();
+      mc.execute(
+          () -> {
+            net.minecraft.client.gui.screens.Screen screen = mc.screen;
+            if (screen == null) return;
+
+            int guiX = getScreenGuiX();
+            int guiY = getScreenGuiY();
+            int guiW = getScreenGuiWidth();
+            int guiH = getScreenGuiHeight();
+
+            int padding = 16;
+            int cropGuiX = Math.max(0, guiX - padding);
+            int cropGuiY = Math.max(0, guiY - padding);
+            int cropGuiWidth = Math.min(screen.width - cropGuiX, guiW + 2 * padding);
+            int cropGuiHeight = Math.min(screen.height - cropGuiY, guiH + 2 * padding);
+
+            double screenX = cropGuiX + normX * cropGuiWidth;
+            double screenY = cropGuiY + normY * cropGuiHeight;
+
+            double guiScale = mc.getWindow().getGuiScale();
+            long windowHandle = mc.getWindow().handle();
+            glfwSetCursorPos(windowHandle, screenX * guiScale, screenY * guiScale);
+
+            int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
+            MouseButtonEvent mouseEvent =
+                new MouseButtonEvent(screenX, screenY, new MouseButtonInfo(button, modifiers));
+
+            if (screen instanceof AbstractContainerScreen<?> containerScreen
+                && !containerScreen.getMenu().getCarried().isEmpty()) {
+              screen.mouseReleased(mouseEvent);
+            } else {
+              screen.mouseClicked(mouseEvent, false);
+            }
+          });
+    }
+
+    private boolean screenShiftActive = false;
+
+    private void handleScreenModifier(JsonObject json) {
+      if (!json.has("modifier") || !json.has("active")) return;
+      String modifier = json.get("modifier").getAsString();
+      boolean active = json.get("active").getAsBoolean();
+
+      if ("SHIFT".equals(modifier)) {
+        screenShiftActive = active;
+      }
     }
 
     private void handleInput(JsonObject json) {

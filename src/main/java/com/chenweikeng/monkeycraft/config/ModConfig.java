@@ -49,6 +49,7 @@ public class ModConfig {
   private List<String> commandAllowlist = new ArrayList<>(List.of("*"));
   private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
   private String defaultBehavior = "ALLOW";
+  private boolean alwaysAutoJump = true;
 
   public static ModConfig getInstance() {
     if (INSTANCE == null) {
@@ -178,6 +179,14 @@ public class ModConfig {
 
   public boolean isCommandPermittedByDefault() {
     return "ALLOW".equalsIgnoreCase(getDefaultBehavior());
+  }
+
+  public boolean isAlwaysAutoJump() {
+    return alwaysAutoJump;
+  }
+
+  public void setAlwaysAutoJump(boolean alwaysAutoJump) {
+    this.alwaysAutoJump = alwaysAutoJump;
   }
 
   public void save() {

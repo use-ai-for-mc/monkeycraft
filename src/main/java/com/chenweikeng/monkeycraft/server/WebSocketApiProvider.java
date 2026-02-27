@@ -41,6 +41,11 @@ public final class WebSocketApiProvider implements MonkeycraftApiProvider {
   }
 
   @Override
+  public boolean isServerStarted() {
+    return WebSocketServerHandler.getInstance().isRunning();
+  }
+
+  @Override
   public boolean isHibernating() {
     return WebSocketServerHandler.getInstance().isHibernating();
   }

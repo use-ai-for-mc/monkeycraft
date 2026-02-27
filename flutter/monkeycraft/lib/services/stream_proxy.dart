@@ -34,6 +34,7 @@ class StreamProxy {
   StreamController<ChatModeEvent>? _chatModeController;
   StreamController<DateTime>? _nonVideoPacketController;
   StreamController<DateTime>? _heartbeatAckController;
+  StreamController<bool>? _screenStateController;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
   int _fps = 10;
   int _frameIndex = 0;
@@ -87,6 +88,8 @@ class StreamProxy {
       _nonVideoPacketController?.stream ?? const Stream.empty();
   Stream<DateTime> get heartbeatAcks =>
       _heartbeatAckController?.stream ?? const Stream.empty();
+  Stream<bool> get screenStateEvents =>
+      _screenStateController?.stream ?? const Stream.empty();
   Stream<void> get connectionLostEvents => _connectionLostController.stream;
   Stream<void> get connectionRestoredEvents =>
       _connectionRestoredController.stream;
@@ -154,8 +157,6 @@ class StreamProxy {
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
   }) async {
-    
-
     // If already starting, wait for the existing operation to complete
     if (_starting && _startCompleter != null) {
       try {
@@ -190,6 +191,7 @@ class StreamProxy {
       _chatModeController = StreamController<ChatModeEvent>.broadcast();
       _nonVideoPacketController = StreamController<DateTime>.broadcast();
       _heartbeatAckController = StreamController<DateTime>.broadcast();
+      _screenStateController = StreamController<bool>.broadcast();
       // 1. Start Local TCP Server
       _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       _port = _serverSocket!.port;
@@ -370,11 +372,16 @@ class StreamProxy {
                 // Parse SERVER_STATUS
                 if (data['type'] == 'SERVER_STATUS') {
                   final serverStatus = ServerStatus.fromJson(data);
-                  
+
                   _lastVideoStateEventTime = DateTime.now();
                   _videoState = serverStatus.videoState;
-                  
+
                   _serverStatusController?.add(serverStatus);
+                }
+                // Parse SCREEN_STATE
+                if (data['type'] == 'SCREEN_STATE') {
+                  final isOpen = data['isOpen'] == true;
+                  _screenStateController?.add(isOpen);
                 }
               }
               if (data['type'] == 'HEARTBEAT_ACK') {
@@ -484,7 +491,7 @@ class StreamProxy {
       if (colorMode != null) cmd['colorMode'] = colorMode;
       if (fps != null) cmd['fps'] = fps;
     }
-    
+
     return trySendCommand(cmd);
   }
 
@@ -505,6 +512,35 @@ class StreamProxy {
 
   void requestKeyframe() {
     trySendCommand({'type': 'REQUEST_KEYFRAME'});
+  }
+
+  void sendScreenTap(double normalizedX, double normalizedY) {
+    trySendCommand({
+      'type': 'SCREEN_TAP',
+      'normalizedX': normalizedX,
+      'normalizedY': normalizedY,
+    });
+  }
+
+  void sendScreenKey(String key, bool pressed) {
+    trySendCommand({'type': 'SCREEN_KEY', 'key': key, 'pressed': pressed});
+  }
+
+  void sendScreenClick(int button, double normalizedX, double normalizedY) {
+    trySendCommand({
+      'type': 'SCREEN_CLICK',
+      'button': button,
+      'normalizedX': normalizedX,
+      'normalizedY': normalizedY,
+    });
+  }
+
+  void sendScreenModifier(String modifier, bool active) {
+    trySendCommand({
+      'type': 'SCREEN_MODIFIER',
+      'modifier': modifier,
+      'active': active,
+    });
   }
 
   void _notifyConnectionRestored() {
@@ -566,18 +602,15 @@ class StreamProxy {
   Future<List<ChatMessage>> subscribeToChat({
     Duration timeout = const Duration(seconds: 5),
   }) async {
-    
     if (!_authenticated || _wsChannel == null) {
-      
       return <ChatMessage>[];
     }
     _chatSubscribeCompleter = Completer<List<ChatMessage>>();
-    
+
     trySendCommand({'type': 'SUBSCRIBE_CHAT'});
     return _chatSubscribeCompleter!.future.timeout(
       timeout,
       onTimeout: () {
-        
         _chatSubscribeCompleter = null;
         return <ChatMessage>[];
       },
@@ -640,6 +673,8 @@ class StreamProxy {
     _nonVideoPacketController = null;
     await _heartbeatAckController?.close();
     _heartbeatAckController = null;
+    await _screenStateController?.close();
+    _screenStateController = null;
     // Note: _connectionLostController and _connectionRestoredController persist
 
     for (final client in _activeClients) {

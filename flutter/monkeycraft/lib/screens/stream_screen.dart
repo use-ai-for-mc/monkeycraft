@@ -26,6 +26,8 @@ import 'package:monkeycraft_client/widgets/shift_button.dart';
 import 'package:monkeycraft_client/widgets/virtual_joystick.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+enum _ClickMode { left, right }
+
 class StreamScreen extends StatefulWidget {
   final StreamProxy proxy;
 
@@ -47,6 +49,14 @@ class _StreamScreenState extends State<StreamScreen>
   bool _hotbarExpanded = false;
   int _selectedHotbarSlot = 0;
   StreamSettings _settings = StreamSettings.defaults;
+  bool _isScreenOpen = false;
+  bool _screenControlsExpanded = false;
+  Offset _screenControlPosition = const Offset(
+    double.infinity,
+    double.infinity,
+  );
+  _ClickMode _clickMode = _ClickMode.left;
+  bool _shiftActive = false;
 
   StreamSubscription<NudgeNotification>? _nudgeSub;
   StreamSubscription<DateTime>? _heartbeatAckSub;
@@ -55,6 +65,7 @@ class _StreamScreenState extends State<StreamScreen>
   StreamSubscription<Uint8List>? _accessUnitSub;
   StreamSubscription<SessionState>? _sessionStateSub;
   StreamSubscription<void>? _connectionLostSub;
+  StreamSubscription<bool>? _screenStateSub;
 
   Timer? _notificationCheckTimer;
   Timer? _reconnectRetryTimer;
@@ -137,6 +148,10 @@ class _StreamScreenState extends State<StreamScreen>
     _connectionLostSub?.cancel();
     _connectionLostSub = widget.proxy.connectionLostEvents.listen((_) {
       _handleConnectionLost();
+    });
+    _screenStateSub?.cancel();
+    _screenStateSub = widget.proxy.screenStateEvents.listen((isOpen) {
+      if (mounted) setState(() => _isScreenOpen = isOpen);
     });
   }
 
@@ -503,6 +518,7 @@ class _StreamScreenState extends State<StreamScreen>
     _serverDisconnectSub?.cancel();
     _sessionStateSub?.cancel();
     _connectionLostSub?.cancel();
+    _screenStateSub?.cancel();
     _notificationCheckTimer?.cancel();
     _reconnectRetryTimer?.cancel();
     _session.disposeDecoder();
@@ -715,43 +731,31 @@ class _StreamScreenState extends State<StreamScreen>
       Navigator.of(ctx).pop();
     }
 
-    await showModalBottomSheet<void>(
+    await showGeneralDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-        return GestureDetector(
-          onTap: () => FocusScope.of(ctx).unfocus(),
-          child: Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Material(
-                  color: const Color(0xCC111111),
-                  child: SafeArea(
-                    top: false,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 150),
+      pageBuilder: (ctx, animation, secondaryAnimation) {
+        return Center(
+          child: GestureDetector(
+            onTap: () => FocusScope.of(ctx).unfocus(),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Material(
+                    color: const Color(0xCC111111),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Center(
-                            child: Container(
-                              width: 44,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.white24,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
                           Text(
                             'Command',
                             style: appSettings.textStyleWithFont(
@@ -762,7 +766,7 @@ class _StreamScreenState extends State<StreamScreen>
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           TextField(
                             controller: controller,
                             autofocus: true,
@@ -793,7 +797,7 @@ class _StreamScreenState extends State<StreamScreen>
                             ),
                             onSubmitted: (_) => submit(ctx),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
@@ -818,6 +822,15 @@ class _StreamScreenState extends State<StreamScreen>
                 ),
               ),
             ),
+          ),
+        );
+      },
+      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
+            child: child,
           ),
         );
       },
@@ -966,6 +979,32 @@ class _StreamScreenState extends State<StreamScreen>
           hotbarPanelHeight,
         );
 
+        final sw = _session.streamWidth;
+        final sh = _session.streamHeight;
+        Rect videoDisplayRect = Rect.zero;
+        if (sw > 0 && sh > 0) {
+          final availableWidth = safeW;
+          final availableHeight = safeH;
+          final streamAspect = sw / sh;
+          final availableAspect = availableWidth / availableHeight;
+          double displayWidth, displayHeight;
+          if (availableAspect > streamAspect) {
+            displayHeight = availableHeight;
+            displayWidth = displayHeight * streamAspect;
+          } else {
+            displayWidth = availableWidth;
+            displayHeight = displayWidth / streamAspect;
+          }
+          final offsetX = pad.left + (availableWidth - displayWidth) / 2;
+          final offsetY = pad.top + (availableHeight - displayHeight) / 2;
+          videoDisplayRect = Rect.fromLTWH(
+            offsetX,
+            offsetY,
+            displayWidth,
+            displayHeight,
+          );
+        }
+
         final safeAreaExclusions = <Rect>[
           if (pad.top > 0) Rect.fromLTWH(0, 0, screenSize.width, pad.top),
           if (pad.bottom > 0)
@@ -1080,7 +1119,14 @@ class _StreamScreenState extends State<StreamScreen>
                     ),
                   ),
                 ),
-              if (showTouchControls && state.shouldShowVideo)
+              if (showTouchControls && state.shouldShowVideo && _isScreenOpen)
+                _ScreenTouchHandler(
+                  proxy: widget.proxy,
+                  clickMode: _clickMode,
+                  shiftActive: _shiftActive,
+                  videoDisplayRect: videoDisplayRect,
+                ),
+              if (showTouchControls && state.shouldShowVideo && !_isScreenOpen)
                 LookPad(
                   excludedRegions: [
                     ...safeAreaExclusions,
@@ -1179,7 +1225,7 @@ class _StreamScreenState extends State<StreamScreen>
                   onPressed: _openChatScreen,
                 ),
               ),
-              if (showTouchControls && state.shouldShowVideo)
+              if (showTouchControls && state.shouldShowVideo && !_isScreenOpen)
                 SafeArea(
                   child: Stack(
                     children: [
@@ -1212,10 +1258,299 @@ class _StreamScreenState extends State<StreamScreen>
                     ],
                   ),
                 ),
+              if (showTouchControls &&
+                  state.shouldShowVideo &&
+                  _isScreenOpen) ...[
+                _ScreenControlToggle(
+                  expanded: _screenControlsExpanded,
+                  onToggle: () => setState(
+                    () => _screenControlsExpanded = !_screenControlsExpanded,
+                  ),
+                  position: _screenControlPosition,
+                  onPositionChanged: (pos) => _screenControlPosition = pos,
+                  screenSize: screenSize,
+                  safePadding: pad,
+                ),
+                if (_screenControlsExpanded)
+                  Positioned(
+                    left: _screenControlPosition.dx - 88,
+                    top: _screenControlPosition.dy + _kToggleSize + 8,
+                    child: _ScreenControlPalette(
+                      onEsc: () {
+                        setState(() => _screenControlsExpanded = false);
+                        widget.proxy.sendScreenKey('ESCAPE', true);
+                      },
+                      shiftActive: _shiftActive,
+                      onShiftToggle: () {
+                        setState(() => _shiftActive = !_shiftActive);
+                        widget.proxy.sendScreenModifier('SHIFT', _shiftActive);
+                      },
+                      clickMode: _clickMode,
+                      onClickModeChange: (mode) =>
+                          setState(() => _clickMode = mode),
+                    ),
+                  ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _ScreenTouchHandler extends StatelessWidget {
+  final StreamProxy proxy;
+  final _ClickMode clickMode;
+  final bool shiftActive;
+  final Rect videoDisplayRect;
+
+  const _ScreenTouchHandler({
+    required this.proxy,
+    required this.clickMode,
+    required this.shiftActive,
+    required this.videoDisplayRect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTapDown: (details) {
+        if (videoDisplayRect == Rect.zero) return;
+
+        final globalPos = details.globalPosition;
+        final localX = globalPos.dx - videoDisplayRect.left;
+        final localY = globalPos.dy - videoDisplayRect.top;
+
+        if (localX < 0 ||
+            localX > videoDisplayRect.width ||
+            localY < 0 ||
+            localY > videoDisplayRect.height) {
+          return;
+        }
+
+        final normX = (localX / videoDisplayRect.width).clamp(0.0, 1.0);
+        final normY = (localY / videoDisplayRect.height).clamp(0.0, 1.0);
+        proxy.sendScreenClick(
+          clickMode == _ClickMode.left ? 0 : 1,
+          normX,
+          normY,
+        );
+        HapticFeedback.lightImpact();
+      },
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+const _kPaletteBackground = Color(0xB3000000);
+const _kButtonActive = Color(0xFF2196F3);
+const _kButtonInactive = Color(0xFF757575);
+const _kEscButtonColor = Color(0xFFE53935);
+const _kToggleSize = 48.0;
+const _kButtonHeight = 44.0;
+const _kButtonMinWidth = 60.0;
+const _kPalettePadding = 8.0;
+const _kPaletteBorderRadius = 12.0;
+
+class _ScreenControlToggle extends StatefulWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Offset position;
+  final ValueChanged<Offset> onPositionChanged;
+  final Size screenSize;
+  final EdgeInsets safePadding;
+
+  const _ScreenControlToggle({
+    required this.expanded,
+    required this.onToggle,
+    required this.position,
+    required this.onPositionChanged,
+    required this.screenSize,
+    required this.safePadding,
+  });
+
+  @override
+  State<_ScreenControlToggle> createState() => _ScreenControlToggleState();
+}
+
+class _ScreenControlToggleState extends State<_ScreenControlToggle> {
+  late Offset _position;
+  bool _dragging = false;
+
+  Offset get _defaultPosition => Offset(
+    widget.screenSize.width - _kToggleSize - widget.safePadding.right - 20,
+    widget.safePadding.top + 80,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _position =
+        widget.position == const Offset(double.infinity, double.infinity)
+        ? _defaultPosition
+        : widget.position;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScreenControlToggle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.position != oldWidget.position &&
+        widget.position != const Offset(double.infinity, double.infinity)) {
+      _position = widget.position;
+    }
+  }
+
+  void _updatePosition(Offset newPos) {
+    final constrainedX = newPos.dx.clamp(
+      widget.safePadding.left,
+      widget.screenSize.width - _kToggleSize - widget.safePadding.right,
+    );
+    final constrainedY = newPos.dy.clamp(
+      widget.safePadding.top,
+      widget.screenSize.height - _kToggleSize - widget.safePadding.bottom,
+    );
+    final constrained = Offset(constrainedX, constrainedY);
+    if (constrained != _position) {
+      setState(() => _position = constrained);
+      widget.onPositionChanged(constrained);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: _position.dx,
+      top: _position.dy,
+      child: GestureDetector(
+        onPanStart: (_) => setState(() => _dragging = true),
+        onPanUpdate: (details) => _updatePosition(_position + details.delta),
+        onPanEnd: (_) => setState(() => _dragging = false),
+        onTap: widget.onToggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: _kToggleSize,
+          height: _kToggleSize,
+          decoration: BoxDecoration(
+            color: _kPaletteBackground,
+            borderRadius: BorderRadius.circular(_kToggleSize / 2),
+            border: Border.all(
+              color: widget.expanded ? _kButtonActive : Colors.white24,
+              width: widget.expanded ? 2 : 1,
+            ),
+          ),
+          child: Icon(
+            widget.expanded ? Icons.close : Icons.control_camera,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScreenControlPalette extends StatelessWidget {
+  final VoidCallback onEsc;
+  final bool shiftActive;
+  final VoidCallback onShiftToggle;
+  final _ClickMode clickMode;
+  final ValueChanged<_ClickMode> onClickModeChange;
+
+  const _ScreenControlPalette({
+    required this.onEsc,
+    required this.shiftActive,
+    required this.onShiftToggle,
+    required this.clickMode,
+    required this.onClickModeChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 80,
+      decoration: BoxDecoration(
+        color: _kPaletteBackground,
+        borderRadius: BorderRadius.circular(_kPaletteBorderRadius),
+      ),
+      padding: const EdgeInsets.all(_kPalettePadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildButton(label: 'ESC', color: _kEscButtonColor, onPressed: onEsc),
+          const SizedBox(height: 4),
+          _buildButton(
+            label: '⇧',
+            color: shiftActive ? _kButtonActive : null,
+            onPressed: onShiftToggle,
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildModeButton('L', _ClickMode.left),
+              _buildModeButton('R', _ClickMode.right),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildButton({
+    required String label,
+    Color? color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: _kButtonHeight,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          backgroundColor: color ?? Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: color ?? Colors.white24),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeButton(String label, _ClickMode mode) {
+    final isActive = clickMode == mode;
+    return GestureDetector(
+      onTap: () => onClickModeChange(mode),
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: isActive ? _kButtonActive : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive ? _kButtonActive : _kButtonInactive,
+            width: 2,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

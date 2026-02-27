@@ -21,6 +21,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -107,9 +108,12 @@ public class MonkeycraftClient implements ClientModInitializer {
             rightPressHoldTicks = 0;
           }
 
+          WebSocketServerHandler.getInstance().updateScreenState(client.screen);
+
           if (WebSocketServerHandler.getInstance().isStreaming()
               && client.screen != null
               && !(client.screen instanceof ChatScreen)
+              && !(client.screen instanceof AbstractContainerScreen<?>)
               && !hasRecentLocalKeyInput()) {
             client.screen.removed();
           }
@@ -152,31 +156,56 @@ public class MonkeycraftClient implements ClientModInitializer {
                     client.getMainRenderTarget(),
                     (image) -> {
                       try {
-                        WebSocketServerHandler.StreamConfig config =
-                            WebSocketServerHandler.getInstance().getStreamConfig();
+                        WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+                        WebSocketServerHandler.StreamConfig config = handler.getStreamConfig();
 
                         int targetWidth = config.width;
                         int targetHeight = config.height;
 
-                        double targetAspect = (double) targetWidth / (double) targetHeight;
-                        int cropWidth = image.getWidth();
-                        int cropHeight = image.getHeight();
+                        int cropX, cropY, cropWidth, cropHeight;
 
-                        if (cropWidth > cropHeight * targetAspect) {
-                          cropWidth = (int) (cropHeight * targetAspect);
+                        if (handler.isScreenOpen()
+                            && client.screen instanceof AbstractContainerScreen<?>) {
+                          double scaleFactor = client.getWindow().getGuiScale();
+                          int guiX = (int) (handler.getScreenGuiX() * scaleFactor);
+                          int guiY = (int) (handler.getScreenGuiY() * scaleFactor);
+                          int guiW = (int) (handler.getScreenGuiWidth() * scaleFactor);
+                          int guiH = (int) (handler.getScreenGuiHeight() * scaleFactor);
+
+                          int padding = (int) (16 * scaleFactor);
+
+                          cropX = Math.max(0, guiX - padding);
+                          cropY = Math.max(0, guiY - padding);
+                          cropWidth = Math.min(image.getWidth() - cropX, guiW + padding * 2);
+                          cropHeight = Math.min(image.getHeight() - cropY, guiH + padding * 2);
+
+                          if (cropX + cropWidth > image.getWidth()) {
+                            cropWidth = image.getWidth() - cropX;
+                          }
+                          if (cropY + cropHeight > image.getHeight()) {
+                            cropHeight = image.getHeight() - cropY;
+                          }
                         } else {
-                          cropHeight = (int) (cropWidth / targetAspect);
+                          double targetAspect = (double) targetWidth / (double) targetHeight;
+                          cropWidth = image.getWidth();
+                          cropHeight = image.getHeight();
+
+                          if (cropWidth > cropHeight * targetAspect) {
+                            cropWidth = (int) (cropHeight * targetAspect);
+                          } else {
+                            cropHeight = (int) (cropWidth / targetAspect);
+                          }
+
+                          cropX = (image.getWidth() - cropWidth) / 2;
+                          cropY = image.getHeight() - cropHeight;
                         }
 
-                        int startX = (image.getWidth() - cropWidth) / 2;
-                        int startY = image.getHeight() - cropHeight;
-
                         com.mojang.blaze3d.platform.NativeImage cropped =
-                            ImageUtils.crop(image, startX, startY, cropWidth, cropHeight);
+                            ImageUtils.crop(image, cropX, cropY, cropWidth, cropHeight);
                         try {
                           com.mojang.blaze3d.platform.NativeImage resized =
                               ImageUtils.resize(cropped, targetWidth, targetHeight);
-                          WebSocketServerHandler.getInstance().broadcastFrame(resized);
+                          handler.broadcastFrame(resized);
                         } finally {
                           cropped.close();
                         }

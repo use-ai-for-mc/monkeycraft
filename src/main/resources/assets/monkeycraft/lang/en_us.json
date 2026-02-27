@@ -20,6 +20,8 @@
 	"config.monkeycraft.option.commandDenylist.tooltip": "List of denied command patterns. Use '*' for wildcard (e.g., 'op *' denies '/op anyone'). Deny takes priority over allow.",
 	"config.monkeycraft.option.defaultBehavior": "Default Behavior",
 	"config.monkeycraft.option.defaultBehavior.tooltip": "What to do when a command is not in allowlist or denylist. Use 'ALLOW' or 'DENY'",
+	"config.monkeycraft.option.alwaysAutoJump": "Always Auto Jump",
+	"config.monkeycraft.option.alwaysAutoJump.tooltip": "Force auto-jump ON when a remote client is connected (useful for touch controls)",
 	"monkeycraft.server.started": "Server started on port %s",
 	"monkeycraft.server.stopped": "Server stopped",
 	"monkeycraft.server.port_unavailable": "Port %s is unavailable. Server not started.",

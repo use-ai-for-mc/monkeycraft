@@ -8,7 +8,9 @@
 		"NativeImageAccessor",
 		"ClientPacketListenerMixin",
 		"GameRendererAccessor",
-		"GuiRendererAccessor"
+		"GuiRendererAccessor",
+		"LocalPlayerMixin",
+		"AbstractContainerScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
