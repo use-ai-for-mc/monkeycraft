@@ -26,6 +26,8 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,9 +68,6 @@ public class MonkeycraftClient implements ClientModInitializer {
     ClientTickEvents.END_CLIENT_TICK.register(
         client -> {
           boolean connectedNow = WebSocketServerHandler.getInstance().isClientConnected();
-          if (connectedNow && client.options.keyDrop.isDown()) {
-            WebSocketServerHandler.getInstance().disconnectClient();
-          }
 
           if (pendingMouseReleaseTicks > 0) {
             pendingMouseReleaseTicks -= 1;
@@ -113,7 +112,8 @@ public class MonkeycraftClient implements ClientModInitializer {
               && client.screen != null
               && !ScreenHelper.shouldKeepScreen(client.screen)
               && !hasRecentLocalKeyInput()) {
-            client.screen.removed();
+            client.gui.getChat().restoreChatScreen();
+            client.setScreen(null);
           }
 
           if (WebSocketServerHandler.getInstance().isStreaming()) {
@@ -125,6 +125,23 @@ public class MonkeycraftClient implements ClientModInitializer {
               if (handler.isTurningRight()) client.player.turn(turnSpeed, 0);
               if (handler.isLookingUp()) client.player.turn(0, -turnSpeed);
               if (handler.isLookingDown()) client.player.turn(0, turnSpeed);
+
+              // Auto-face movement direction
+              if (handler.isAutoFaceMovement()
+                  && !handler.isTurningLeft()
+                  && !handler.isTurningRight()
+                  && !handler.isLookingUp()
+                  && !handler.isLookingDown()) {
+                Vec2 moveVec = client.player.input.getMoveVector();
+                if (moveVec.lengthSquared() > 0.01f) {
+                  float targetYawOffset =
+                      (float) (Math.atan2(-moveVec.x, moveVec.y) * (180.0 / Math.PI));
+                  float targetYaw = client.player.getYRot() + targetYawOffset;
+                  float yawDiff = Mth.wrapDegrees(targetYaw - client.player.getYRot());
+                  float turnAmount = yawDiff * 0.15f;
+                  client.player.turn(turnAmount, 0);
+                }
+              }
             }
 
             // Get dynamic FPS config
@@ -157,48 +174,87 @@ public class MonkeycraftClient implements ClientModInitializer {
                         WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
                         WebSocketServerHandler.StreamConfig config = handler.getStreamConfig();
 
+                        if (handler.isScreenOpen() && client.mouseHandler != null) {
+                          double mouseX = client.mouseHandler.xpos();
+                          double mouseY = client.mouseHandler.ypos();
+                          int framebufferWidth = image.getWidth();
+                          int framebufferHeight = image.getHeight();
+                          int screenWidth = client.getWindow().getScreenWidth();
+                          int screenHeight = client.getWindow().getScreenHeight();
+
+                          int cursorX = (int) (mouseX * framebufferWidth / screenWidth);
+                          int cursorY = (int) (mouseY * framebufferHeight / screenHeight);
+
+                          ImageUtils.drawCursor(image, cursorX, cursorY);
+                        }
+
                         int targetWidth = config.width;
                         int targetHeight = config.height;
 
                         int cropX, cropY, cropWidth, cropHeight;
                         int resizeWidth = targetWidth;
                         int resizeHeight = targetHeight;
+                        boolean useLetterbox = false;
 
                         double scaleFactor = client.getWindow().getGuiScale();
-                        int[] cropBounds =
-                            ScreenHelper.getCropBounds(
-                                client.screen,
-                                image.getWidth(),
-                                image.getHeight(),
-                                targetWidth,
-                                targetHeight,
-                                scaleFactor);
 
-                        if (handler.isScreenOpen() && cropBounds != null) {
-                          cropX = cropBounds[0];
-                          cropY = cropBounds[1];
-                          cropWidth = cropBounds[2];
-                          cropHeight = cropBounds[3];
-                        } else {
-                          double targetAspect = (double) targetWidth / (double) targetHeight;
-                          cropWidth = image.getWidth();
-                          cropHeight = image.getHeight();
-
-                          if (cropWidth > cropHeight * targetAspect) {
-                            cropWidth = (int) (cropHeight * targetAspect);
+                        if (handler.isScreenOpen()
+                            && ScreenHelper.needsLetterboxing(client.screen)) {
+                          int[] overlayBounds =
+                              ScreenHelper.getCropBoundsForFullScreenOverlay(
+                                  client.screen, image.getWidth(), image.getHeight(), scaleFactor);
+                          if (overlayBounds != null) {
+                            cropX = overlayBounds[0];
+                            cropY = overlayBounds[1];
+                            cropWidth = overlayBounds[2];
+                            cropHeight = overlayBounds[3];
+                            useLetterbox = true;
                           } else {
-                            cropHeight = (int) (cropWidth / targetAspect);
+                            cropX = 0;
+                            cropY = 0;
+                            cropWidth = image.getWidth();
+                            cropHeight = image.getHeight();
+                            useLetterbox = true;
                           }
+                        } else {
+                          int[] cropBounds =
+                              ScreenHelper.getCropBounds(
+                                  client.screen,
+                                  image.getWidth(),
+                                  image.getHeight(),
+                                  targetWidth,
+                                  targetHeight,
+                                  scaleFactor);
 
-                          cropX = (image.getWidth() - cropWidth) / 2;
-                          cropY = image.getHeight() - cropHeight;
+                          if (handler.isScreenOpen() && cropBounds != null) {
+                            cropX = cropBounds[0];
+                            cropY = cropBounds[1];
+                            cropWidth = cropBounds[2];
+                            cropHeight = cropBounds[3];
+                          } else {
+                            double targetAspect = (double) targetWidth / (double) targetHeight;
+                            cropWidth = image.getWidth();
+                            cropHeight = image.getHeight();
+
+                            if (cropWidth > cropHeight * targetAspect) {
+                              cropWidth = (int) (cropHeight * targetAspect);
+                            } else {
+                              cropHeight = (int) (cropWidth / targetAspect);
+                            }
+
+                            cropX = (image.getWidth() - cropWidth) / 2;
+                            cropY = image.getHeight() - cropHeight;
+                          }
                         }
 
                         com.mojang.blaze3d.platform.NativeImage cropped =
                             ImageUtils.crop(image, cropX, cropY, cropWidth, cropHeight);
                         try {
                           com.mojang.blaze3d.platform.NativeImage resized =
-                              ImageUtils.resize(cropped, resizeWidth, resizeHeight);
+                              useLetterbox
+                                  ? ImageUtils.resizeWithLetterbox(
+                                      cropped, resizeWidth, resizeHeight)
+                                  : ImageUtils.resize(cropped, resizeWidth, resizeHeight);
                           handler.broadcastFrame(resized);
                         } finally {
                           cropped.close();

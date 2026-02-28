@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:monkeycraft_client/main.dart';
-import 'package:monkeycraft_client/services/app_settings.dart';
-import 'package:monkeycraft_client/services/stream_settings.dart';
+import 'package:monkeycraft_client/shared/app_settings.dart';
+import 'package:monkeycraft_client/stream/stream_settings.dart';
 
 class StreamSettingsScreen extends StatefulWidget {
   final StreamSettings initial;
@@ -14,11 +16,21 @@ class StreamSettingsScreen extends StatefulWidget {
 
 class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
   late StreamSettings _settings;
+  Timer? _updateTimer;
 
   @override
   void initState() {
     super.initState();
     _settings = widget.initial;
+    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -116,6 +128,48 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
               () => _settings = _settings.copyWith(autoSwitchRideChat: v),
             ),
           ),
+          SwitchListTile(
+            title: const Text('Auto-face Movement'),
+            subtitle: const Text(
+              'Gradually turn player face toward movement direction',
+            ),
+            value: _settings.autoFaceMovement,
+            onChanged: (v) => setState(
+              () => _settings = _settings.copyWith(autoFaceMovement: v),
+            ),
+          ),
+          if (openAudioMcService.isActive) const Divider(height: 32),
+          if (openAudioMcService.isActive)
+            ListTile(
+              title: const Text('Audio Connection'),
+              subtitle: Text(
+                openAudioMcService.isConnected
+                    ? 'Connected to OpenAudioMc'
+                    : 'Connecting...',
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () async {
+                      await openAudioMcService.disconnect();
+                      setState(() {});
+                    },
+                    child: Text(
+                      openAudioMcService.isConnected ? 'Disconnect' : 'Cancel',
+                    ),
+                  ),
+                  if (openAudioMcService.isConnected)
+                    TextButton(
+                      onPressed: () async {
+                        await openAudioMcService.reconnect();
+                        setState(() {});
+                      },
+                      child: const Text('Refresh'),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );

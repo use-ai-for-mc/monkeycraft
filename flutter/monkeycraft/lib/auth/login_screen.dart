@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:monkeycraft_client/screens/qr_scan_screen.dart';
-import 'package:monkeycraft_client/screens/stream_screen.dart';
-import 'package:monkeycraft_client/services/stream_proxy.dart';
+import 'package:monkeycraft_client/auth/qr_scan_screen.dart';
+import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
+import 'package:monkeycraft_client/stream/stream_proxy.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -179,6 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _isLoading
                           ? null
                           : () async {
+                              final messenger = ScaffoldMessenger.of(context);
                               try {
                                 final scanned = await Navigator.of(context)
                                     .push<String>(
@@ -192,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 setState(() => _passController.text = scanned);
                               } catch (e) {
                                 if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                messenger.showSnackBar(
                                   SnackBar(content: Text('Scan failed: $e')),
                                 );
                               }

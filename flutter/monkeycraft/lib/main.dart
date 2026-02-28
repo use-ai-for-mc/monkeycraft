@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:monkeycraft_client/screens/login_screen.dart';
-import 'package:monkeycraft_client/services/app_settings.dart';
+import 'package:monkeycraft_client/auth/login_screen.dart';
+import 'package:monkeycraft_client/shared/app_settings.dart';
+import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
+import 'package:monkeycraft_client/shared/keyboard_prewarmer.dart';
 
 final AppSettings appSettings = AppSettings();
+final OpenAudioMcService openAudioMcService = OpenAudioMcService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +28,7 @@ class MyApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
             useMaterial3: true,
           ),
-          home: const LoginScreen(),
+          home: const KeyboardPrewarmerWidget(child: LoginScreen()),
         );
       },
     );

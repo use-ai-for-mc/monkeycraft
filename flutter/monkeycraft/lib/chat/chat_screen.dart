@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/main.dart';
-import 'package:monkeycraft_client/services/chat_models.dart';
-import 'package:monkeycraft_client/services/protocol_models.dart';
-import 'package:monkeycraft_client/services/notification_models.dart';
-import 'package:monkeycraft_client/services/stream_proxy.dart';
-import 'package:monkeycraft_client/services/session_controller.dart';
+import 'package:monkeycraft_client/chat/chat_models.dart';
+import 'package:monkeycraft_client/shared/protocol_models.dart';
+import 'package:monkeycraft_client/notifications/notification_models.dart';
+import 'package:monkeycraft_client/stream/stream_proxy.dart';
+import 'package:monkeycraft_client/stream/session_controller.dart';
+import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -16,12 +16,14 @@ class _RichText extends StatefulWidget {
   final List<ChatSegment> segments;
   final TextStyle? baseStyle;
   final StreamProxy? proxy;
+  final OpenAudioMcService? openAudioMc;
   final void Function(String command)? onSuggestCommand;
 
   const _RichText({
     required this.segments,
     this.baseStyle,
     this.proxy,
+    this.openAudioMc,
     this.onSuggestCommand,
   });
 
@@ -124,7 +126,11 @@ class _RichTextState extends State<_RichText> {
       case 'open_url':
         final uri = Uri.tryParse(action.value);
         if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
-          launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (OpenAudioMcService.isOpenAudioMcUrl(action.value)) {
+            widget.openAudioMc?.connect(action.value);
+          } else {
+            launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
         }
         break;
       case 'run_command':
@@ -269,7 +275,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _server;
   String? _password;
   bool _credentialsLoaded = false;
-  int _reconnectAttempts = 0;
+  bool _showScrollToBottom = false;
+  bool _closing = false;
+  Timer? _reconnectRetryTimer;
+  int _reconnectRetryCount = 0;
+  static const int _maxReconnectRetries = 3;
 
   VideoState _videoState = VideoState.active;
   String _videoStateMessage = '';
@@ -282,6 +292,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onScroll);
     _chatSubscription = widget.proxy.chatMessages.listen(_onChatMessage);
     _chatDeniedSubscription = widget.proxy.chatDeniedEvents.listen(
       _onChatDenied,
@@ -306,6 +317,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _videoState = widget.session!.state.videoState;
       _videoStateMessage = widget.session!.state.videoStateMessage;
     }
+
+    openAudioMcService.setInfoPacketHandler((packet) {
+      widget.proxy.trySendCommand(packet);
+    });
+
+    openAudioMcService.setOnFailureHandler(() {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('OpenAudioMC fails to open'),
+              Text('The link may have already expired.'),
+            ],
+          ),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    });
 
     _loadReconnectCredentials();
     _loadCachedMessages();
@@ -396,14 +428,62 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onConnectionLost() {
-    if (!mounted) return;
-    _reconnect();
+    if (_closing || _reconnecting) return;
+    _scheduleReconnectRetry();
+  }
+
+  void _scheduleReconnectRetry() {
+    _reconnectRetryTimer?.cancel();
+    if (_reconnectRetryCount >= _maxReconnectRetries) {
+      _closeScreenAndReturnToLogin();
+      return;
+    }
+    final delay = Duration(seconds: 1 << _reconnectRetryCount);
+
+    _reconnectRetryTimer = Timer(delay, () {
+      if (!_closing && !_reconnecting && mounted) {
+        _reconnectWithRetry();
+      }
+    });
+  }
+
+  Future<void> _closeScreenAndReturnToLogin() async {
+    if (_closing) return;
+    _closing = true;
+
+    _reconnectRetryTimer?.cancel();
+
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  }
+
+  Future<void> _reconnectWithRetry() async {
+    await _reconnect();
+    if (!widget.proxy.isConnected &&
+        _reconnectRetryCount < _maxReconnectRetries) {
+      _reconnectRetryCount++;
+      _scheduleReconnectRetry();
+    }
   }
 
   void _onConnectionRestored() {
     if (!mounted) return;
+    _reconnectRetryCount = 0;
+    _reconnectRetryTimer?.cancel();
     _reattachChatStreams();
     _loadCachedMessages();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.position.pixels;
+      final shouldShow = maxScroll - currentScroll > 100;
+      if (shouldShow != _showScrollToBottom) {
+        setState(() => _showScrollToBottom = shouldShow);
+      }
+    }
   }
 
   void _scrollToBottom({bool immediate = false}) {
@@ -435,6 +515,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _serverDisconnectSubscription?.cancel();
     _connectionLostSubscription?.cancel();
     _connectionRestoredSubscription?.cancel();
+    _reconnectRetryTimer?.cancel();
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
@@ -445,6 +526,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      openAudioMcService.softRefresh();
       if (widget.manageConnection) {
         if (!_credentialsLoaded) {
           _loadReconnectCredentials().then((_) => _reconnect());
@@ -467,19 +549,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (server == null || password == null) return;
 
     _reconnecting = true;
-    _reconnectAttempts++;
     try {
       await widget.proxy.start(server, password);
       widget.proxy.sendPing();
-    } catch (e) {
+    } catch (_) {
     } finally {
       _reconnecting = false;
     }
 
     if (mounted && widget.proxy.isConnected) {
+      _reconnectRetryCount = 0;
+      _reconnectRetryTimer?.cancel();
       _reattachChatStreams();
       await _loadCachedMessages();
-      _reconnectAttempts = 0;
     }
   }
 
@@ -596,8 +678,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               bannerText,
               style: TextStyle(color: textColor, fontSize: 12, height: 1.3),
               textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
           Align(
@@ -629,105 +709,115 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: Column(
-        children: [
-          _buildDynamicIsland(),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No messages yet',
-                      style: TextStyle(color: Colors.white54, fontSize: 16),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: _RichText(
-                          segments: msg.segments,
-                          baseStyle: appSettings.textStyleWithFont(
-                            const TextStyle(color: Colors.white, fontSize: 14),
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          children: [
+            _buildDynamicIsland(),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No messages yet',
+                        style: TextStyle(color: Colors.white54, fontSize: 16),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _messages[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: _RichText(
+                            segments: msg.segments,
+                            baseStyle: appSettings.textStyleWithFont(
+                              const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+                            proxy: widget.proxy,
+                            openAudioMc: openAudioMcService,
+                            onSuggestCommand: _onSuggestCommand,
                           ),
-                          proxy: widget.proxy,
-                          onSuggestCommand: _onSuggestCommand,
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          Container(
-            padding: EdgeInsets.only(
-              left: 8,
-              right: 8,
-              top: 8,
-              bottom: MediaQuery.of(context).padding.bottom + 8,
+                        );
+                      },
+                    ),
             ),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.9),
-              border: Border(
-                top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            Container(
+              padding: EdgeInsets.only(
+                left: 8,
+                right: 8,
+                top: 8,
+                bottom: MediaQuery.of(context).padding.bottom + 8,
               ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          focusNode: _messageFocusNode,
-                          style: appSettings.textStyleWithFont(
-                            const TextStyle(color: Colors.white),
-                          ),
-                          textInputAction: TextInputAction.send,
-                          keyboardType: TextInputType.text,
-                          inputFormatters: [],
-                          decoration: InputDecoration(
-                            hintText: 'Type a message...',
-                            hintStyle: appSettings.textStyleWithFont(
-                              const TextStyle(color: Colors.white54),
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          onSubmitted: (_) => _sendMessage(),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.9),
+                border: Border(
+                  top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        focusNode: _messageFocusNode,
+                        style: appSettings.textStyleWithFont(
+                          const TextStyle(color: Colors.white),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: IconButton(
-                          onPressed: _sendMessage,
-                          icon: const Icon(Icons.send, color: Colors.white),
+                        textInputAction: TextInputAction.send,
+                        keyboardType: TextInputType.text,
+                        inputFormatters: [],
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: appSettings.textStyleWithFont(
+                            const TextStyle(color: Colors.white54),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                         ),
+                        onSubmitted: (_) => _sendMessage(),
                       ),
-                    ],
-                  ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: IconButton(
+                        onPressed: _sendMessage,
+                        icon: const Icon(Icons.send, color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+      floatingActionButton: _showScrollToBottom
+          ? FloatingActionButton(
+              mini: true,
+              backgroundColor: Colors.black.withValues(alpha: 0.7),
+              onPressed: () => _scrollToBottom(),
+              child: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
+            )
+          : null,
     );
   }
 }

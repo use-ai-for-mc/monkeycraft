@@ -8,6 +8,7 @@ class StreamSettings {
   final ResolutionPreset resolutionPreset;
   final bool invertLookY;
   final bool autoSwitchRideChat;
+  final bool autoFaceMovement;
 
   const StreamSettings({
     required this.fps,
@@ -15,6 +16,7 @@ class StreamSettings {
     required this.resolutionPreset,
     required this.invertLookY,
     required this.autoSwitchRideChat,
+    required this.autoFaceMovement,
   });
 
   static const StreamSettings defaults = StreamSettings(
@@ -23,6 +25,7 @@ class StreamSettings {
     resolutionPreset: ResolutionPreset.medium,
     invertLookY: true,
     autoSwitchRideChat: false,
+    autoFaceMovement: false,
   );
 
   double get resolutionScale {
@@ -53,6 +56,7 @@ class StreamSettings {
     ResolutionPreset? resolutionPreset,
     bool? invertLookY,
     bool? autoSwitchRideChat,
+    bool? autoFaceMovement,
   }) {
     return StreamSettings(
       fps: fps ?? this.fps,
@@ -60,6 +64,7 @@ class StreamSettings {
       resolutionPreset: resolutionPreset ?? this.resolutionPreset,
       invertLookY: invertLookY ?? this.invertLookY,
       autoSwitchRideChat: autoSwitchRideChat ?? this.autoSwitchRideChat,
+      autoFaceMovement: autoFaceMovement ?? this.autoFaceMovement,
     );
   }
 }
@@ -70,6 +75,7 @@ class StreamSettingsStore {
   static const _kResolutionPreset = 'stream_resolution_preset';
   static const _kInvertLookY = 'stream_invert_look_y';
   static const _kAutoSwitchRideChat = 'stream_auto_switch_ride_chat';
+  static const _kAutoFaceMovement = 'stream_auto_face_movement';
 
   Future<StreamSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -86,12 +92,16 @@ class StreamSettingsStore {
     final autoSwitchRideChat =
         prefs.getBool(_kAutoSwitchRideChat) ??
         StreamSettings.defaults.autoSwitchRideChat;
+    final autoFaceMovement =
+        prefs.getBool(_kAutoFaceMovement) ??
+        StreamSettings.defaults.autoFaceMovement;
     return StreamSettings(
       fps: fps,
       colorMode: colorMode,
       resolutionPreset: preset,
       invertLookY: invertLookY,
       autoSwitchRideChat: autoSwitchRideChat,
+      autoFaceMovement: autoFaceMovement,
     );
   }
 
@@ -102,5 +112,6 @@ class StreamSettingsStore {
     await prefs.setInt(_kResolutionPreset, settings.resolutionPreset.index);
     await prefs.setBool(_kInvertLookY, settings.invertLookY);
     await prefs.setBool(_kAutoSwitchRideChat, settings.autoSwitchRideChat);
+    await prefs.setBool(_kAutoFaceMovement, settings.autoFaceMovement);
   }
 }

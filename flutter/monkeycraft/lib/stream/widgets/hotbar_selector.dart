@@ -40,9 +40,14 @@ class _HotbarToggleButtonState extends State<HotbarToggleButton> {
             padding: EdgeInsets.zero,
             shape: const CircleBorder(),
             foregroundColor: Colors.white,
-            backgroundColor: Colors.white.withValues(alpha: active ? 0.35 : 0.22),
+            backgroundColor: Colors.white.withValues(
+              alpha: active ? 0.35 : 0.22,
+            ),
           ),
-          child: const Text('1–9', style: TextStyle(fontWeight: FontWeight.w600)),
+          child: const Text(
+            '1–9',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       ),
     );
@@ -55,6 +60,7 @@ class HotbarGrid extends StatelessWidget {
   final int selectedSlot;
   final ValueChanged<int> onSelect;
   final bool singleRow;
+  final void Function(String key)? onKey;
 
   const HotbarGrid({
     super.key,
@@ -63,6 +69,7 @@ class HotbarGrid extends StatelessWidget {
     required this.selectedSlot,
     required this.onSelect,
     this.singleRow = false,
+    this.onKey,
   });
 
   @override
@@ -81,7 +88,7 @@ class HotbarGrid extends StatelessWidget {
   }
 
   Widget _singleRow() {
-    return Row(
+    final hotbar = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _cell(0),
@@ -103,10 +110,31 @@ class HotbarGrid extends StatelessWidget {
         _cell(8),
       ],
     );
+
+    if (onKey == null) return hotbar;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        hotbar,
+        SizedBox(width: gap),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _keyCell('Q'),
+            SizedBox(height: gap),
+            _keyCell('E'),
+            SizedBox(height: gap),
+            _keyCell('F'),
+          ],
+        ),
+      ],
+    );
   }
 
   Widget _grid() {
-    return Column(
+    final hotbar = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _row(0, 1, 2),
@@ -114,6 +142,27 @@ class HotbarGrid extends StatelessWidget {
         _row(3, 4, 5),
         SizedBox(height: gap),
         _row(6, 7, 8),
+      ],
+    );
+
+    if (onKey == null) return hotbar;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        hotbar,
+        SizedBox(width: gap),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _keyCell('Q'),
+            SizedBox(height: gap),
+            _keyCell('E'),
+            SizedBox(height: gap),
+            _keyCell('F'),
+          ],
+        ),
       ],
     );
   }
@@ -142,9 +191,32 @@ class HotbarGrid extends StatelessWidget {
           padding: EdgeInsets.zero,
           shape: const CircleBorder(),
           foregroundColor: Colors.white,
-          backgroundColor: Colors.white.withValues(alpha: selected ? 0.38 : 0.18),
+          backgroundColor: Colors.white.withValues(
+            alpha: selected ? 0.38 : 0.18,
+          ),
         ),
-        child: Text('${slot + 1}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        child: Text(
+          '${slot + 1}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
+  Widget _keyCell(String key) {
+    return SizedBox(
+      width: buttonSize,
+      height: buttonSize,
+      child: TextButton(
+        onPressed: onKey != null ? () => onKey!(key) : null,
+        onLongPress: onKey != null ? () => onKey!(key) : null,
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.white.withValues(alpha: 0.18),
+        ),
+        child: Text(key, style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }

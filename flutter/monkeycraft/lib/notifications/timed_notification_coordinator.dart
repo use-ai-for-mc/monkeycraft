@@ -1,8 +1,13 @@
-import 'package:monkeycraft_client/services/notification_models.dart';
+import 'package:monkeycraft_client/notifications/notification_models.dart';
 
 abstract class TimedNotificationScheduler {
   Future<bool> ensurePermission();
-  Future<void> schedule(int fireAtEpochMs, String title, String body, bool sound);
+  Future<void> schedule(
+    int fireAtEpochMs,
+    String title,
+    String body,
+    bool sound,
+  );
   Future<void> cancel();
 }
 

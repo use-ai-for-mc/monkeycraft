@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/stream_resolution.dart';
+import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:flutter/widgets.dart';
 
 void main() {

@@ -13,6 +13,8 @@ import org.jcodec.common.model.ColorSpace;
 import org.jcodec.common.model.Picture;
 
 public class H264Streamer {
+  private static final byte[] FRAME_HEADER_MAGIC = {0x4D, 0x43};
+
   private final Picture picture;
   private volatile H264Encoder encoder;
   private volatile ByteBuffer buffer;
@@ -21,12 +23,10 @@ public class H264Streamer {
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final AtomicBoolean isEncoding = new AtomicBoolean(false);
   private final AtomicInteger pendingFrames = new AtomicInteger(0);
-  private final AtomicInteger droppedBackpressure = new AtomicInteger(0);
-  private final AtomicInteger droppedBusy = new AtomicInteger(0);
   private final int colorMode;
   private final int fps;
   private volatile boolean needsIdr = true;
-  private long lastLogTime = 0;
+  private volatile boolean sendResolutionHeader = true;
 
   public H264Streamer(int width, int height, int colorMode, int fps) {
     this.width = width;
@@ -39,6 +39,14 @@ public class H264Streamer {
     this.encoder = createEncoder();
   }
 
+  public int getWidth() {
+    return width;
+  }
+
+  public int getHeight() {
+    return height;
+  }
+
   public void ack() {
     pendingFrames.updateAndGet(v -> v > 0 ? v - 1 : 0);
   }
@@ -46,6 +54,17 @@ public class H264Streamer {
   public void resetBackpressure() {
     pendingFrames.set(0);
     needsIdr = true;
+    sendResolutionHeader = true;
+  }
+
+  private boolean isIdrFrame(byte[] data) {
+    for (int i = 0; i < data.length - 4; i++) {
+      if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0 && data[i + 3] == 1) {
+        int nalType = data[i + 4] & 0x1F;
+        if (nalType == 5) return true;
+      }
+    }
+    return false;
   }
 
   public void encodeAndSend(NativeImage image, WebSocket conn) {
@@ -54,16 +73,13 @@ public class H264Streamer {
       return;
     }
 
-    // Backpressure check: If more than 1 frame is in flight, drop this one.
     if (pendingFrames.get() > 1) {
-      droppedBackpressure.incrementAndGet();
       needsIdr = true;
       image.close();
       return;
     }
 
     if (!isEncoding.compareAndSet(false, true)) {
-      droppedBusy.incrementAndGet();
       needsIdr = true;
       image.close();
       return;
@@ -75,28 +91,46 @@ public class H264Streamer {
             if (needsIdr) {
               encoder = createEncoder();
               needsIdr = false;
+              sendResolutionHeader = true;
             }
 
-            // Direct pixel access
             convertNativeImageToYuv(image, picture);
             try {
               image.close();
             } catch (Exception ignored) {
             }
 
-            // 2. Encode frame
             ByteBuffer encoded = encodeFrame(picture);
             int size = encoded.remaining();
 
-            // 3. Send raw NAL units
             if (conn.isOpen()) {
-              byte[] data = new byte[size];
-              encoded.get(data);
-              conn.send(data);
+              byte[] h264Data = new byte[size];
+              encoded.get(h264Data);
+
+              boolean isIdr = isIdrFrame(h264Data);
+              byte[] dataToSend;
+
+              if (isIdr && sendResolutionHeader) {
+                dataToSend = new byte[6 + h264Data.length];
+                System.arraycopy(FRAME_HEADER_MAGIC, 0, dataToSend, 0, 2);
+                dataToSend[2] = (byte) ((width >> 8) & 0xFF);
+                dataToSend[3] = (byte) (width & 0xFF);
+                dataToSend[4] = (byte) ((height >> 8) & 0xFF);
+                dataToSend[5] = (byte) (height & 0xFF);
+                System.arraycopy(h264Data, 0, dataToSend, 6, h264Data.length);
+                sendResolutionHeader = false;
+              } else {
+                dataToSend = h264Data;
+              }
+
+              conn.send(dataToSend);
               pendingFrames.incrementAndGet();
+
+              if (!isIdr) {
+                needsIdr = true;
+              }
             }
           } catch (Exception e) {
-            e.printStackTrace();
             needsIdr = true;
           } finally {
             try {
@@ -147,22 +181,20 @@ public class H264Streamer {
       for (int col = 0; col < minW; col++) {
         int color = ((NativeImageAccessor) (Object) src).monkeycraft$getPixelABGR(col, row);
 
-        // Assuming ABGR format (packed int)
         int a = (color >> 24) & 0xFF;
         int b = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int r = (color >> 0) & 0xFF;
 
-        // Apply color reduction
-        if (colorMode == 1) { // High Perf (12-bit)
+        if (colorMode == 1) {
           r &= 0xF0;
           g &= 0xF0;
           b &= 0xF0;
-        } else if (colorMode == 2) { // Retro (6-bit)
+        } else if (colorMode == 2) {
           r &= 0xC0;
           g &= 0xC0;
           b &= 0xC0;
-        } else if (colorMode == 3) { // Grayscale
+        } else if (colorMode == 3) {
           int gray = (r + g + b) / 3;
           r = g = b = gray;
         }

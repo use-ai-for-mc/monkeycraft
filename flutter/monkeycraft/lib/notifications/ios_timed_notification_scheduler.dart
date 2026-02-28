@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:monkeycraft_client/services/timed_notification_coordinator.dart';
-import 'package:monkeycraft_client/services/timed_notification_service.dart';
+import 'package:monkeycraft_client/notifications/timed_notification_coordinator.dart';
+import 'package:monkeycraft_client/notifications/timed_notification_service.dart';
 
 class IosTimedNotificationScheduler implements TimedNotificationScheduler {
   final TimedNotificationService _service;
@@ -20,7 +20,12 @@ class IosTimedNotificationScheduler implements TimedNotificationScheduler {
   }
 
   @override
-  Future<void> schedule(int fireAtEpochMs, String title, String body, bool sound) {
+  Future<void> schedule(
+    int fireAtEpochMs,
+    String title,
+    String body,
+    bool sound,
+  ) {
     return _service.scheduleTimed(
       fireAtEpochMs: fireAtEpochMs,
       title: title,

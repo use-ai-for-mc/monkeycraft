@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/hibernation_models.dart';
+import 'package:monkeycraft_client/shared/hibernation_models.dart';
 
 void main() {
   test('hibernationStatusFromJson parses active + message', () {

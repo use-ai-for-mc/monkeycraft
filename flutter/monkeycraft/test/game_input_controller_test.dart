@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/game_input_controller.dart';
+import 'package:monkeycraft_client/stream/game_input_controller.dart';
 
 void main() {
   test('presses and releases W with hysteresis', () {
@@ -60,16 +60,13 @@ void main() {
     controller.setJumpPressed(true);
     controller.releaseAll();
 
-    expect(
-      events,
-      [
-        'W:true',
-        'A:true',
-        'SPACE:true',
-        'W:false',
-        'A:false',
-        'SPACE:false',
-      ],
-    );
+    expect(events, [
+      'W:true',
+      'A:true',
+      'SPACE:true',
+      'W:false',
+      'A:false',
+      'SPACE:false',
+    ]);
   });
 }

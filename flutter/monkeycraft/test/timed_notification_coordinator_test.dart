@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/notification_models.dart';
-import 'package:monkeycraft_client/services/timed_notification_coordinator.dart';
+import 'package:monkeycraft_client/notifications/notification_models.dart';
+import 'package:monkeycraft_client/notifications/timed_notification_coordinator.dart';
 
 class _FakeScheduler implements TimedNotificationScheduler {
   bool permission = true;
@@ -22,7 +22,12 @@ class _FakeScheduler implements TimedNotificationScheduler {
   }
 
   @override
-  Future<void> schedule(int fireAtEpochMs, String title, String body, bool sound) async {
+  Future<void> schedule(
+    int fireAtEpochMs,
+    String title,
+    String body,
+    bool sound,
+  ) async {
     scheduleCalls += 1;
     lastFireAt = fireAtEpochMs;
     lastTitle = title;
@@ -36,7 +41,12 @@ void main() {
     final scheduler = _FakeScheduler();
     final coordinator = TimedNotificationCoordinator(scheduler: scheduler);
     await coordinator.handle(
-      const TimedNotification(fireAtEpochMs: null, title: null, body: null, sound: true),
+      const TimedNotification(
+        fireAtEpochMs: null,
+        title: null,
+        body: null,
+        sound: true,
+      ),
     );
     expect(scheduler.cancelCalls, 1);
     expect(scheduler.scheduleCalls, 0);

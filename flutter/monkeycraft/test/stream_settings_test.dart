@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/stream_settings.dart';
+import 'package:monkeycraft_client/stream/stream_settings.dart';
 
 void main() {
   test('resolutionScale matches preset', () {
@@ -10,6 +10,7 @@ void main() {
         resolutionPreset: ResolutionPreset.low,
         invertLookY: true,
         autoSwitchRideChat: false,
+        autoFaceMovement: false,
       ).resolutionScale,
       0.5,
     );
@@ -20,6 +21,7 @@ void main() {
         resolutionPreset: ResolutionPreset.medium,
         invertLookY: true,
         autoSwitchRideChat: false,
+        autoFaceMovement: false,
       ).resolutionScale,
       0.75,
     );
@@ -30,6 +32,7 @@ void main() {
         resolutionPreset: ResolutionPreset.high,
         invertLookY: true,
         autoSwitchRideChat: false,
+        autoFaceMovement: false,
       ).resolutionScale,
       1.0,
     );

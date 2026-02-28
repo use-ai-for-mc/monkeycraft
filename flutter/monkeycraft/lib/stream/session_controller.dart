@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:monkeycraft_client/services/hardware_h264_decoder.dart';
-import 'package:monkeycraft_client/services/protocol_models.dart';
-import 'package:monkeycraft_client/services/notification_models.dart';
-import 'package:monkeycraft_client/services/stream_proxy.dart';
-import 'package:monkeycraft_client/services/stream_resolution.dart';
-import 'package:monkeycraft_client/services/stream_settings.dart';
+import 'package:monkeycraft_client/stream/hardware_h264_decoder.dart';
+import 'package:monkeycraft_client/shared/protocol_models.dart';
+import 'package:monkeycraft_client/notifications/notification_models.dart';
+import 'package:monkeycraft_client/stream/stream_proxy.dart';
+import 'package:monkeycraft_client/stream/stream_resolution.dart';
+import 'package:monkeycraft_client/stream/stream_settings.dart';
 
 class SessionState {
   final ClientMode mode;
@@ -16,6 +16,8 @@ class SessionState {
   final bool connected;
   final bool foreground;
   final bool waitingForStream;
+  final bool resolutionMismatch;
+  final String resolutionMismatchMessage;
 
   final int? timedFireAtEpochMs;
   final String? timedTitle;
@@ -30,6 +32,8 @@ class SessionState {
     required this.connected,
     required this.foreground,
     required this.waitingForStream,
+    this.resolutionMismatch = false,
+    this.resolutionMismatchMessage = '',
     this.timedFireAtEpochMs,
     this.timedTitle,
     this.timedBody,
@@ -44,13 +48,16 @@ class SessionState {
     connected: false,
     foreground: true,
     waitingForStream: false,
+    resolutionMismatch: false,
+    resolutionMismatchMessage: '',
   );
 
   bool get shouldShowVideo =>
       mode == ClientMode.streaming &&
       videoState == VideoState.active &&
       connected &&
-      foreground;
+      foreground &&
+      !resolutionMismatch;
 
   bool get shouldShowHibernation =>
       mode == ClientMode.streaming &&
@@ -60,6 +67,14 @@ class SessionState {
   bool get shouldShowWaiting =>
       waitingForStream &&
       mode == ClientMode.streaming &&
+      videoState == VideoState.active &&
+      connected &&
+      foreground;
+
+  bool get shouldShowResolutionMismatch =>
+      resolutionMismatch &&
+      mode == ClientMode.streaming &&
+      videoState == VideoState.active &&
       connected &&
       foreground;
 
@@ -90,6 +105,8 @@ class SessionState {
     bool? connected,
     bool? foreground,
     bool? waitingForStream,
+    bool? resolutionMismatch,
+    String? resolutionMismatchMessage,
     int? timedFireAtEpochMs,
     String? timedTitle,
     String? timedBody,
@@ -97,6 +114,7 @@ class SessionState {
     String? timedCountDownText,
     bool clearVideoStateMessage = false,
     bool clearTimedNotification = false,
+    bool clearResolutionMismatch = false,
   }) {
     return SessionState(
       mode: mode ?? this.mode,
@@ -107,6 +125,12 @@ class SessionState {
       connected: connected ?? this.connected,
       foreground: foreground ?? this.foreground,
       waitingForStream: waitingForStream ?? this.waitingForStream,
+      resolutionMismatch: clearResolutionMismatch
+          ? false
+          : (resolutionMismatch ?? this.resolutionMismatch),
+      resolutionMismatchMessage: clearResolutionMismatch
+          ? ''
+          : (resolutionMismatchMessage ?? this.resolutionMismatchMessage),
       timedFireAtEpochMs: clearTimedNotification
           ? null
           : (timedFireAtEpochMs ?? this.timedFireAtEpochMs),
@@ -125,7 +149,7 @@ class SessionState {
 
   @override
   String toString() {
-    return 'SessionState(mode=$mode, videoState=$videoState, connected=$connected, waiting=$waitingForStream)';
+    return 'SessionState(mode=$mode, videoState=$videoState, connected=$connected, waiting=$waitingForStream, resolutionMismatch=$resolutionMismatch)';
   }
 }
 
@@ -147,9 +171,12 @@ class SessionController extends ChangeNotifier {
   StreamSettings settings = StreamSettings.defaults;
 
   StreamSubscription<ServerStatus>? _serverStatusSub;
+  StreamSubscription<StreamResolution>? _serverResolutionSub;
 
   bool _restarting = false;
   StreamResolution? _pendingResolution;
+  StreamResolution? _expectedResolution;
+  StreamResolution? _confirmedResolution;
 
   DateTime? _lastFrameTime;
   DateTime? _lastHeartbeatAckTime;
@@ -161,25 +188,81 @@ class SessionController extends ChangeNotifier {
   void initialize() {
     _attachToProxy();
     _updateState(_state.copyWith(connected: proxy.isConnected));
-    
   }
 
   void _attachToProxy() {
     _serverStatusSub?.cancel();
     _serverStatusSub = proxy.serverStatusEvents.listen(_handleServerStatus);
-    
+    _serverResolutionSub?.cancel();
+    _serverResolutionSub = proxy.serverResolutionEvents.listen(
+      _handleServerResolution,
+    );
+  }
+
+  void _handleServerResolution(StreamResolution resolution) {
+    final expected = _expectedResolution;
+    if (expected == null) return;
+
+    if (resolution.width != expected.width ||
+        resolution.height != expected.height) {
+      _handleResolutionMismatch(resolution, expected);
+    } else {
+      _confirmedResolution = resolution;
+      if (_state.resolutionMismatch) {
+        _updateState(_state.copyWith(clearResolutionMismatch: true));
+      }
+    }
+  }
+
+  void _handleResolutionMismatch(
+    StreamResolution server,
+    StreamResolution expected,
+  ) {
+    streamWidth = expected.width;
+    streamHeight = expected.height;
+    final msg =
+        'Server: ${server.width}x${server.height}, Expected: ${expected.width}x${expected.height}';
+    _updateState(
+      _state.copyWith(resolutionMismatch: true, resolutionMismatchMessage: msg),
+    );
+    syncStatus(resolution: expected);
+  }
+
+  bool shouldAcceptFrame(StreamResolution? frameResolution) {
+    if (frameResolution == null) {
+      return _confirmedResolution != null && !_state.resolutionMismatch;
+    }
+    final expected = _expectedResolution;
+    if (expected == null) return false;
+    return frameResolution.width == expected.width &&
+        frameResolution.height == expected.height;
+  }
+
+  void handleAccessUnit(Uint8List data, {int? frameWidth, int? frameHeight}) {
+    final expected = _expectedResolution;
+    if (expected == null) {
+      return;
+    }
+
+    final resolution = frameWidth != null && frameHeight != null
+        ? StreamResolution(frameWidth, frameHeight)
+        : null;
+
+    if (!shouldAcceptFrame(resolution)) {
+      return;
+    }
+
+    decoder?.pushAccessUnit(data);
+    updateFrameTime();
   }
 
   void reattachToProxy() {
-    
     _attachToProxy();
   }
 
   void _updateState(SessionState newState) {
     if (_state != newState) {
-      final oldState = _state;
       _state = newState;
-      
       notifyListeners();
       _stateController.add(newState);
     }
@@ -205,12 +288,9 @@ class SessionController extends ChangeNotifier {
   }
 
   void _handleServerStatus(ServerStatus status) {
-    
-
     // Reset frame time when exiting hibernation so we don't immediately show "waiting"
     if (_state.videoState == VideoState.hibernating &&
         status.videoState == VideoState.active) {
-      
       _lastFrameTime = null;
       setWaitingForStream(false);
     }
@@ -230,25 +310,55 @@ class SessionController extends ChangeNotifier {
   }
 
   void setMode(ClientMode mode, {StreamResolution? resolution}) {
-    
-    _updateState(_state.copyWith(mode: mode));
+    if (resolution != null) {
+      _expectedResolution = resolution;
+      streamWidth = resolution.width;
+      streamHeight = resolution.height;
+      _updateState(_state.copyWith(mode: mode, clearResolutionMismatch: true));
+    } else {
+      _updateState(_state.copyWith(mode: mode));
+    }
     proxy.sendClientStatus(
       mode,
       width: resolution?.width,
       height: resolution?.height,
       colorMode: settings.colorMode,
       fps: settings.fps,
+      autoFaceMovement: settings.autoFaceMovement,
     );
   }
 
   void syncStatus({StreamResolution? resolution}) {
-    
+    if (resolution != null) {
+      final previousExpected = _expectedResolution;
+      _expectedResolution = resolution;
+      streamWidth = resolution.width;
+      streamHeight = resolution.height;
+
+      final resolutionChanged =
+          previousExpected == null ||
+          previousExpected.width != resolution.width ||
+          previousExpected.height != resolution.height;
+
+      if (resolutionChanged) {
+        _confirmedResolution = null;
+        decoder?.reset();
+        final msg = 'Waiting for ${resolution.width}x${resolution.height}...';
+        _updateState(
+          _state.copyWith(
+            resolutionMismatch: true,
+            resolutionMismatchMessage: msg,
+          ),
+        );
+      }
+    }
     proxy.sendClientStatus(
       _state.mode,
       width: resolution?.width,
       height: resolution?.height,
       colorMode: settings.colorMode,
       fps: settings.fps,
+      autoFaceMovement: settings.autoFaceMovement,
     );
   }
 
@@ -275,7 +385,6 @@ class SessionController extends ChangeNotifier {
         _state.videoState == VideoState.hibernating ||
         _state.mode == ClientMode.chat) {
       if (_state.waitingForStream) {
-        
         setWaitingForStream(false);
       }
       return;
@@ -299,7 +408,6 @@ class SessionController extends ChangeNotifier {
         frameAge >= 3 && (heartbeatAckAge == null || heartbeatAckAge < 10);
 
     if (shouldWait != _state.waitingForStream) {
-      
       setWaitingForStream(shouldWait);
     }
   }
@@ -308,39 +416,31 @@ class SessionController extends ChangeNotifier {
     StreamResolution target, {
     Future<void> Function()? onDecoderNeeded,
   }) async {
-    
-
     if (_restarting) {
       _pendingResolution = target;
       return;
     }
 
     if (_state.mode != ClientMode.streaming) {
-      
       return;
     }
 
     if (_state.videoState == VideoState.hibernating) {
-      
       return;
     }
 
     _restarting = true;
 
-    if (supportedPlatform) {
-      if (decoder == null && onDecoderNeeded != null) {
-        await onDecoderNeeded();
-      } else if (decoder != null) {
-        await decoder?.reset();
-      }
-    }
-
-    await Future<void>.delayed(const Duration(milliseconds: 50));
     streamWidth = target.width;
     streamHeight = target.height;
 
-    // Sync status with server (which includes resolution and triggers streaming)
     syncStatus(resolution: target);
+
+    if (supportedPlatform) {
+      if (decoder == null && onDecoderNeeded != null) {
+        await onDecoderNeeded();
+      }
+    }
 
     final pending = _pendingResolution;
     _pendingResolution = null;
@@ -350,7 +450,6 @@ class SessionController extends ChangeNotifier {
       return;
     }
 
-    
     _restarting = false;
   }
 
@@ -369,6 +468,7 @@ class SessionController extends ChangeNotifier {
   @override
   void dispose() {
     _serverStatusSub?.cancel();
+    _serverResolutionSub?.cancel();
     _stateController.close();
     super.dispose();
   }

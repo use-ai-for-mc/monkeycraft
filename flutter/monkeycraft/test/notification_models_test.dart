@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/notification_models.dart';
+import 'package:monkeycraft_client/notifications/notification_models.dart';
 
 void main() {
   test('timedFromJson parses TIMED with null fireAtEpochMs', () {

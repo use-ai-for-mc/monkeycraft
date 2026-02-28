@@ -10,7 +10,9 @@
 		"GameRendererAccessor",
 		"GuiRendererAccessor",
 		"LocalPlayerMixin",
-		"AbstractContainerScreenAccessor"
+		"AbstractContainerScreenAccessor",
+		"KeyMappingAccessor",
+		"MouseHandlerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

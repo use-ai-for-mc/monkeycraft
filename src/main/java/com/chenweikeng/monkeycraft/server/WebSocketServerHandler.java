@@ -5,6 +5,8 @@ import static org.lwjgl.glfw.GLFW.*;
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.mixin.KeyMappingAccessor;
+import com.chenweikeng.monkeycraft.mixin.MouseHandlerAccessor;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
@@ -13,6 +15,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -53,6 +56,7 @@ public class WebSocketServerHandler {
 
   private boolean turnLeft, turnRight, lookUp, lookDown;
   private boolean isChatSubscribed = false;
+  private boolean autoFaceMovement = false;
 
   private ClientMode clientMode = ClientMode.STREAMING;
   private boolean hasReceivedClientStatus = false;
@@ -73,6 +77,10 @@ public class WebSocketServerHandler {
 
   public boolean isLookingDown() {
     return lookDown;
+  }
+
+  public boolean isAutoFaceMovement() {
+    return autoFaceMovement;
   }
 
   public boolean isChatSubscribed() {
@@ -561,8 +569,12 @@ public class WebSocketServerHandler {
               handleScreenKey(json);
             } else if ("SCREEN_CLICK".equals(type)) {
               handleScreenClick(json);
+            } else if ("SCREEN_HOVER".equals(type)) {
+              handleScreenHover(json);
             } else if ("SCREEN_MODIFIER".equals(type)) {
               handleScreenModifier(json);
+            } else if ("INFO".equals(type)) {
+              handleInfo(json);
             } else {
               MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
@@ -738,8 +750,6 @@ public class WebSocketServerHandler {
 
             int screenX = (int) (normX * screen.width);
             int screenY = (int) (normY * screen.height);
-
-            MonkeycraftClient.LOGGER.debug("Screen tap at ({}, {})", screenX, screenY);
           });
     }
 
@@ -785,17 +795,21 @@ public class WebSocketServerHandler {
             net.minecraft.client.gui.screens.Screen screen = mc.screen;
             if (screen == null) return;
 
-            int padding = 16;
-            int[] bounds = ScreenHelper.getClickableBounds(screen, padding);
+            int targetWidth = streamConfig.width;
+            int targetHeight = streamConfig.height;
+            if (targetWidth <= 0 || targetHeight <= 0) return;
+
+            int[] bounds =
+                ScreenHelper.getCropBoundsScreenCoords(screen, targetWidth, targetHeight);
             if (bounds == null) return;
 
-            int cropGuiX = bounds[0];
-            int cropGuiY = bounds[1];
-            int cropGuiWidth = bounds[2];
-            int cropGuiHeight = bounds[3];
+            int cropX = bounds[0];
+            int cropY = bounds[1];
+            int cropWidth = bounds[2];
+            int cropHeight = bounds[3];
 
-            double screenX = cropGuiX + normX * cropGuiWidth;
-            double screenY = cropGuiY + normY * cropGuiHeight;
+            double screenX = cropX + normX * cropWidth;
+            double screenY = cropY + normY * cropHeight;
 
             double guiScale = mc.getWindow().getGuiScale();
             double framebufferX = screenX * guiScale;
@@ -803,6 +817,12 @@ public class WebSocketServerHandler {
 
             long windowHandle = mc.getWindow().handle();
             glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
+
+            if (mc.mouseHandler != null) {
+              MouseHandlerAccessor accessor = (MouseHandlerAccessor) mc.mouseHandler;
+              accessor.monkeycraft$setXpos(framebufferX);
+              accessor.monkeycraft$setYpos(framebufferY);
+            }
 
             int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
             MouseButtonEvent mouseEvent =
@@ -813,6 +833,49 @@ public class WebSocketServerHandler {
               screen.mouseReleased(mouseEvent);
             } else {
               screen.mouseClicked(mouseEvent, false);
+            }
+          });
+    }
+
+    private void handleScreenHover(JsonObject json) {
+      if (!json.has("normalizedX") || !json.has("normalizedY")) return;
+
+      double normX = json.get("normalizedX").getAsDouble();
+      double normY = json.get("normalizedY").getAsDouble();
+
+      Minecraft mc = Minecraft.getInstance();
+      mc.execute(
+          () -> {
+            net.minecraft.client.gui.screens.Screen screen = mc.screen;
+            if (screen == null) return;
+
+            int targetWidth = streamConfig.width;
+            int targetHeight = streamConfig.height;
+            if (targetWidth <= 0 || targetHeight <= 0) return;
+
+            int[] bounds =
+                ScreenHelper.getCropBoundsScreenCoords(screen, targetWidth, targetHeight);
+            if (bounds == null) return;
+
+            int cropX = bounds[0];
+            int cropY = bounds[1];
+            int cropWidth = bounds[2];
+            int cropHeight = bounds[3];
+
+            double screenX = cropX + normX * cropWidth;
+            double screenY = cropY + normY * cropHeight;
+
+            double guiScale = mc.getWindow().getGuiScale();
+            double framebufferX = screenX * guiScale;
+            double framebufferY = screenY * guiScale;
+
+            long windowHandle = mc.getWindow().handle();
+            glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
+
+            if (mc.mouseHandler != null) {
+              MouseHandlerAccessor accessor = (MouseHandlerAccessor) mc.mouseHandler;
+              accessor.monkeycraft$setXpos(framebufferX);
+              accessor.monkeycraft$setYpos(framebufferY);
             }
           });
     }
@@ -829,6 +892,8 @@ public class WebSocketServerHandler {
       }
     }
 
+    private void handleInfo(JsonObject json) {}
+
     private void handleInput(JsonObject json) {
       if (!json.has("key") || !json.has("pressed")) return;
 
@@ -839,6 +904,7 @@ public class WebSocketServerHandler {
       mc.execute(
           () -> {
             KeyMapping binding = null;
+
             switch (key) {
               case "W":
                 binding = mc.options.keyUp;
@@ -858,6 +924,15 @@ public class WebSocketServerHandler {
               case "SHIFT":
                 binding = mc.options.keyShift;
                 break;
+              case "Q":
+                binding = mc.options.keyDrop;
+                break;
+              case "E":
+                binding = mc.options.keyInventory;
+                break;
+              case "F":
+                binding = mc.options.keySwapOffhand;
+                break;
               case "LEFT":
                 turnLeft = pressed;
                 break;
@@ -873,7 +948,13 @@ public class WebSocketServerHandler {
             }
 
             if (binding != null) {
-              binding.setDown(pressed);
+              InputConstants.Key boundKey = ((KeyMappingAccessor) binding).monkeycraft$getKey();
+              if (pressed) {
+                KeyMapping.set(boundKey, true);
+                KeyMapping.click(boundKey);
+              } else {
+                KeyMapping.set(boundKey, false);
+              }
             }
           });
     }
@@ -921,8 +1002,10 @@ public class WebSocketServerHandler {
       clientMode = "CHAT".equals(modeStr) ? ClientMode.CHAT : ClientMode.STREAMING;
       hasReceivedClientStatus = true;
 
-      MonkeycraftClient.LOGGER.info(
-          "CLIENT_STATUS received: mode={}, hibernating={}", modeStr, isHibernating);
+      // Parse autoFaceMovement setting
+      if (json.has("autoFaceMovement")) {
+        autoFaceMovement = json.get("autoFaceMovement").getAsBoolean();
+      }
 
       // Parse resolution if STREAMING mode
       if (clientMode == ClientMode.STREAMING && json.has("width") && json.has("height")) {
@@ -1041,6 +1124,12 @@ public class WebSocketServerHandler {
           }
           conn.send(GSON.toJson(timedStatus));
         }
+
+        // Sync screen state (always send, so client knows current state)
+        JsonObject screenStatus = new JsonObject();
+        screenStatus.addProperty("type", "SCREEN_STATE");
+        screenStatus.addProperty("isOpen", isScreenOpen);
+        conn.send(GSON.toJson(screenStatus));
       } else {
         sendAuthResponse(conn, false, "Invalid signature");
         conn.close();

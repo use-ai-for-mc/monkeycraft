@@ -1,6 +1,7 @@
 package com.chenweikeng.monkeycraft.mixin;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
+import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,10 @@ public class KeyboardMixin {
     if (window == curWindow.handle()) {
       if (action == GLFW.GLFW_PRESS) {
         MonkeycraftClient.lastLocalKeyInputTime = System.currentTimeMillis();
+
+        if (minecraft.options.keyCommand.matches(keyEvent)) {
+          ScreenHelper.startChatGracePeriod();
+        }
       }
     }
   }

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
-import 'package:monkeycraft_client/services/look_delta_coalescer.dart';
+import 'package:monkeycraft_client/stream/look_delta_coalescer.dart';
 
 typedef LookDeltaSender = void Function(double yawDelta, double pitchDelta);
 typedef TapSender = void Function(Offset localPosition);

@@ -41,3 +41,22 @@ class ServerStatus {
 
   bool get hasTimedNotification => timedFireAtEpochMs != null;
 }
+
+class PlayerPose {
+  final double yaw;
+  final double pitch;
+
+  const PlayerPose({required this.yaw, required this.pitch});
+}
+
+class CommandDeniedEvent {
+  final String command;
+
+  const CommandDeniedEvent({required this.command});
+}
+
+class ServerDisconnectEvent {
+  final String reason;
+
+  const ServerDisconnectEvent({required this.reason});
+}

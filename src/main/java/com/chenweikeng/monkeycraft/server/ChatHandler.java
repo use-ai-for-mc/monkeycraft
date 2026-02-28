@@ -1,6 +1,5 @@
 package com.chenweikeng.monkeycraft.server;
 
-import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft_api.v1.ChatMessageResult;
 import com.chenweikeng.monkeycraft_api.v1.IncomingChatContext;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
@@ -52,10 +51,6 @@ public class ChatHandler {
     }
 
     Component finalMessage = context.getMessage();
-    if (result == ChatMessageResult.MODIFY) {
-      MonkeycraftClient.LOGGER.debug(
-          "Chat message modified: {} -> {}", message.getString(), finalMessage.getString());
-    }
 
     sendChatToClient(resolvedSenderName, senderUuid, finalMessage);
   }
@@ -79,7 +74,6 @@ public class ChatHandler {
     ChatMessageResult result = MonkeycraftApi.OUTGOING_CHAT.invoker().onOutgoingChat(context);
 
     if (result == ChatMessageResult.DENY) {
-      MonkeycraftClient.LOGGER.debug("Outgoing chat message denied: {}", message);
       return false;
     }
 

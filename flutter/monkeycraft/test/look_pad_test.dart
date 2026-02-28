@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:monkeycraft_client/services/look_delta_coalescer.dart';
-import 'package:monkeycraft_client/widgets/look_pad.dart';
+import 'package:monkeycraft_client/stream/look_delta_coalescer.dart';
+import 'package:monkeycraft_client/stream/widgets/look_pad.dart';
 import 'package:flutter/widgets.dart';
 
 void main() {
@@ -10,8 +10,12 @@ void main() {
     expect(isPointExcluded(const Offset(5, 5), excluded), isFalse);
   });
 
-  testWidgets('LookDeltaCoalescer coalesces and flushes on interval', (tester) async {
-    await tester.pumpWidget(const Directionality(textDirection: TextDirection.ltr, child: SizedBox()));
+  testWidgets('LookDeltaCoalescer coalesces and flushes on interval', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const Directionality(textDirection: TextDirection.ltr, child: SizedBox()),
+    );
     final flushed = <String>[];
     final coalescer = LookDeltaCoalescer(
       onFlush: (yaw, pitch) => flushed.add('$yaw,$pitch'),
@@ -33,41 +37,48 @@ void main() {
     coalescer.stop();
   });
 
-  testWidgets('LookPad converts drag to yaw/pitch deltas and ignores excluded', (tester) async {
-    final deltas = <String>[];
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: SizedBox(
-          width: 300,
-          height: 300,
-          child: Stack(
-            children: [
-              LookPad(
-                excludedRegions: const [Rect.fromLTWH(0, 0, 120, 120)],
-                sensitivityX: 0.1,
-                sensitivityY: 0.2,
-                onDelta: (yaw, pitch) => deltas.add('${yaw.toStringAsFixed(2)},${pitch.toStringAsFixed(2)}'),
-              ),
-            ],
+  testWidgets(
+    'LookPad converts drag to yaw/pitch deltas and ignores excluded',
+    (tester) async {
+      final deltas = <String>[];
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: SizedBox(
+            width: 300,
+            height: 300,
+            child: Stack(
+              children: [
+                LookPad(
+                  excludedRegions: const [Rect.fromLTWH(0, 0, 120, 120)],
+                  sensitivityX: 0.1,
+                  sensitivityY: 0.2,
+                  onDelta: (yaw, pitch) => deltas.add(
+                    '${yaw.toStringAsFixed(2)},${pitch.toStringAsFixed(2)}',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    final excludedStart = tester.getTopLeft(find.byType(LookPad)) + const Offset(60, 60);
-    final gesture1 = await tester.startGesture(excludedStart);
-    await gesture1.moveBy(const Offset(20, 20));
-    await gesture1.up();
-    await tester.pump();
-    expect(deltas, isEmpty);
+      final excludedStart =
+          tester.getTopLeft(find.byType(LookPad)) + const Offset(60, 60);
+      final gesture1 = await tester.startGesture(excludedStart);
+      await gesture1.moveBy(const Offset(20, 20));
+      await gesture1.up();
+      await tester.pump();
+      expect(deltas, isEmpty);
 
-    final start = tester.getTopLeft(find.byType(LookPad)) + const Offset(200, 200);
-    final gesture2 = await tester.startGesture(start);
-    await gesture2.moveBy(const Offset(10, 20));
-    await gesture2.up();
-    await tester.pump();
+      final start =
+          tester.getTopLeft(find.byType(LookPad)) + const Offset(200, 200);
+      final gesture2 = await tester.startGesture(start);
+      await gesture2.moveBy(const Offset(10, 20));
+      await gesture2.up();
+      await tester.pump();
 
-    expect(deltas, ['1.00,-4.00']);
-  });
+      expect(deltas, ['1.00,-4.00']);
+    },
+  );
 }
