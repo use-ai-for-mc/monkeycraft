@@ -48,9 +48,7 @@ public final class PasswordQrOverlay {
     if (mc == null || mc.getWindow() == null) return;
 
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-    boolean shouldShow =
-        handler.isRunning() && !handler.isClientConnected() && !handler.hasEverConnected();
-    if (!shouldShow) {
+    if (!handler.isQrVisible()) {
       return;
     }
 

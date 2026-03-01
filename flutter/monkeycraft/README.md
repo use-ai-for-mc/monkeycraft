@@ -1,17 +1,82 @@
-# monkeycraft_client
+# MonkeyCraft Client
 
-A new Flutter project.
+Flutter mobile app for remote Minecraft control.
 
-## Getting Started
+## Version
 
-This project is a starting point for a Flutter application.
+1.2.0
 
-A few resources to get you started if this is your first Flutter project:
+## Development
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+flutter pub get
+flutter run
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Testing on Device
+
+### Android
+
+1. Enable USB debugging on your phone
+2. Connect phone via USB
+3. Verify device is detected:
+   ```bash
+   flutter devices
+   ```
+4. Run in release mode:
+   ```bash
+   flutter run --release
+   ```
+
+### iOS
+
+1. Connect iPhone via USB
+2. Trust the computer on your phone
+3. Verify device is detected:
+   ```bash
+   flutter devices
+   ```
+4. Run in release mode:
+   ```bash
+   flutter run --release
+   ```
+
+## Building for Release
+
+### iOS (App Store Connect)
+
+1. Ensure you have a valid Apple Developer account and certificates configured in Xcode
+2. Update version in `pubspec.yaml` and `ios/Flutter/Generated.xcconfig`
+3. Build the release archive:
+   ```bash
+   flutter build ipa --release
+   ```
+4. Open Xcode to archive and validate:
+   ```bash
+   open build/ios/archive/Runner.xcarchive
+   ```
+5. In Xcode: Product → Archive → Distribute App → App Store Connect
+6. Upload to App Store Connect and submit for review
+
+### Android (Google Play)
+
+1. Update version in `pubspec.yaml` (version name and build number)
+2. Build the release AppBundle:
+   ```bash
+   flutter build appbundle --release
+   ```
+3. The AAB will be at: `build/app/outputs/bundle/release/app-release.aab`
+4. Upload to Google Play Console:
+   - Go to your app → Release → Testing/Production
+   - Create new release
+   - Upload the `.aab` file
+   - Update release notes
+   - Save and roll out
+## Release Checklist
+
+- [ ] Update `pubspec.yaml` version
+- [ ] Update `ios/Flutter/Generated.xcconfig` (FLUTTER_BUILD_NAME, FLUTTER_BUILD_NUMBER)
+- [ ] Test on both iOS and Android
+- [ ] Build release artifacts
+- [ ] Upload to respective stores
+- [ ] Update release notes

@@ -306,6 +306,10 @@ public class MonkeycraftClient implements ClientModInitializer {
         ClientCommandManager.literal("monkey")
             .executes(
                 context -> {
+                  WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+                  if (handler.isRunning()) {
+                    handler.resetQrTimer();
+                  }
                   sendHelpMessage();
                   return 1;
                 })
@@ -335,6 +339,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                           }
                           int actualPort = startServerWithPortRange(config.getPort());
                           if (actualPort > 0) {
+                            WebSocketServerHandler.getInstance().resetQrTimer();
                             printLocalIps(actualPort);
                           } else {
                             sendMonkeyMessage(Component.translatable("monkeycraft.server.failed"));

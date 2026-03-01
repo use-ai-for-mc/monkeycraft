@@ -37,11 +37,14 @@ public class WebSocketServerHandler {
     CHAT
   }
 
+  private static final long QR_TIMEOUT_MS = 2 * 60 * 1000;
+
   private static WebSocketServerHandler instance;
   private MonkeycraftWebSocketServer server;
   private int currentPort = -1;
   private final AtomicBoolean running = new AtomicBoolean(false);
   private final AtomicBoolean hasEverConnected = new AtomicBoolean(false);
+  private volatile long qrDisplayStartTime = 0;
   private static final Gson GSON = new Gson();
   private H264Streamer streamer;
   private boolean isStreaming = false;
@@ -171,6 +174,7 @@ public class WebSocketServerHandler {
       server.start();
       currentPort = port;
       running.set(true);
+      qrDisplayStartTime = System.currentTimeMillis();
       return true;
     } catch (Exception e) {
       MonkeycraftClient.LOGGER.error("Failed to start WebSocket server on port {}", port, e);
@@ -185,6 +189,7 @@ public class WebSocketServerHandler {
     }
     isStreaming = false;
     hasEverConnected.set(false);
+    qrDisplayStartTime = 0;
 
     if (server != null) {
       try {
@@ -209,6 +214,19 @@ public class WebSocketServerHandler {
 
   public void resetHasEverConnected() {
     hasEverConnected.set(false);
+  }
+
+  public void resetQrTimer() {
+    qrDisplayStartTime = System.currentTimeMillis();
+    hasEverConnected.set(false);
+  }
+
+  public boolean isQrVisible() {
+    if (!running.get()) return false;
+    if (isClientConnected()) return false;
+    if (hasEverConnected.get()) return false;
+    if (qrDisplayStartTime == 0) return false;
+    return System.currentTimeMillis() - qrDisplayStartTime < QR_TIMEOUT_MS;
   }
 
   private boolean isIpAddressAllowed(InetAddress addr) {
