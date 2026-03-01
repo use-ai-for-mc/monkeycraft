@@ -37,12 +37,13 @@ public final class ScreenHelper {
   }
 
   public static boolean hasSpecialCropping(Screen screen) {
-    return screen != null;
+    return screen != null && !(screen instanceof ChatScreen);
   }
 
   public static boolean needsLetterboxing(Screen screen) {
     return screen != null
         && !(screen instanceof AbstractContainerScreen<?>)
+        && !(screen instanceof ChatScreen)
         && !isBookScreen(screen);
   }
 

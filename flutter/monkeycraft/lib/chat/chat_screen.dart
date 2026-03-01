@@ -271,15 +271,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   StreamSubscription<void>? _connectionLostSubscription;
   StreamSubscription<void>? _connectionRestoredSubscription;
   bool _loading = true;
-  bool _reconnecting = false;
-  String? _server;
-  String? _password;
-  bool _credentialsLoaded = false;
   bool _showScrollToBottom = false;
   bool _closing = false;
-  Timer? _reconnectRetryTimer;
-  int _reconnectRetryCount = 0;
-  static const int _maxReconnectRetries = 3;
 
   VideoState _videoState = VideoState.active;
   String _videoStateMessage = '';
@@ -339,12 +332,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     });
 
-    _loadReconnectCredentials();
+    _loadCredentialsToSession();
     _loadCachedMessages();
   }
 
   void _onSessionStateChanged(SessionState state) {
     if (!mounted) return;
+
+    if (state.shouldReturnToLogin && !_closing) {
+      _closeScreenAndReturnToLogin();
+      return;
+    }
+
     setState(() {
       if (state.videoState == VideoState.hibernating) {
         _videoState = state.videoState;
@@ -358,11 +357,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _loadReconnectCredentials() async {
+  Future<void> _loadCredentialsToSession() async {
     final prefs = await SharedPreferences.getInstance();
-    _server = prefs.getString('server') ?? '127.0.0.1:9600';
-    _password = prefs.getString('password') ?? '';
-    _credentialsLoaded = true;
+    final server = prefs.getString('server') ?? '127.0.0.1:9600';
+    final password = prefs.getString('password') ?? '';
+    widget.session?.setCredentials(server, password);
   }
 
   Future<void> _loadCachedMessages() async {
@@ -428,49 +427,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _onConnectionLost() {
-    if (_closing || _reconnecting) return;
-    _scheduleReconnectRetry();
-  }
-
-  void _scheduleReconnectRetry() {
-    _reconnectRetryTimer?.cancel();
-    if (_reconnectRetryCount >= _maxReconnectRetries) {
-      _closeScreenAndReturnToLogin();
-      return;
-    }
-    final delay = Duration(seconds: 1 << _reconnectRetryCount);
-
-    _reconnectRetryTimer = Timer(delay, () {
-      if (!_closing && !_reconnecting && mounted) {
-        _reconnectWithRetry();
-      }
-    });
+    if (_closing) return;
+    widget.session?.handleConnectionLost();
   }
 
   Future<void> _closeScreenAndReturnToLogin() async {
     if (_closing) return;
     _closing = true;
 
-    _reconnectRetryTimer?.cancel();
-
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
-  Future<void> _reconnectWithRetry() async {
-    await _reconnect();
-    if (!widget.proxy.isConnected &&
-        _reconnectRetryCount < _maxReconnectRetries) {
-      _reconnectRetryCount++;
-      _scheduleReconnectRetry();
-    }
-  }
-
   void _onConnectionRestored() {
     if (!mounted) return;
-    _reconnectRetryCount = 0;
-    _reconnectRetryTimer?.cancel();
+    widget.session?.resetReconnectionState();
     _reattachChatStreams();
     _loadCachedMessages();
   }
@@ -515,7 +487,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _serverDisconnectSubscription?.cancel();
     _connectionLostSubscription?.cancel();
     _connectionRestoredSubscription?.cancel();
-    _reconnectRetryTimer?.cancel();
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
@@ -528,11 +499,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       openAudioMcService.softRefresh();
       if (widget.manageConnection) {
-        if (!_credentialsLoaded) {
-          _loadReconnectCredentials().then((_) => _reconnect());
-        } else {
-          _reconnect();
-        }
+        _reconnect();
       } else {
         if (widget.proxy.isConnected) {
           _reattachChatStreams();
@@ -543,26 +510,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _reconnect() async {
-    if (_reconnecting || !mounted) return;
-    final server = _server;
-    final password = _password;
-    if (server == null || password == null) return;
+    if (!mounted || _closing) return;
 
-    _reconnecting = true;
-    try {
-      await widget.proxy.start(server, password);
-      widget.proxy.sendPing();
-    } catch (_) {
-    } finally {
-      _reconnecting = false;
-    }
+    final session = widget.session;
+    if (session == null) return;
 
-    if (mounted && widget.proxy.isConnected) {
-      _reconnectRetryCount = 0;
-      _reconnectRetryTimer?.cancel();
+    if (widget.proxy.isConnected) {
+      session.resetReconnectionState();
       _reattachChatStreams();
       await _loadCachedMessages();
+      return;
     }
+
+    try {
+      await _loadCredentialsToSession();
+    } catch (_) {}
   }
 
   void _reattachChatStreams() {

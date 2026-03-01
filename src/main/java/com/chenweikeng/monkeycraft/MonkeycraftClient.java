@@ -112,7 +112,9 @@ public class MonkeycraftClient implements ClientModInitializer {
               && client.screen != null
               && !ScreenHelper.shouldKeepScreen(client.screen)
               && !hasRecentLocalKeyInput()) {
-            client.gui.getChat().restoreChatScreen();
+            if (client.screen instanceof net.minecraft.client.gui.screens.ChatScreen) {
+              client.gui.getChat().restoreChatScreen();
+            }
             client.setScreen(null);
           }
 

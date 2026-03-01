@@ -25,9 +25,10 @@ MonkeyCraft is a **remote Minecraft control system** consisting of:
 | `src/main/java/.../MonkeycraftClient.java` | Mod entry point, tick events |
 | `src/main/java/.../server/WebSocketServerHandler.java` | Protocol handling, all message types |
 | `src/main/java/.../server/H264Streamer.java` | Video encoding |
-| `flutter/monkeycraft/lib/screens/stream_screen.dart` | Main gameplay UI |
-| `flutter/monkeycraft/lib/services/stream_proxy.dart` | WebSocket communication |
-| `flutter/monkeycraft/lib/services/game_input_controller.dart` | Input state machine |
+| `flutter/monkeycraft/lib/stream/screens/stream_screen.dart` | Main gameplay UI |
+| `flutter/monkeycraft/lib/stream/stream_proxy.dart` | WebSocket communication |
+| `flutter/monkeycraft/lib/stream/game_input_controller.dart` | Input state machine |
+| `flutter/monkeycraft/lib/stream/session_controller.dart` | Session state management |
 
 ## Build Commands
 
@@ -53,10 +54,12 @@ flutter build apk            # Build Android
 ### Client → Server
 | Type | Purpose |
 |------|---------|
-| `CLIENT_STATUS` | Sync mode (streaming/chat), resolution, fps |
+| `CLIENT_STATUS` | Sync mode (streaming/chat), resolution, fps, autoFaceMovement |
 | `INPUT` | Key press/release (W, A, S, D, SPACE, SHIFT) |
 | `LOOK_DELTA` | Camera yaw/pitch delta |
 | `CLICK` | Mouse click (button: 0=left, 1=right) |
+| `SCREEN_CLICK` | Click on screen overlay (normalized coordinates) |
+| `SCREEN_KEY` | Key press for screen overlay |
 | `HOTBAR_SELECT` | Select hotbar slot 0-8 |
 | `RUN_COMMAND` | Execute Minecraft command |
 | `SEND_CHAT` | Send chat message |
@@ -64,8 +67,8 @@ flutter build apk            # Build Android
 ### Server → Client
 | Type | Purpose |
 |------|---------|
-| Binary | H.264 video access unit |
-| `SERVER_STATUS` | Video state (active/hibernating) |
+| Binary | H.264 video access unit (IDR frames have 6-byte resolution header: `0x4D 0x43` + width + height) |
+| `SERVER_STATUS` | Video state (active/hibernating), timed notifications |
 | `CHAT_MESSAGE` | Incoming chat |
 | `NUDGE` | Immediate notification |
 | `DISCONNECT` | Server-initiated disconnect |
@@ -74,6 +77,12 @@ flutter build apk            # Build Android
 
 1. **Streaming Mode**: Normal gameplay with joystick, look pad, jump/sneak buttons
 2. **Chat Mode**: Dedicated chat interface (video paused)
+
+## Client State Handling
+
+- **Resolution Mismatch**: When server sends frames with wrong resolution, client shows "Waiting for correct resolution..." overlay and drops mismatched frames
+- **Reconnection**: Client retries 3 times with exponential backoff (~7 seconds total) before returning to login
+- **Hibernation**: When server hibernates, video pauses but chat remains available
 
 ## Adding New Features
 

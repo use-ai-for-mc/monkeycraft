@@ -88,11 +88,14 @@ Singleton managing the WebSocket server lifecycle and protocol.
 **Message Handlers:**
 | Message | Handler | Description |
 |---------|---------|-------------|
+| `CLIENT_STATUS` | `handleClientStatus` | Sync mode, resolution, FPS, settings |
 | `START_STREAM` | `handleStartStream` | Begin video capture with resolution/FPS |
 | `STOP_STREAM` | `handleStopStream` | Stop video capture |
 | `INPUT` | `handleInput` | Key press/release (WASD, SPACE, SHIFT, arrows) |
 | `LOOK_DELTA` | `handleLookDelta` | Camera yaw/pitch delta |
 | `CLICK` | `handleClick` | Mouse button 0 (left) or 1 (right) |
+| `SCREEN_CLICK` | `handleScreenClick` | Click on screen overlay |
+| `SCREEN_KEY` | `handleScreenKey` | Key press for screen overlay |
 | `HOTBAR_SELECT` | `handleHotbarSelect` | Select hotbar slot 0-8 |
 | `RUN_COMMAND` | `handleRunCommand` | Execute Minecraft command |
 | `SEND_CHAT` | `handleSendChat` | Send chat message |
@@ -128,8 +131,12 @@ Video encoding pipeline using JCodec.
 1. Receive `NativeImage` from screenshot
 2. Convert RGBA to YUV420 (with optional color reduction)
 3. Encode to H.264 NAL units via JCodec
-4. Send binary frame to WebSocket client
+4. Send binary frame to WebSocket client (with resolution header on IDR frames)
 5. Track pending frames for backpressure
+
+**Resolution Header:**
+- IDR frames include 6-byte header: `0x4D 0x43` + width (2 bytes) + height (2 bytes)
+- Allows client to verify frame resolution matches expected
 
 **Backpressure:**
 - Drops frames if >1 pending

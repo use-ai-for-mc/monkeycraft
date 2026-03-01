@@ -903,6 +903,10 @@ public class WebSocketServerHandler {
       Minecraft mc = Minecraft.getInstance();
       mc.execute(
           () -> {
+            if (pressed && shouldCloseChatForInput(key)) {
+              closeChatScreenIfOpen(mc);
+            }
+
             KeyMapping binding = null;
 
             switch (key) {
@@ -959,6 +963,21 @@ public class WebSocketServerHandler {
           });
     }
 
+    private boolean shouldCloseChatForInput(String key) {
+      return switch (key) {
+        case "W", "A", "S", "D", "SPACE", "SHIFT", "Q", "E", "F", "LEFT", "RIGHT", "UP", "DOWN" ->
+            true;
+        default -> false;
+      };
+    }
+
+    private void closeChatScreenIfOpen(Minecraft mc) {
+      if (mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen) {
+        mc.gui.getChat().restoreChatScreen();
+        mc.setScreen(null);
+      }
+    }
+
     private void handleLookDelta(WebSocket conn, JsonObject json) {
       if (!json.has("yaw") || !json.has("pitch")) return;
 
@@ -969,6 +988,7 @@ public class WebSocketServerHandler {
       mc.execute(
           () -> {
             if (mc.player == null) return;
+            closeChatScreenIfOpen(mc);
             float newYaw = mc.player.getYRot() + yawDelta;
             float newPitch = mc.player.getXRot() + pitchDelta;
             if (newPitch > 90.0f) newPitch = 90.0f;

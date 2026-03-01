@@ -57,6 +57,7 @@ Full gameplay control with intuitive touch interface:
 | 🦘 **Jump Button** | Jump (Space) |
 | 🦆 **Sneak Button** | Sneak/crouch (Shift) |
 | 🔢 **Hotbar** | Select items in your hotbar |
+| 🧭 **Auto-Face Movement** | Optional: Automatically face movement direction |
 
 ### 💬 Chat System
 

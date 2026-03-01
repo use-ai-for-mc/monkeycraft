@@ -6,35 +6,45 @@ The Monkeycraft Flutter client (`flutter/monkeycraft/`) is a mobile app for iOS 
 
 ```
 flutter/monkeycraft/lib/
-├── main.dart                    # App entry point
-├── screens/                     # UI screens
-│   ├── login_screen.dart        # Connection setup screen
-│   ├── stream_screen.dart       # Main game streaming screen
-│   ├── chat_screen.dart         # In-game chat interface
-│   ├── qr_scan_screen.dart      # QR code scanner for password
-│   └── stream_settings_screen.dart  # Stream quality settings
-├── services/                    # Business logic & communication
-│   ├── stream_proxy.dart        # WebSocket communication hub
-│   ├── session_controller.dart  # Session state management
-│   ├── game_input_controller.dart  # Movement/input state machine
-│   ├── hardware_h264_decoder.dart  # Native video decoder bridge
-│   ├── stream_settings.dart     # Settings persistence
-│   ├── stream_resolution.dart   # Resolution calculation
-│   ├── look_delta_coalescer.dart   # Look input batching
-│   ├── protocol_models.dart     # Protocol types (ClientMode, VideoState)
-│   ├── chat_models.dart         # Chat message types
-│   ├── notification_models.dart # Notification types
-│   ├── hibernation_models.dart  # Hibernation state types
+├── main.dart                         # App entry point
+├── auth/                             # Authentication screens
+│   ├── login_screen.dart             # Connection setup screen
+│   └── qr_scan_screen.dart           # QR code scanner for password
+├── chat/                             # Chat functionality
+│   ├── chat_screen.dart              # In-game chat interface
+│   └── chat_models.dart              # Chat message types
+├── stream/                           # Streaming functionality
+│   ├── screens/
+│   │   ├── stream_screen.dart        # Main game streaming screen
+│   │   └── stream_settings_screen.dart  # Stream quality settings
+│   ├── widgets/
+│   │   ├── virtual_joystick.dart     # Movement joystick
+│   │   ├── look_pad.dart             # Camera look control
+│   │   ├── jump_button.dart          # Jump action button
+│   │   ├── shift_button.dart         # Sneak action button
+│   │   ├── hotbar_selector.dart      # Hotbar slot selector
+│   │   └── screen_controls.dart      # Screen touch controls
+│   ├── stream_proxy.dart             # WebSocket communication hub
+│   ├── session_controller.dart       # Session state management
+│   ├── game_input_controller.dart    # Movement/input state machine
+│   ├── hardware_h264_decoder.dart    # Native video decoder bridge
+│   ├── stream_settings.dart          # Settings persistence
+│   ├── stream_resolution.dart        # Resolution calculation
+│   ├── look_delta_coalescer.dart     # Look input batching
+│   └── mpeg_ts_muxer.dart            # H.264 to MPEG-TS conversion
+├── shared/                           # Shared utilities
+│   ├── protocol_models.dart          # Protocol types (ClientMode, VideoState)
+│   ├── hibernation_models.dart       # Hibernation state types
+│   ├── app_settings.dart             # Global app settings
+│   └── keyboard_prewarmer.dart       # Keyboard warmup utility
+├── notifications/                    # Notification handling
+│   ├── notification_models.dart      # Notification types
 │   ├── timed_notification_service.dart
 │   ├── timed_notification_coordinator.dart
 │   ├── ios_timed_notification_scheduler.dart
-│   └── live_activity_service.dart   # iOS Live Activity
-└── widgets/                     # Reusable UI components
-    ├── virtual_joystick.dart    # Movement joystick
-    ├── look_pad.dart            # Camera look control
-    ├── jump_button.dart         # Jump action button
-    ├── shift_button.dart        # Sneak action button
-    └── hotbar_selector.dart     # Hotbar slot selector
+│   └── live_activity_service.dart    # iOS Live Activity
+└── audio/
+    └── openaudiomc_service.dart      # OpenAudioMC integration
 ```
 
 ---
@@ -77,18 +87,19 @@ Dedicated chat interface:
 ### QrScanScreen (`screens/qr_scan_screen.dart`)
 Simple QR scanner using `mobile_scanner` package to capture password from Minecraft mod's QR display.
 
-### StreamSettingsScreen (`screens/stream_settings_screen.dart`)
+### StreamSettingsScreen (`stream/screens/stream_settings_screen.dart`)
 Configuration UI for:
 - Resolution preset (Low/Medium/High)
 - Color mode (Normal/High Perf/Retro/Grayscale)
 - FPS (1-20)
 - Auto-switch to chat during hibernation
+- Auto-face movement (automatically face movement direction)
 
 ---
 
 ## Services
 
-### StreamProxy (`services/stream_proxy.dart`)
+### StreamProxy (`stream/stream_proxy.dart`)
 Central communication hub between Flutter app and Minecraft mod.
 
 **WebSocket Protocol:**
@@ -97,20 +108,20 @@ Central communication hub between Flutter app and Minecraft mod.
 | Server→Client | `HELLO` | Authentication challenge with salt |
 | Client→Server | `AUTH` | HMAC-SHA256 authentication response |
 | Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result |
-| Server→Client | Binary | H.264 video access unit |
+| Server→Client | Binary | H.264 video access unit (with optional 6-byte resolution header) |
 | Client→Server | `ACK` | Video frame acknowledgment |
-| Client→Server | `START_STREAM` | Request video stream start |
-| Client→Server | `STOP_STREAM` | Request video stream stop |
+| Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps/autoFaceMovement |
 | Client→Server | `INPUT` | Key press/release |
 | Client→Server | `LOOK_DELTA` | Camera movement |
 | Client→Server | `CLICK` | Mouse click (left/right) |
+| Client→Server | `SCREEN_CLICK` | Click on screen overlay |
+| Client→Server | `SCREEN_KEY` | Key press for screen overlay |
 | Client→Server | `RUN_COMMAND` | Execute Minecraft command |
 | Client→Server | `HOTBAR_SELECT` | Select hotbar slot |
 | Client→Server | `SEND_CHAT` | Send chat message |
 | Client→Server | `ENTER_CHAT` / `EXIT_CHAT` | Chat mode toggle |
 | Client→Server | `HIBERNATION_PING` | Keep-alive during hibernation |
 | Client→Server | `REQUEST_KEYFRAME` | Request I-frame |
-| Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps |
 | Server→Client | `TIMED` | Scheduled notification |
 | Server→Client | `NUDGE` | Immediate notification |
 | Server→Client | `HIBERNATION_START/END/STATUS/MESSAGE` | Hibernation events |
@@ -126,7 +137,7 @@ Central communication hub between Flutter app and Minecraft mod.
 - Converts H.264 access units to MPEG-TS packets
 - Used for local TCP server that feeds native video decoder
 
-### SessionController (`services/session_controller.dart`)
+### SessionController (`stream/session_controller.dart`)
 State machine managing the streaming session.
 
 **SessionState:**
@@ -137,22 +148,25 @@ State machine managing the streaming session.
 | `connected` | bool | WebSocket connection status |
 | `foreground` | bool | App in foreground |
 | `waitingForStream` | bool | Waiting for video frames |
+| `resolutionMismatch` | bool | Frame resolution doesn't match expected |
 | `timedNotification` | `TimedNotification?` | Active timed notification |
 
 **Key Logic:**
 - Frame time tracking for "waiting for stream" detection
 - Heartbeat monitoring for connection health
 - Automatic stream restart on resolution change
+- Resolution mismatch handling (waits for correct resolution, drops mismatched frames)
 - Hibernation state transitions
+- Reconnection with exponential backoff (3 retries, ~7 seconds total)
 
-### GameInputController (`services/game_input_controller.dart`)
+### GameInputController (`stream/game_input_controller.dart`)
 State machine for movement input:
 - Converts joystick offsets to WASD key events
 - Hysteresis thresholds for press/release
 - Manages jump (SPACE) and sneak (SHIFT) states
 - `releaseAll()` to reset all keys
 
-### HardwareH264Decoder (`services/hardware_h264_decoder.dart`)
+### HardwareH264Decoder (`stream/hardware_h264_decoder.dart`)
 Platform channel bridge to native video decoder:
 - `createDecoder(fps)`: Initialize decoder, returns texture ID
 - `pushAccessUnit(bytes)`: Queue H.264 NAL unit for decoding
@@ -161,18 +175,18 @@ Platform channel bridge to native video decoder:
 
 Uses Flutter Texture widget to display decoded video.
 
-### StreamSettings & StreamSettingsStore (`services/stream_settings.dart`)
-- `StreamSettings`: Data class for fps, colorMode, resolutionPreset, autoSwitchRideChat
+### StreamSettings & StreamSettingsStore (`stream/stream_settings.dart`)
+- `StreamSettings`: Data class for fps, colorMode, resolutionPreset, autoSwitchRideChat, autoFaceMovement
 - `StreamSettingsStore`: Persistence via SharedPreferences
 
-### LookDeltaCoalescer (`services/look_delta_coalescer.dart`)
+### LookDeltaCoalescer (`stream/look_delta_coalescer.dart`)
 Batches look delta events to reduce network overhead while maintaining responsiveness.
 
 ---
 
 ## Data Models
 
-### Protocol Models (`services/protocol_models.dart`)
+### Protocol Models (`shared/protocol_models.dart`)
 
 ```dart
 enum ClientMode { streaming, chat }
@@ -189,7 +203,7 @@ class ServerStatus {
 }
 ```
 
-### ChatMessage (`services/chat_models.dart`)
+### ChatMessage (`chat/chat_models.dart`)
 ```dart
 class ChatMessage {
   final String sender;
@@ -201,14 +215,14 @@ class ChatMessage {
 }
 ```
 
-### HibernationEvent (`services/hibernation_models.dart`)
+### HibernationEvent (`shared/hibernation_models.dart`)
 Sealed class hierarchy:
 - `HibernationStart(message)` - Enter hibernation
 - `HibernationEnd` - Exit hibernation
 - `HibernationStatus(active, message)` - Status poll response
 - `HibernationMessage(message)` - Update display message
 
-### Notification Models (`services/notification_models.dart`)
+### Notification Models (`notifications/notification_models.dart`)
 - `TimedNotification`: Scheduled at specific epoch timestamp with countdown text
 - `NudgeNotification`: Immediate notification
 
@@ -216,13 +230,13 @@ Sealed class hierarchy:
 
 ## Widgets
 
-### VirtualJoystick (`widgets/virtual_joystick.dart`)
+### VirtualJoystick (`stream/widgets/virtual_joystick.dart`)
 Touch-controlled analog joystick:
 - Reports normalized (-1 to 1) X/Y offsets
 - Visual feedback with movable knob
 - Used for WASD movement
 
-### LookPad (`widgets/look_pad.dart`)
+### LookPad (`stream/widgets/look_pad.dart`)
 Full-screen touch area for camera control:
 - Reports yaw/pitch deltas
 - Supports excluded regions (avoids UI elements)
@@ -230,10 +244,10 @@ Full-screen touch area for camera control:
 - Long-press detection for right-click
 - Uses coalescer for efficient batching
 
-### JumpButton / ShiftButton (`widgets/jump_button.dart`, `widgets/shift_button.dart`)
+### JumpButton / ShiftButton (`stream/widgets/jump_button.dart`, `stream/widgets/shift_button.dart`)
 Simple press/release buttons with visual feedback.
 
-### HotbarSelector (`widgets/hotbar_selector.dart`)
+### HotbarSelector (`stream/widgets/hotbar_selector.dart`)
 - `HotbarToggleButton`: Expands/collapses hotbar panel
 - `HotbarGrid`: 9-slot grid (3x3 portrait, 1x9 landscape)
 - Sends `HOTBAR_SELECT` command on slot tap

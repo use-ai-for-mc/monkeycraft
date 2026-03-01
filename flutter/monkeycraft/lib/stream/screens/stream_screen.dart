@@ -64,18 +64,13 @@ class _StreamScreenState extends State<StreamScreen>
   StreamSubscription<Uint8List>? _accessUnitSub;
   StreamSubscription<SessionState>? _sessionStateSub;
   StreamSubscription<void>? _connectionLostSub;
+  StreamSubscription<void>? _connectionRestoredSub;
   StreamSubscription<bool>? _screenStateSub;
 
   Timer? _notificationCheckTimer;
-  Timer? _reconnectRetryTimer;
-  int _reconnectRetryCount = 0;
-  static const int _maxReconnectRetries = 3;
   bool? _lastIsPortrait;
   Size? _lastScreenSize;
   bool _closing = false;
-  bool _reconnecting = false;
-  String? _server;
-  String? _password;
   bool? _forcedOrientation;
 
   ClientMode? _lastHandledMode;
@@ -109,7 +104,7 @@ class _StreamScreenState extends State<StreamScreen>
     _session.initialize();
     _attachProxyStreams();
     _attachSessionState();
-    _loadReconnectCredentials();
+    _loadCredentialsToSession();
 
     openAudioMcService.setInfoPacketHandler((packet) {
       widget.proxy.trySendCommand(packet);
@@ -163,11 +158,15 @@ class _StreamScreenState extends State<StreamScreen>
     _heartbeatAckSub?.cancel();
     _heartbeatAckSub = widget.proxy.heartbeatAcks.listen((time) {
       _session.updateHeartbeatAckTime();
-      _reconnectRetryCount = 0;
+      _session.resetReconnectionState();
     });
     _connectionLostSub?.cancel();
     _connectionLostSub = widget.proxy.connectionLostEvents.listen((_) {
       _handleConnectionLost();
+    });
+    _connectionRestoredSub?.cancel();
+    _connectionRestoredSub = widget.proxy.connectionRestoredEvents.listen((_) {
+      _onConnectionRestored();
     });
     _screenStateSub?.cancel();
     _screenStateSub = widget.proxy.screenStateEvents.listen((isOpen) {
@@ -179,9 +178,13 @@ class _StreamScreenState extends State<StreamScreen>
   void _attachSessionState() {
     _sessionStateSub?.cancel();
     _sessionStateSub = _session.stateStream.listen((state) {
+      if (state.shouldReturnToLogin && !_closing) {
+        _closeScreenAndReturnToLogin();
+        return;
+      }
+
       if (mounted) setState(() {});
 
-      // Handle state transitions
       final modeChanged = _lastHandledMode != state.mode;
       final videoStateChanged = _lastHandledVideoState != state.videoState;
 
@@ -195,7 +198,6 @@ class _StreamScreenState extends State<StreamScreen>
         );
       }
 
-      // Handle timed notification
       if (state.hasTimedNotification) {
         _handleTimedNotification(state.timedNotification!);
       }
@@ -243,23 +245,8 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   void _handleConnectionLost() {
-    if (_closing || _reconnecting) return;
-    _scheduleReconnectRetry();
-  }
-
-  void _scheduleReconnectRetry() {
-    _reconnectRetryTimer?.cancel();
-    if (_reconnectRetryCount >= _maxReconnectRetries) {
-      _closeScreenAndReturnToLogin();
-      return;
-    }
-    final delay = Duration(seconds: 1 << _reconnectRetryCount);
-
-    _reconnectRetryTimer = Timer(delay, () {
-      if (!_closing && !_reconnecting && mounted) {
-        _resumeIfNeededWithRetry();
-      }
-    });
+    if (_closing) return;
+    _session.handleConnectionLost();
   }
 
   Future<void> _closeScreenAndReturnToLogin() async {
@@ -275,7 +262,6 @@ class _StreamScreenState extends State<StreamScreen>
     _nudgeSub = null;
     await _connectionLostSub?.cancel();
     _connectionLostSub = null;
-    _reconnectRetryTimer?.cancel();
 
     await _session.disposeDecoder();
     _session.dispose();
@@ -285,15 +271,6 @@ class _StreamScreenState extends State<StreamScreen>
 
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-  }
-
-  Future<void> _resumeIfNeededWithRetry() async {
-    await _resumeIfNeeded();
-    if (!widget.proxy.isConnected &&
-        _reconnectRetryCount < _maxReconnectRetries) {
-      _reconnectRetryCount++;
-      _scheduleReconnectRetry();
     }
   }
 
@@ -481,10 +458,11 @@ class _StreamScreenState extends State<StreamScreen>
     await _restartStream();
   }
 
-  Future<void> _loadReconnectCredentials() async {
+  Future<void> _loadCredentialsToSession() async {
     final prefs = await SharedPreferences.getInstance();
-    _server = prefs.getString('server') ?? '127.0.0.1:9600';
-    _password = prefs.getString('password') ?? '';
+    final server = prefs.getString('server') ?? '127.0.0.1:9600';
+    final password = prefs.getString('password') ?? '';
+    _session.setCredentials(server, password);
   }
 
   Future<void> _loadStreamSettings() async {
@@ -543,9 +521,9 @@ class _StreamScreenState extends State<StreamScreen>
     _serverDisconnectSub?.cancel();
     _sessionStateSub?.cancel();
     _connectionLostSub?.cancel();
+    _connectionRestoredSub?.cancel();
     _screenStateSub?.cancel();
     _notificationCheckTimer?.cancel();
-    _reconnectRetryTimer?.cancel();
     _session.disposeDecoder();
     _session.dispose();
     _liveActivityService.dispose();
@@ -570,7 +548,6 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _pauseStreaming() async {
     if (_closing) return;
     _input.releaseAll();
-    _reconnectRetryTimer?.cancel();
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
     await _nudgeSub?.cancel();
@@ -581,21 +558,33 @@ class _StreamScreenState extends State<StreamScreen>
     await widget.proxy.stop();
   }
 
-  Future<void> _resumeIfNeeded() async {
-    if (_closing || _reconnecting) return;
-    if (!mounted) return;
-    final server = _server;
-    final password = _password;
-    if (server == null || password == null) return;
+  void _onConnectionRestored() {
+    if (!mounted || _closing) return;
+    _session.updateConnectionState(true);
+    _session.reattachToProxy();
+    _attachProxyStreams();
+    _initHardwareDecoder().then((_) {
+      if (!mounted) return;
+      _lastIsPortrait = null;
+      _session.resetFrameTime();
+      _syncClientStatus();
+    });
+  }
 
-    _reconnecting = true;
+  Future<void> _resumeIfNeeded() async {
+    if (_closing || !mounted) return;
 
     try {
-      await widget.proxy.start(server, password);
+      final server = _session.state.connected ? null : await _getStoredServer();
+      final password = _session.state.connected
+          ? null
+          : await _getStoredPassword();
+      if (server == null || password == null) return;
 
+      await widget.proxy.start(server, password);
+      widget.proxy.sendPing();
       _session.updateConnectionState(widget.proxy.isConnected);
       _session.reattachToProxy();
-      widget.proxy.sendPing();
       _attachProxyStreams();
       if (_supportedPlatform) {
         await _initHardwareDecoder();
@@ -603,16 +592,23 @@ class _StreamScreenState extends State<StreamScreen>
       _lastIsPortrait = null;
       _session.resetFrameTime();
       await Future<void>.delayed(const Duration(milliseconds: 100));
-
-      // Sync our current mode to the server
       _syncClientStatus();
-
-      _reconnectRetryCount = 0;
-      _reconnectRetryTimer?.cancel();
+      _session.resetReconnectionState();
+    } on AuthFailureException {
+      _session.handleConnectionLost();
     } catch (_) {
-    } finally {
-      _reconnecting = false;
+      _session.handleConnectionLost();
     }
+  }
+
+  Future<String?> _getStoredServer() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('server') ?? '127.0.0.1:9600';
+  }
+
+  Future<String?> _getStoredPassword() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('password') ?? '';
   }
 
   Future<void> _closeScreen() async {

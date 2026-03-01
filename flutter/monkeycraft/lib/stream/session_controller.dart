@@ -25,6 +25,10 @@ class SessionState {
   final bool timedSound;
   final String? timedCountDownText;
 
+  final bool authFailed;
+  final int reconnectRetryCount;
+  final bool shouldReturnToLogin;
+
   const SessionState({
     required this.mode,
     required this.videoState,
@@ -39,6 +43,9 @@ class SessionState {
     this.timedBody,
     this.timedSound = true,
     this.timedCountDownText,
+    this.authFailed = false,
+    this.reconnectRetryCount = 0,
+    this.shouldReturnToLogin = false,
   });
 
   factory SessionState.initial() => const SessionState(
@@ -50,6 +57,9 @@ class SessionState {
     waitingForStream: false,
     resolutionMismatch: false,
     resolutionMismatchMessage: '',
+    authFailed: false,
+    reconnectRetryCount: 0,
+    shouldReturnToLogin: false,
   );
 
   bool get shouldShowVideo =>
@@ -112,9 +122,13 @@ class SessionState {
     String? timedBody,
     bool? timedSound,
     String? timedCountDownText,
+    bool? authFailed,
+    int? reconnectRetryCount,
+    bool? shouldReturnToLogin,
     bool clearVideoStateMessage = false,
     bool clearTimedNotification = false,
     bool clearResolutionMismatch = false,
+    bool clearReconnectionState = false,
   }) {
     return SessionState(
       mode: mode ?? this.mode,
@@ -144,6 +158,15 @@ class SessionState {
       timedCountDownText: clearTimedNotification
           ? null
           : (timedCountDownText ?? this.timedCountDownText),
+      authFailed: clearReconnectionState
+          ? false
+          : (authFailed ?? this.authFailed),
+      reconnectRetryCount: clearReconnectionState
+          ? 0
+          : (reconnectRetryCount ?? this.reconnectRetryCount),
+      shouldReturnToLogin: clearReconnectionState
+          ? false
+          : (shouldReturnToLogin ?? this.shouldReturnToLogin),
     );
   }
 
@@ -180,6 +203,11 @@ class SessionController extends ChangeNotifier {
 
   DateTime? _lastFrameTime;
   DateTime? _lastHeartbeatAckTime;
+
+  Timer? _reconnectRetryTimer;
+  static const int _maxReconnectRetries = 3;
+  String? _server;
+  String? _password;
 
   bool get supportedPlatform => Platform.isIOS || Platform.isAndroid;
 
@@ -465,8 +493,76 @@ class SessionController extends ChangeNotifier {
     await d?.dispose();
   }
 
+  void setCredentials(String server, String password) {
+    _server = server;
+    _password = password;
+  }
+
+  void handleConnectionLost() {
+    if (_state.shouldReturnToLogin) return;
+    _scheduleReconnectRetry();
+  }
+
+  void _scheduleReconnectRetry() {
+    _reconnectRetryTimer?.cancel();
+
+    if (_state.reconnectRetryCount >= _maxReconnectRetries ||
+        _state.authFailed) {
+      _updateState(_state.copyWith(shouldReturnToLogin: true));
+      return;
+    }
+
+    final delay = Duration(seconds: 1 << _state.reconnectRetryCount);
+    _reconnectRetryTimer = Timer(delay, () {
+      _attemptReconnect();
+    });
+  }
+
+  Future<void> _attemptReconnect() async {
+    if (_server == null || _password == null) return;
+
+    try {
+      await proxy.start(_server!, _password!);
+      proxy.sendPing();
+
+      _updateState(
+        _state.copyWith(
+          authFailed: false,
+          reconnectRetryCount: 0,
+          shouldReturnToLogin: false,
+        ),
+      );
+      _reconnectRetryTimer?.cancel();
+
+      _onConnectionRestored();
+    } on AuthFailureException {
+      _updateState(
+        _state.copyWith(authFailed: true, shouldReturnToLogin: true),
+      );
+    } catch (_) {
+      final newCount = _state.reconnectRetryCount + 1;
+      _updateState(_state.copyWith(reconnectRetryCount: newCount));
+
+      if (newCount >= _maxReconnectRetries) {
+        _updateState(_state.copyWith(shouldReturnToLogin: true));
+      } else {
+        _scheduleReconnectRetry();
+      }
+    }
+  }
+
+  void _onConnectionRestored() {
+    _attachToProxy();
+  }
+
+  void resetReconnectionState() {
+    _reconnectRetryTimer?.cancel();
+    _updateState(_state.copyWith(clearReconnectionState: true));
+  }
+
   @override
   void dispose() {
+    _reconnectRetryTimer?.cancel();
     _serverStatusSub?.cancel();
     _serverResolutionSub?.cancel();
     _stateController.close();

@@ -12,6 +12,14 @@ import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/stream/mpeg_ts_muxer.dart';
 
+class AuthFailureException implements Exception {
+  final String message;
+  AuthFailureException([String? message])
+    : message = message ?? 'Authentication failed';
+  @override
+  String toString() => 'AuthFailureException: $message';
+}
+
 class StreamProxy {
   ServerSocket? _serverSocket;
   WebSocketChannel? _wsChannel;
@@ -338,10 +346,8 @@ class StreamProxy {
                 } else {
                   final msg = data['message']?.toString().trim();
                   completeAuthError(
-                    Exception(
-                      msg == null || msg.isEmpty
-                          ? 'Authentication failed'
-                          : 'Authentication failed: $msg',
+                    AuthFailureException(
+                      msg == null || msg.isEmpty ? null : msg,
                     ),
                   );
                   _wsChannel?.sink.close(status.normalClosure);
