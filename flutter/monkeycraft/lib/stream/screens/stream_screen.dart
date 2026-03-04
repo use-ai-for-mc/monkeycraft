@@ -73,6 +73,9 @@ class _StreamScreenState extends State<StreamScreen>
   bool _closing = false;
   bool? _forcedOrientation;
 
+  AppLifecycleState? _lastLifecycleState;
+  bool _isProcessingLifecycle = false;
+
   ClientMode? _lastHandledMode;
   VideoState? _lastHandledVideoState;
   int? _lastFiredTimedNotificationMs;
@@ -533,20 +536,58 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      openAudioMcService.softRefresh();
-      _session.setForeground(true);
-      _resumeIfNeeded();
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
-      _session.setForeground(false);
-      _pauseStreaming();
+  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    final timestamp = DateTime.now().toIso8601String().substring(11, 23);
+    _lastLifecycleState = state;
+    debugPrint(
+      '[$timestamp] LIFECYCLE ${state.name} _isProcessing=$_isProcessingLifecycle',
+    );
+
+    if (_isProcessingLifecycle) {
+      debugPrint('[$timestamp] LIFECYCLE QUEUE ${state.name}');
+      return;
     }
+
+    _isProcessingLifecycle = true;
+    while (_lastLifecycleState != null) {
+      final currentState = _lastLifecycleState!;
+      _lastLifecycleState = null;
+      debugPrint('[$timestamp] LIFECYCLE PROCESSING ${currentState.name}');
+      try {
+        if (currentState == AppLifecycleState.resumed) {
+          debugPrint(
+            '[$timestamp] LIFECYCLE RESUME proxy.isConnected=${widget.proxy.isConnected}',
+          );
+          openAudioMcService.softRefresh();
+          _session.setForeground(true);
+          await _resumeIfNeeded();
+          debugPrint(
+            '[$timestamp] LIFECYCLE RESUME DONE proxy.isConnected=${widget.proxy.isConnected}',
+          );
+        } else if (currentState == AppLifecycleState.inactive ||
+            currentState == AppLifecycleState.paused ||
+            currentState == AppLifecycleState.detached) {
+          debugPrint('[$timestamp] LIFECYCLE PAUSE');
+          _session.setForeground(false);
+          await _pauseStreaming();
+          debugPrint(
+            '[$timestamp] LIFECYCLE PAUSE DONE proxy.isConnected=${widget.proxy.isConnected}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[$timestamp] LIFECYCLE ERROR: $e');
+      }
+    }
+    _isProcessingLifecycle = false;
+    debugPrint('[$timestamp] LIFECYCLE DONE');
   }
 
   Future<void> _pauseStreaming() async {
-    if (_closing) return;
+    debugPrint('LIFECYCLE _pauseStreaming START _closing=$_closing');
+    if (_closing) {
+      debugPrint('LIFECYCLE _pauseStreaming EARLY RETURN (closing)');
+      return;
+    }
     _input.releaseAll();
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
@@ -556,6 +597,7 @@ class _StreamScreenState extends State<StreamScreen>
     _heartbeatAckSub = null;
     await _session.disposeDecoder();
     await widget.proxy.stop();
+    debugPrint('LIFECYCLE _pauseStreaming DONE');
   }
 
   void _onConnectionRestored() {
@@ -572,16 +614,31 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _resumeIfNeeded() async {
-    if (_closing || !mounted) return;
+    debugPrint(
+      'LIFECYCLE _resumeIfNeeded START _closing=$_closing mounted=$mounted',
+    );
+    if (_closing || !mounted) {
+      debugPrint('LIFECYCLE _resumeIfNeeded EARLY RETURN');
+      return;
+    }
 
     try {
-      final server = _session.state.connected ? null : await _getStoredServer();
-      final password = _session.state.connected
+      final server = widget.proxy.isConnected ? null : await _getStoredServer();
+      final password = widget.proxy.isConnected
           ? null
           : await _getStoredPassword();
-      if (server == null || password == null) return;
+      debugPrint(
+        'LIFECYCLE _resumeIfNeeded server=$server password=$password isConnected=${widget.proxy.isConnected}',
+      );
+      if (server == null || password == null) {
+        debugPrint('LIFECYCLE _resumeIfNeeded NO CREDENTIALS');
+        return;
+      }
 
       await widget.proxy.start(server, password);
+      debugPrint(
+        'LIFECYCLE _resumeIfNeeded after proxy.start isConnected=${widget.proxy.isConnected}',
+      );
       widget.proxy.sendPing();
       _session.updateConnectionState(widget.proxy.isConnected);
       _session.reattachToProxy();
@@ -594,9 +651,12 @@ class _StreamScreenState extends State<StreamScreen>
       await Future<void>.delayed(const Duration(milliseconds: 100));
       _syncClientStatus();
       _session.resetReconnectionState();
-    } on AuthFailureException {
+      debugPrint('LIFECYCLE _resumeIfNeeded DONE');
+    } on AuthFailureException catch (e) {
+      debugPrint('LIFECYCLE _resumeIfNeeded AuthFailureException: $e');
       _session.handleConnectionLost();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('LIFECYCLE _resumeIfNeeded Exception: $e');
       _session.handleConnectionLost();
     }
   }

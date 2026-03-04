@@ -274,6 +274,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _showScrollToBottom = false;
   bool _closing = false;
 
+  AppLifecycleState? _lastLifecycleState;
+  bool _isProcessingLifecycle = false;
+
   VideoState _videoState = VideoState.active;
   String _videoStateMessage = '';
   bool _hibernationBannerDismissed = false;
@@ -495,18 +498,46 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      openAudioMcService.softRefresh();
-      if (widget.manageConnection) {
-        _reconnect();
-      } else {
-        if (widget.proxy.isConnected) {
-          _reattachChatStreams();
-          _loadCachedMessages();
+  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    final timestamp = DateTime.now().toIso8601String().substring(11, 23);
+    _lastLifecycleState = state;
+    debugPrint(
+      'CHAT[$timestamp] ${state.name} _isProcessing=$_isProcessingLifecycle',
+    );
+
+    if (_isProcessingLifecycle) {
+      debugPrint('CHAT[$timestamp] QUEUE ${state.name}');
+      return;
+    }
+
+    _isProcessingLifecycle = true;
+    while (_lastLifecycleState != null) {
+      final currentState = _lastLifecycleState!;
+      _lastLifecycleState = null;
+      debugPrint('CHAT[$timestamp] PROCESSING ${currentState.name}');
+      try {
+        if (currentState == AppLifecycleState.resumed) {
+          debugPrint('CHAT[$timestamp] RESUMED');
+          openAudioMcService.softRefresh();
+          if (widget.manageConnection) {
+            debugPrint('CHAT[$timestamp] RESUMED manageConnection=true');
+            await _reconnect();
+          } else {
+            debugPrint(
+              'CHAT[$timestamp] RESUMED isConnected=${widget.proxy.isConnected}',
+            );
+            if (widget.proxy.isConnected) {
+              _reattachChatStreams();
+              await _loadCachedMessages();
+            }
+          }
         }
+      } catch (e) {
+        debugPrint('CHAT[$timestamp] ERROR: $e');
       }
     }
+    _isProcessingLifecycle = false;
+    debugPrint('CHAT[$timestamp] DONE');
   }
 
   Future<void> _reconnect() async {
