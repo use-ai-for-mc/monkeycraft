@@ -537,14 +537,9 @@ class _StreamScreenState extends State<StreamScreen>
 
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
-    final timestamp = DateTime.now().toIso8601String().substring(11, 23);
     _lastLifecycleState = state;
-    debugPrint(
-      '[$timestamp] LIFECYCLE ${state.name} _isProcessing=$_isProcessingLifecycle',
-    );
 
     if (_isProcessingLifecycle) {
-      debugPrint('[$timestamp] LIFECYCLE QUEUE ${state.name}');
       return;
     }
 
@@ -552,40 +547,26 @@ class _StreamScreenState extends State<StreamScreen>
     while (_lastLifecycleState != null) {
       final currentState = _lastLifecycleState!;
       _lastLifecycleState = null;
-      debugPrint('[$timestamp] LIFECYCLE PROCESSING ${currentState.name}');
       try {
         if (currentState == AppLifecycleState.resumed) {
-          debugPrint(
-            '[$timestamp] LIFECYCLE RESUME proxy.isConnected=${widget.proxy.isConnected}',
-          );
           openAudioMcService.softRefresh();
           _session.setForeground(true);
           await _resumeIfNeeded();
-          debugPrint(
-            '[$timestamp] LIFECYCLE RESUME DONE proxy.isConnected=${widget.proxy.isConnected}',
-          );
         } else if (currentState == AppLifecycleState.inactive ||
             currentState == AppLifecycleState.paused ||
             currentState == AppLifecycleState.detached) {
-          debugPrint('[$timestamp] LIFECYCLE PAUSE');
           _session.setForeground(false);
           await _pauseStreaming();
-          debugPrint(
-            '[$timestamp] LIFECYCLE PAUSE DONE proxy.isConnected=${widget.proxy.isConnected}',
-          );
         }
       } catch (e) {
-        debugPrint('[$timestamp] LIFECYCLE ERROR: $e');
+        // ignore
       }
     }
     _isProcessingLifecycle = false;
-    debugPrint('[$timestamp] LIFECYCLE DONE');
   }
 
   Future<void> _pauseStreaming() async {
-    debugPrint('LIFECYCLE _pauseStreaming START _closing=$_closing');
     if (_closing) {
-      debugPrint('LIFECYCLE _pauseStreaming EARLY RETURN (closing)');
       return;
     }
     _input.releaseAll();
@@ -597,7 +578,6 @@ class _StreamScreenState extends State<StreamScreen>
     _heartbeatAckSub = null;
     await _session.disposeDecoder();
     await widget.proxy.stop();
-    debugPrint('LIFECYCLE _pauseStreaming DONE');
   }
 
   void _onConnectionRestored() {
@@ -614,11 +594,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _resumeIfNeeded() async {
-    debugPrint(
-      'LIFECYCLE _resumeIfNeeded START _closing=$_closing mounted=$mounted',
-    );
     if (_closing || !mounted) {
-      debugPrint('LIFECYCLE _resumeIfNeeded EARLY RETURN');
       return;
     }
 
@@ -627,18 +603,11 @@ class _StreamScreenState extends State<StreamScreen>
       final password = widget.proxy.isConnected
           ? null
           : await _getStoredPassword();
-      debugPrint(
-        'LIFECYCLE _resumeIfNeeded server=$server password=$password isConnected=${widget.proxy.isConnected}',
-      );
       if (server == null || password == null) {
-        debugPrint('LIFECYCLE _resumeIfNeeded NO CREDENTIALS');
         return;
       }
 
       await widget.proxy.start(server, password);
-      debugPrint(
-        'LIFECYCLE _resumeIfNeeded after proxy.start isConnected=${widget.proxy.isConnected}',
-      );
       widget.proxy.sendPing();
       _session.updateConnectionState(widget.proxy.isConnected);
       _session.reattachToProxy();
@@ -651,12 +620,9 @@ class _StreamScreenState extends State<StreamScreen>
       await Future<void>.delayed(const Duration(milliseconds: 100));
       _syncClientStatus();
       _session.resetReconnectionState();
-      debugPrint('LIFECYCLE _resumeIfNeeded DONE');
-    } on AuthFailureException catch (e) {
-      debugPrint('LIFECYCLE _resumeIfNeeded AuthFailureException: $e');
+    } on AuthFailureException {
       _session.handleConnectionLost();
-    } catch (e) {
-      debugPrint('LIFECYCLE _resumeIfNeeded Exception: $e');
+    } catch (_) {
       _session.handleConnectionLost();
     }
   }
