@@ -409,21 +409,20 @@ public class WebSocketServerHandler {
   }
 
   public void startHibernation(String message) {
-    isHibernating = true;
-    hibernationMessage = message == null ? "" : message;
-    isStreaming = false;
-    sendServerStatus();
+    setHibernationMessage(message);
   }
 
   public void endHibernation() {
     isHibernating = false;
     hibernationMessage = "";
+    isStreaming = true;
     sendServerStatus();
   }
 
   public void setHibernationMessage(String message) {
-    if (!isHibernating) return;
+    isHibernating = true;
     hibernationMessage = message == null ? "" : message;
+    isStreaming = false;
     sendServerStatus();
   }
 
