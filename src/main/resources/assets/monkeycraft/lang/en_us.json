@@ -5,6 +5,8 @@
 	"config.monkeycraft.option.enabled.tooltip": "Enable or disable MonkeyCraft functionality",
 	"config.monkeycraft.option.autoLaunch": "Auto-launch Server",
 	"config.monkeycraft.option.autoLaunch.tooltip": "Automatically start the WebSocket server when joining a game",
+	"config.monkeycraft.option.showQrCodeWhenAutoLaunch": "Show QR Code on Auto-launch",
+	"config.monkeycraft.option.showQrCodeWhenAutoLaunch.tooltip": "Show QR code when auto-launching the server. When disabled, the server starts without displaying the QR code",
 	"config.monkeycraft.option.port": "Port Number",
 	"config.monkeycraft.option.port.tooltip": "The port number for the MonkeyCraft server (1-65535)",
 	"config.monkeycraft.option.allowConnectionsFrom": "Allow Connections From",

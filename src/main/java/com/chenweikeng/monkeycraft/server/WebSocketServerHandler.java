@@ -155,7 +155,7 @@ public class WebSocketServerHandler {
     return streamConfig;
   }
 
-  public boolean startServer(int port) {
+  public boolean startServer(int port, boolean isAutoLaunch) {
     if (running.get()) {
       if (currentPort == port) {
         return true;
@@ -174,7 +174,14 @@ public class WebSocketServerHandler {
       server.start();
       currentPort = port;
       running.set(true);
-      qrDisplayStartTime = System.currentTimeMillis();
+
+      if (isAutoLaunch && !ModConfig.getInstance().isShowQrCodeWhenAutoLaunch()) {
+        hasEverConnected.set(true);
+        qrDisplayStartTime = 0;
+      } else {
+        qrDisplayStartTime = System.currentTimeMillis();
+      }
+
       return true;
     } catch (Exception e) {
       MonkeycraftClient.LOGGER.error("Failed to start WebSocket server on port {}", port, e);
@@ -472,15 +479,15 @@ public class WebSocketServerHandler {
     }
   }
 
-  public int startServerWithPortRange(int preferredPort) {
+  public int startServerWithPortRange(int preferredPort, boolean isAutoLaunch) {
     int startPort = Math.max(9600, Math.min(9700, preferredPort));
     for (int port = startPort; port <= 9700; port++) {
-      if (startServer(port)) {
+      if (startServer(port, isAutoLaunch)) {
         return port;
       }
     }
     for (int port = 9600; port < startPort; port++) {
-      if (startServer(port)) {
+      if (startServer(port, isAutoLaunch)) {
         return port;
       }
     }

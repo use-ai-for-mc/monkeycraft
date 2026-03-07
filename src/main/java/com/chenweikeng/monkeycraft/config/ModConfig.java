@@ -43,6 +43,7 @@ public class ModConfig {
 
   private boolean enabled = true;
   private boolean autoLaunch = false;
+  private boolean showQrCodeWhenAutoLaunch = false;
   private int port = 9600;
   private String password;
   private AllowConnectionsFrom allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
@@ -72,6 +73,14 @@ public class ModConfig {
 
   public void setAutoLaunch(boolean autoLaunch) {
     this.autoLaunch = autoLaunch;
+  }
+
+  public boolean isShowQrCodeWhenAutoLaunch() {
+    return showQrCodeWhenAutoLaunch;
+  }
+
+  public void setShowQrCodeWhenAutoLaunch(boolean showQrCodeWhenAutoLaunch) {
+    this.showQrCodeWhenAutoLaunch = showQrCodeWhenAutoLaunch;
   }
 
   public int getPort() {

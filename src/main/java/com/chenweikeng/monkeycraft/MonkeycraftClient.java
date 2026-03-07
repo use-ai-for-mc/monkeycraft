@@ -279,7 +279,7 @@ public class MonkeycraftClient implements ClientModInitializer {
           ModConfig config = ModConfig.getInstance();
           if (config.isEnabled() && config.isAutoLaunch()) {
             LOGGER.info("Auto-launching Monkeycraft server...");
-            int actualPort = startServerWithPortRange(config.getPort());
+            int actualPort = startServerWithPortRange(config.getPort(), true);
             if (actualPort > 0) {
               sendMonkeyMessage(Component.translatable("monkeycraft.server.autolaunch"));
               printLocalIps(actualPort);
@@ -356,8 +356,12 @@ public class MonkeycraftClient implements ClientModInitializer {
   }
 
   public static int startServerWithPortRange(int preferredPort) {
+    return startServerWithPortRange(preferredPort, false);
+  }
+
+  public static int startServerWithPortRange(int preferredPort, boolean isAutoLaunch) {
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-    return handler.startServerWithPortRange(preferredPort);
+    return handler.startServerWithPortRange(preferredPort, isAutoLaunch);
   }
 
   public static void printLocalIps(int port) {

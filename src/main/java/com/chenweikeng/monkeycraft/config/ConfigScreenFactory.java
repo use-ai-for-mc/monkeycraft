@@ -42,6 +42,19 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(autoLaunchEntry);
 
+    AbstractConfigListEntry<Boolean> showQrCodeWhenAutoLaunchEntry =
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.monkeycraft.option.showQrCodeWhenAutoLaunch"),
+                config.isShowQrCodeWhenAutoLaunch())
+            .setDefaultValue(false)
+            .setTooltip(
+                Component.translatable(
+                    "config.monkeycraft.option.showQrCodeWhenAutoLaunch.tooltip"))
+            .setSaveConsumer(config::setShowQrCodeWhenAutoLaunch)
+            .build();
+    general.addEntry(showQrCodeWhenAutoLaunchEntry);
+
     AbstractConfigListEntry<Integer> portEntry =
         entryBuilder
             .startIntField(
