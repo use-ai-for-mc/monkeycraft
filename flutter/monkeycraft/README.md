@@ -4,7 +4,7 @@ Flutter mobile app for remote Minecraft control.
 
 ## Version
 
-1.2.0
+1.2.2
 
 ## Development
 
