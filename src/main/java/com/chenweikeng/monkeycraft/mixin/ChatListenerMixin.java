@@ -1,5 +1,6 @@
 package com.chenweikeng.monkeycraft.mixin;
 
+import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.server.ChatHandler;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class ChatListenerMixin {
           .handleIncomingChat(
               message, senderName, senderUuid != null ? senderUuid.toString() : null);
     } catch (Exception e) {
+      MonkeycraftClient.LOGGER.warn("Error handling chat message", e);
     }
   }
 
@@ -40,6 +42,7 @@ public class ChatListenerMixin {
     try {
       ChatHandler.getInstance().handleIncomingChat(component, null, null);
     } catch (Exception e) {
+      MonkeycraftClient.LOGGER.warn("Error handling chat message", e);
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class HardwareH264Decoder {
@@ -78,7 +79,8 @@ class HardwareH264Decoder {
     _sending = false;
     try {
       await _channel.invokeMethod<void>('disposeDecoder');
-    } catch (_) {
+    } catch (e) {
+      debugPrint('HardwareH264Decoder: dispose error: $e');
     } finally {
       _textureId = null;
     }

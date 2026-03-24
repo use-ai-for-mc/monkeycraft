@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
@@ -10,7 +9,8 @@ import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
-import 'package:monkeycraft_client/stream/mpeg_ts_muxer.dart';
+import 'package:monkeycraft_client/stream/proxy/video_relay.dart';
+import 'package:monkeycraft_client/stream/proxy/command_sender.dart';
 
 class AuthFailureException implements Exception {
   final String message;
@@ -21,15 +21,15 @@ class AuthFailureException implements Exception {
 }
 
 class StreamProxy {
-  ServerSocket? _serverSocket;
   WebSocketChannel? _wsChannel;
   StreamSubscription? _wsSubscription;
   bool _authenticated = false;
   bool _starting = false;
   Completer<void>? _startCompleter;
-  final List<Socket> _activeClients = [];
-  final List<Socket> _pendingClients = [];
-  final MpegTsMuxer _ts = MpegTsMuxer();
+
+  final VideoRelay _videoRelay = VideoRelay();
+  final CommandSender _commandSender = CommandSender();
+
   StreamController<Uint8List>? _accessUnitsController;
   StreamController<StreamResolution>? _serverResolutionController;
   StreamController<PlayerPose>? _playerPoseController;
@@ -48,9 +48,7 @@ class StreamProxy {
   bool _screenOpen = false;
   bool get screenOpen => _screenOpen;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
-  int _fps = 10;
-  int _frameIndex = 0;
-  int _port = 0;
+
   DateTime? _lastServerMessageTime;
   DateTime? _heartbeatSentTime;
   bool _waitingForHeartbeatAck = false;
@@ -59,13 +57,11 @@ class StreamProxy {
   int? _lastReceivedWidth;
   int? _lastReceivedHeight;
 
-  // Lifecycle controllers - these persist across reconnections
   final StreamController<void> _connectionLostController =
       StreamController<void>.broadcast();
   final StreamController<void> _connectionRestoredController =
       StreamController<void>.broadcast();
 
-  // Video state tracking (for staleness check)
   VideoState _videoState = VideoState.active;
   DateTime? _lastVideoStateEventTime;
   VideoState get videoState => _videoState;
@@ -74,8 +70,7 @@ class StreamProxy {
     return t == null ? null : DateTime.now().difference(t);
   }
 
-  // Get the local proxy URL
-  String get url => 'tcp://127.0.0.1:$_port';
+  String get url => _videoRelay.url;
   Stream<Uint8List> get accessUnits =>
       _accessUnitsController?.stream ?? const Stream.empty();
   Stream<StreamResolution> get serverResolutionEvents =>
@@ -113,6 +108,46 @@ class StreamProxy {
       _connectionRestoredController.stream;
   bool get isConnected => _authenticated && _wsChannel != null;
 
+  // Delegate command methods to CommandSender
+  bool trySendCommand(Map<String, dynamic> command) =>
+      _commandSender.trySendCommand(command);
+  void sendCommand(Map<String, dynamic> command) =>
+      _commandSender.sendCommand(command);
+  bool sendClientStatus(
+    ClientMode mode, {
+    int? width,
+    int? height,
+    int? colorMode,
+    int? fps,
+    bool? autoFaceMovement,
+  }) => _commandSender.sendClientStatus(
+    mode,
+    width: width,
+    height: height,
+    colorMode: colorMode,
+    fps: fps,
+    autoFaceMovement: autoFaceMovement,
+  );
+  bool trySendRunCommand(String command) =>
+      _commandSender.trySendRunCommand(command);
+  void sendRunCommand(String command) => _commandSender.sendRunCommand(command);
+  void sendPing() => _commandSender.sendPing();
+  void requestKeyframe() => _commandSender.requestKeyframe();
+  void sendScreenTap(double normalizedX, double normalizedY) =>
+      _commandSender.sendScreenTap(normalizedX, normalizedY);
+  void sendScreenKey(String key, bool pressed) =>
+      _commandSender.sendScreenKey(key, pressed);
+  void sendScreenClick(int button, double normalizedX, double normalizedY) =>
+      _commandSender.sendScreenClick(button, normalizedX, normalizedY);
+  void sendScreenHover(double normalizedX, double normalizedY) =>
+      _commandSender.sendScreenHover(normalizedX, normalizedY);
+  void sendScreenModifier(String modifier, bool active) =>
+      _commandSender.sendScreenModifier(modifier, active);
+  bool trySendChatMessage(String message) =>
+      _commandSender.trySendChatMessage(message);
+  void enterChatMode() => _commandSender.enterChatMode();
+  void exitChatMode() => _commandSender.exitChatMode();
+
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
     for (int i = 0; i < data.length - 4; i++) {
@@ -131,7 +166,6 @@ class StreamProxy {
   Uri _parseServerUrl(String server) {
     server = server.trim();
 
-    // If it already has a scheme, use it
     if (server.startsWith('https://')) {
       return Uri.parse(server.replaceFirst('https://', 'wss://'));
     }
@@ -142,15 +176,11 @@ class StreamProxy {
       return Uri.parse(server);
     }
 
-    // No scheme - determine based on whether there's a port
-    // IP:port format -> ws://
-    // Domain without port -> wss:// (likely ngrok or similar)
     final hasPort = RegExp(r':\d+$').hasMatch(server);
 
     if (hasPort) {
       return Uri.parse('ws://$server');
     } else {
-      // Domain without port - assume wss
       return Uri.parse('wss://$server');
     }
   }
@@ -175,7 +205,6 @@ class StreamProxy {
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
   }) async {
-    // If already starting, wait for the existing operation to complete
     if (_starting && _startCompleter != null) {
       try {
         await _startCompleter!.future;
@@ -189,54 +218,23 @@ class StreamProxy {
     _startCompleter = Completer<void>();
     try {
       await stop();
-      _frameIndex = 0;
       _authenticated = false;
-      _accessUnitsController = StreamController<Uint8List>.broadcast();
-      _serverResolutionController =
-          StreamController<StreamResolution>.broadcast();
-      _playerPoseController = StreamController<PlayerPose>.broadcast();
-      _timedNotificationController =
-          StreamController<TimedNotification>.broadcast();
-      _immediateNotificationController =
-          StreamController<ImmediateNotification>.broadcast();
-      _nudgeNotificationController =
-          StreamController<NudgeNotification>.broadcast();
-      _serverStatusController = StreamController<ServerStatus>.broadcast();
-      _commandDeniedController =
-          StreamController<CommandDeniedEvent>.broadcast();
-      _serverDisconnectController =
-          StreamController<ServerDisconnectEvent>.broadcast();
-      _chatMessageController = StreamController<ChatMessage>.broadcast();
-      _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
-      _chatModeController = StreamController<ChatModeEvent>.broadcast();
-      _nonVideoPacketController = StreamController<DateTime>.broadcast();
-      _heartbeatAckController = StreamController<DateTime>.broadcast();
-      _screenStateController = StreamController<bool>.broadcast();
-      // 1. Start Local TCP Server
-      _serverSocket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      _port = _serverSocket!.port;
+      _initStreamControllers();
 
-      _serverSocket!.listen((client) {
-        _pendingClients.add(client);
+      // Start video relay (local TCP server)
+      await _videoRelay.start();
 
-        client.done
-            .then((_) {
-              _pendingClients.remove(client);
-              _activeClients.remove(client);
-            })
-            .catchError((_) {
-              _pendingClients.remove(client);
-              _activeClients.remove(client);
-              client.destroy();
-            });
-      });
-
-      // 2. Parse server string and build WebSocket URL
+      // Connect to WebSocket
       final wsUrl = _parseServerUrl(server);
-
-      // 3. Connect to WebSocket
       _wsChannel = WebSocketChannel.connect(wsUrl);
       await _wsChannel!.ready.timeout(connectTimeout);
+
+      // Attach command sender
+      _commandSender.attach(_wsChannel!);
+      _commandSender.onClientStatusSent = (fps) {
+        if (fps != null) _videoRelay.updateFps(fps);
+        _videoRelay.reset();
+      };
 
       final authCompleter = Completer<void>();
       void completeAuthError(Object error, [StackTrace? st]) {
@@ -244,228 +242,31 @@ class StreamProxy {
         authCompleter.completeError(error, st);
       }
 
-      // 3. Listen for messages (including AUTH_RESPONSE)
       String? serverSalt;
       _wsSubscription = _wsChannel!.stream.listen(
         (message) {
           _lastServerMessageTime = DateTime.now();
           if (message is List<int>) {
-            if (!_authenticated) return;
-
-            List<int> h264Data = message;
-            int? frameWidth;
-            int? frameHeight;
-
-            if (message.length >= 6 &&
-                message[0] == 0x4D &&
-                message[1] == 0x43) {
-              frameWidth = (message[2] << 8) | message[3];
-              frameHeight = (message[4] << 8) | message[5];
-              _serverResolutionController?.add(
-                StreamResolution(frameWidth, frameHeight),
-              );
-              h264Data = message.sublist(6);
-            }
-
-            if (frameWidth != null && frameHeight != null) {
-              _lastReceivedWidth = frameWidth;
-              _lastReceivedHeight = frameHeight;
-            }
-
-            _accessUnitsController?.add(Uint8List.fromList(h264Data));
-            _wsChannel!.sink.add(jsonEncode({'type': 'ACK'}));
-
-            if (_isIdrFrame(h264Data)) {
-              for (final c in _pendingClients) {
-                _ts.writeTables(c);
-                _activeClients.add(c);
-              }
-              _pendingClients.clear();
-            }
-
-            final pts90k = (_frameIndex * 90000) ~/ (_fps > 0 ? _fps : 20);
-            _frameIndex += 1;
-
-            if (_activeClients.isEmpty) {
-              return;
-            }
-
-            final tsPackets = _ts.muxH264AccessUnit(
-              Uint8List.fromList(h264Data),
-              pts90k,
-            );
-
-            for (final client in _activeClients.toList()) {
-              try {
-                for (final packet in tsPackets) {
-                  client.add(packet);
-                }
-              } catch (_) {
-                client.destroy();
-                _activeClients.remove(client);
-              }
-            }
+            _handleBinaryMessage(message);
           } else {
-            // Text Message
-            _nonVideoPacketController?.add(DateTime.now());
-            try {
-              final data = jsonDecode(message);
-              if (data['type'] == 'HELLO') {
-                serverSalt = data['salt']?.toString();
-                if (serverSalt != null) {
-                  final clientSalt = _generateSalt();
-                  final signature = _computeHmac(
-                    password,
-                    '$serverSalt$clientSalt',
-                  );
-                  final authMsg = jsonEncode({
-                    'type': 'AUTH',
-                    'salt': clientSalt,
-                    'signature': signature,
-                  });
-                  _wsChannel!.sink.add(authMsg);
-                } else {
-                  completeAuthError(Exception('Server did not provide salt'));
-                }
-              } else if (data['type'] == 'AUTH_OK') {
-                _authenticated = true;
-                _startHeartbeatTimer();
-                _notifyConnectionRestored();
-                if (!authCompleter.isCompleted) {
-                  authCompleter.complete();
-                }
-              } else if (data['type'] == 'AUTH_RESPONSE') {
-                final success = data['success'] == true;
-                if (success) {
-                  _authenticated = true;
-                  _startHeartbeatTimer();
-                  _notifyConnectionRestored();
-                  if (!authCompleter.isCompleted) {
-                    authCompleter.complete();
-                  }
-                } else {
-                  final msg = data['message']?.toString().trim();
-                  completeAuthError(
-                    AuthFailureException(
-                      msg == null || msg.isEmpty ? null : msg,
-                    ),
-                  );
-                  _wsChannel?.sink.close(status.normalClosure);
-                }
-              } else if (!_authenticated) {
-                return;
-              } else if (data['type'] == 'PLAYER_POSE') {
-                final yaw = data['yaw'];
-                final pitch = data['pitch'];
-                if (yaw is num && pitch is num) {
-                  _playerPoseController?.add(
-                    PlayerPose(yaw: yaw.toDouble(), pitch: pitch.toDouble()),
-                  );
-                }
-              } else if (data['type'] == 'COMMAND_DENIED') {
-                final command = data['command']?.toString() ?? '';
-                _commandDeniedController?.add(
-                  CommandDeniedEvent(command: command),
-                );
-              } else if (data['type'] == 'DISCONNECT') {
-                final reason = data['reason']?.toString() ?? '';
-                _serverDisconnectController?.add(
-                  ServerDisconnectEvent(reason: reason),
-                );
-              } else if (data['type'] == 'CHAT_MESSAGE') {
-                _chatMessageController?.add(ChatMessage.fromJson(data));
-              } else if (data['type'] == 'CACHED_CHAT_MESSAGES') {
-                final messagesList = data['messages'] as List<dynamic>?;
-                final cachedMessages =
-                    messagesList
-                        ?.map(
-                          (m) =>
-                              ChatMessage.fromJson(m as Map<String, dynamic>),
-                        )
-                        .toList() ??
-                    <ChatMessage>[];
-                if (_chatSubscribeCompleter != null &&
-                    !_chatSubscribeCompleter!.isCompleted) {
-                  _chatSubscribeCompleter!.complete(cachedMessages);
-                }
-              } else if (data['type'] == 'CHAT_DENIED') {
-                _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
-              } else if (data['type'] == 'CHAT_MODE_STARTED' ||
-                  data['type'] == 'CHAT_MODE_ENDED') {
-                _chatModeController?.add(ChatModeEvent.fromJson(data));
-              } else {
-                final timed = timedFromJson(data);
-                if (timed != null) {
-                  _timedNotificationController?.add(timed);
-                }
-                final immediate = immediateFromJson(data);
-                if (immediate != null) {
-                  _immediateNotificationController?.add(immediate);
-                }
-                final nudge = nudgeFromJson(data);
-                if (nudge != null) {
-                  _nudgeNotificationController?.add(nudge);
-                }
-                // Parse SERVER_STATUS
-                if (data['type'] == 'SERVER_STATUS') {
-                  final serverStatus = ServerStatus.fromJson(data);
-
-                  _lastVideoStateEventTime = DateTime.now();
-                  _videoState = serverStatus.videoState;
-
-                  _serverStatusController?.add(serverStatus);
-                }
-                // Parse SCREEN_STATE
-                if (data['type'] == 'SCREEN_STATE') {
-                  final isOpen = data['isOpen'] == true;
-                  _screenOpen = isOpen;
-                  _screenStateController?.add(isOpen);
-                }
-              }
-              if (data['type'] == 'HEARTBEAT_ACK') {
-                _waitingForHeartbeatAck = false;
-                _heartbeatSentTime = null;
-                _heartbeatAckController?.add(DateTime.now());
-              }
-            } catch (e) {
-              // Ignore parsing errors
-            }
+            _handleTextMessage(
+              message,
+              serverSalt: serverSalt,
+              password: password,
+              onServerSalt: (salt) => serverSalt = salt,
+              completeAuthError: completeAuthError,
+              onAuthSuccess: () {
+                if (!authCompleter.isCompleted) authCompleter.complete();
+              },
+            );
           }
         },
         onError: (e, st) {
-          _stopHeartbeatTimer();
-          _wsSubscription = null;
-          _wsChannel = null;
-          _authenticated = false;
-          if (_timedNotificationController != null &&
-              !_timedNotificationController!.isClosed) {
-            _timedNotificationController!.add(
-              TimedNotification(
-                fireAtEpochMs: null,
-                title: null,
-                body: null,
-                sound: false,
-              ),
-            );
-          }
+          _handleConnectionLoss();
           completeAuthError(e, st);
         },
         onDone: () {
-          _stopHeartbeatTimer();
-          _wsSubscription = null;
-          _wsChannel = null;
-          _authenticated = false;
-          if (_timedNotificationController != null &&
-              !_timedNotificationController!.isClosed) {
-            _timedNotificationController!.add(
-              TimedNotification(
-                fireAtEpochMs: null,
-                title: null,
-                body: null,
-                sound: false,
-              ),
-            );
-          }
+          _handleConnectionLoss();
           completeAuthError(StateError('WebSocket closed'));
         },
       );
@@ -482,111 +283,204 @@ class StreamProxy {
     }
   }
 
-  bool trySendCommand(Map<String, dynamic> command) {
-    final ws = _wsChannel;
-    if (ws == null) return false;
-    if (!_authenticated) return false;
-    try {
-      ws.sink.add(jsonEncode(command));
-    } catch (_) {
-      _wsChannel = null;
-      _authenticated = false;
-      return false;
-    }
-    if (command['type'] == 'CLIENT_STATUS') {
-      final fps = command['fps'];
-      if (fps is int && fps > 0) {
-        _fps = fps;
-      }
-      _frameIndex = 0;
-      _ts.reset();
-    }
-    return true;
+  void _initStreamControllers() {
+    _accessUnitsController = StreamController<Uint8List>.broadcast();
+    _serverResolutionController =
+        StreamController<StreamResolution>.broadcast();
+    _playerPoseController = StreamController<PlayerPose>.broadcast();
+    _timedNotificationController =
+        StreamController<TimedNotification>.broadcast();
+    _immediateNotificationController =
+        StreamController<ImmediateNotification>.broadcast();
+    _nudgeNotificationController =
+        StreamController<NudgeNotification>.broadcast();
+    _serverStatusController = StreamController<ServerStatus>.broadcast();
+    _commandDeniedController =
+        StreamController<CommandDeniedEvent>.broadcast();
+    _serverDisconnectController =
+        StreamController<ServerDisconnectEvent>.broadcast();
+    _chatMessageController = StreamController<ChatMessage>.broadcast();
+    _chatDeniedController = StreamController<ChatDeniedEvent>.broadcast();
+    _chatModeController = StreamController<ChatModeEvent>.broadcast();
+    _nonVideoPacketController = StreamController<DateTime>.broadcast();
+    _heartbeatAckController = StreamController<DateTime>.broadcast();
+    _screenStateController = StreamController<bool>.broadcast();
   }
 
-  void sendCommand(Map<String, dynamic> command) {
-    trySendCommand(command);
+  void _handleBinaryMessage(List<int> message) {
+    if (!_authenticated) return;
+
+    List<int> h264Data = message;
+    int? frameWidth;
+    int? frameHeight;
+
+    if (message.length >= 6 && message[0] == 0x4D && message[1] == 0x43) {
+      frameWidth = (message[2] << 8) | message[3];
+      frameHeight = (message[4] << 8) | message[5];
+      _serverResolutionController?.add(
+        StreamResolution(frameWidth, frameHeight),
+      );
+      h264Data = message.sublist(6);
+    }
+
+    if (frameWidth != null && frameHeight != null) {
+      _lastReceivedWidth = frameWidth;
+      _lastReceivedHeight = frameHeight;
+    }
+
+    _accessUnitsController?.add(Uint8List.fromList(h264Data));
+    _wsChannel!.sink.add(jsonEncode({'type': 'ACK'}));
+
+    final isIdr = _isIdrFrame(h264Data);
+    _videoRelay.onVideoFrame(h264Data, isIdr);
   }
 
-  bool sendClientStatus(
-    ClientMode mode, {
-    int? width,
-    int? height,
-    int? colorMode,
-    int? fps,
-    bool? autoFaceMovement,
+  void _handleTextMessage(
+    dynamic message, {
+    required String? serverSalt,
+    required String password,
+    required void Function(String) onServerSalt,
+    required void Function(Object, [StackTrace?]) completeAuthError,
+    required void Function() onAuthSuccess,
   }) {
-    final cmd = <String, dynamic>{
-      'type': 'CLIENT_STATUS',
-      'mode': mode == ClientMode.streaming ? 'STREAMING' : 'CHAT',
-    };
-    if (mode == ClientMode.streaming) {
-      if (width != null) cmd['width'] = width;
-      if (height != null) cmd['height'] = height;
-      if (colorMode != null) cmd['colorMode'] = colorMode;
-      if (fps != null) cmd['fps'] = fps;
+    _nonVideoPacketController?.add(DateTime.now());
+    try {
+      final data = jsonDecode(message);
+      if (data['type'] == 'HELLO') {
+        final salt = data['salt']?.toString();
+        if (salt != null) {
+          onServerSalt(salt);
+          final clientSalt = _generateSalt();
+          final signature = _computeHmac(password, '$salt$clientSalt');
+          final authMsg = jsonEncode({
+            'type': 'AUTH',
+            'salt': clientSalt,
+            'signature': signature,
+            'protocolVersion': 1,
+          });
+          _wsChannel!.sink.add(authMsg);
+        } else {
+          completeAuthError(Exception('Server did not provide salt'));
+        }
+      } else if (data['type'] == 'AUTH_OK') {
+        _authenticated = true;
+        _commandSender.setAuthenticated(true);
+        _startHeartbeatTimer();
+        _notifyConnectionRestored();
+        onAuthSuccess();
+      } else if (data['type'] == 'AUTH_RESPONSE') {
+        final success = data['success'] == true;
+        if (success) {
+          _authenticated = true;
+          _commandSender.setAuthenticated(true);
+          _startHeartbeatTimer();
+          _notifyConnectionRestored();
+          onAuthSuccess();
+        } else {
+          final msg = data['message']?.toString().trim();
+          completeAuthError(
+            AuthFailureException(
+              msg == null || msg.isEmpty ? null : msg,
+            ),
+          );
+          _wsChannel?.sink.close(status.normalClosure);
+        }
+      } else if (!_authenticated) {
+        return;
+      } else if (data['type'] == 'PLAYER_POSE') {
+        final yaw = data['yaw'];
+        final pitch = data['pitch'];
+        if (yaw is num && pitch is num) {
+          _playerPoseController?.add(
+            PlayerPose(yaw: yaw.toDouble(), pitch: pitch.toDouble()),
+          );
+        }
+      } else if (data['type'] == 'COMMAND_DENIED') {
+        final command = data['command']?.toString() ?? '';
+        _commandDeniedController?.add(
+          CommandDeniedEvent(command: command),
+        );
+      } else if (data['type'] == 'DISCONNECT') {
+        final reason = data['reason']?.toString() ?? '';
+        _serverDisconnectController?.add(
+          ServerDisconnectEvent(reason: reason),
+        );
+      } else if (data['type'] == 'CHAT_MESSAGE') {
+        _chatMessageController?.add(ChatMessage.fromJson(data));
+      } else if (data['type'] == 'CACHED_CHAT_MESSAGES') {
+        final messagesList = data['messages'] as List<dynamic>?;
+        final cachedMessages =
+            messagesList
+                ?.map(
+                  (m) => ChatMessage.fromJson(m as Map<String, dynamic>),
+                )
+                .toList() ??
+            <ChatMessage>[];
+        if (_chatSubscribeCompleter != null &&
+            !_chatSubscribeCompleter!.isCompleted) {
+          _chatSubscribeCompleter!.complete(cachedMessages);
+        }
+      } else if (data['type'] == 'CHAT_DENIED') {
+        _chatDeniedController?.add(ChatDeniedEvent.fromJson(data));
+      } else if (data['type'] == 'CHAT_MODE_STARTED' ||
+          data['type'] == 'CHAT_MODE_ENDED') {
+        _chatModeController?.add(ChatModeEvent.fromJson(data));
+      } else {
+        _dispatchMiscMessage(data);
+      }
+      if (data['type'] == 'HEARTBEAT_ACK') {
+        _waitingForHeartbeatAck = false;
+        _heartbeatSentTime = null;
+        _heartbeatAckController?.add(DateTime.now());
+      }
+    } catch (e) {
+      debugPrint('StreamProxy: error parsing message: $e');
     }
-    if (autoFaceMovement != null) {
-      cmd['autoFaceMovement'] = autoFaceMovement;
+  }
+
+  void _dispatchMiscMessage(dynamic data) {
+    final timed = timedFromJson(data);
+    if (timed != null) {
+      _timedNotificationController?.add(timed);
     }
-
-    return trySendCommand(cmd);
+    final immediate = immediateFromJson(data);
+    if (immediate != null) {
+      _immediateNotificationController?.add(immediate);
+    }
+    final nudge = nudgeFromJson(data);
+    if (nudge != null) {
+      _nudgeNotificationController?.add(nudge);
+    }
+    if (data['type'] == 'SERVER_STATUS') {
+      final serverStatus = ServerStatus.fromJson(data);
+      _lastVideoStateEventTime = DateTime.now();
+      _videoState = serverStatus.videoState;
+      _serverStatusController?.add(serverStatus);
+    }
+    if (data['type'] == 'SCREEN_STATE') {
+      final isOpen = data['isOpen'] == true;
+      _screenOpen = isOpen;
+      _screenStateController?.add(isOpen);
+    }
   }
 
-  bool trySendRunCommand(String command) {
-    final trimmed = command.trim();
-    if (trimmed.isEmpty) return false;
-    if (!trimmed.startsWith('/')) return false;
-    return trySendCommand({'type': 'RUN_COMMAND', 'command': trimmed});
-  }
-
-  void sendRunCommand(String command) {
-    trySendRunCommand(command);
-  }
-
-  void sendPing() {
-    trySendCommand({'type': 'PING'});
-  }
-
-  void requestKeyframe() {
-    trySendCommand({'type': 'REQUEST_KEYFRAME'});
-  }
-
-  void sendScreenTap(double normalizedX, double normalizedY) {
-    trySendCommand({
-      'type': 'SCREEN_TAP',
-      'normalizedX': normalizedX,
-      'normalizedY': normalizedY,
-    });
-  }
-
-  void sendScreenKey(String key, bool pressed) {
-    trySendCommand({'type': 'SCREEN_KEY', 'key': key, 'pressed': pressed});
-  }
-
-  void sendScreenClick(int button, double normalizedX, double normalizedY) {
-    trySendCommand({
-      'type': 'SCREEN_CLICK',
-      'button': button,
-      'normalizedX': normalizedX,
-      'normalizedY': normalizedY,
-    });
-  }
-
-  void sendScreenHover(double normalizedX, double normalizedY) {
-    trySendCommand({
-      'type': 'SCREEN_HOVER',
-      'normalizedX': normalizedX,
-      'normalizedY': normalizedY,
-    });
-  }
-
-  void sendScreenModifier(String modifier, bool active) {
-    trySendCommand({
-      'type': 'SCREEN_MODIFIER',
-      'modifier': modifier,
-      'active': active,
-    });
+  void _handleConnectionLoss() {
+    _stopHeartbeatTimer();
+    _wsSubscription = null;
+    _wsChannel = null;
+    _authenticated = false;
+    _commandSender.detach();
+    if (_timedNotificationController != null &&
+        !_timedNotificationController!.isClosed) {
+      _timedNotificationController!.add(
+        TimedNotification(
+          fireAtEpochMs: null,
+          title: null,
+          body: null,
+          sound: false,
+        ),
+      );
+    }
   }
 
   void _notifyConnectionRestored() {
@@ -607,7 +501,7 @@ class StreamProxy {
 
       if (_waitingForHeartbeatAck && _heartbeatSentTime != null) {
         final heartbeatAge = now.difference(_heartbeatSentTime!);
-        if (heartbeatAge.inSeconds >= 2) {
+        if (heartbeatAge.inSeconds >= 5) {
           _waitingForHeartbeatAck = false;
           _heartbeatSentTime = null;
           _connectionLostController.add(null);
@@ -617,7 +511,7 @@ class StreamProxy {
       }
 
       if (lastMessageAge.inSeconds >= 3 && !_waitingForHeartbeatAck) {
-        trySendCommand({'type': 'HEARTBEAT'});
+        _commandSender.trySendCommand({'type': 'HEARTBEAT'});
         _waitingForHeartbeatAck = true;
         _heartbeatSentTime = now;
       }
@@ -631,20 +525,6 @@ class StreamProxy {
     _heartbeatSentTime = null;
   }
 
-  bool trySendChatMessage(String message) {
-    final trimmed = message.trim();
-    if (trimmed.isEmpty) return false;
-    return trySendCommand({'type': 'SEND_CHAT', 'message': trimmed});
-  }
-
-  void enterChatMode() {
-    trySendCommand({'type': 'ENTER_CHAT'});
-  }
-
-  void exitChatMode() {
-    trySendCommand({'type': 'EXIT_CHAT'});
-  }
-
   Future<List<ChatMessage>> subscribeToChat({
     Duration timeout = const Duration(seconds: 5),
   }) async {
@@ -653,7 +533,7 @@ class StreamProxy {
     }
     _chatSubscribeCompleter = Completer<List<ChatMessage>>();
 
-    trySendCommand({'type': 'SUBSCRIBE_CHAT'});
+    _commandSender.trySendCommand({'type': 'SUBSCRIBE_CHAT'});
     return _chatSubscribeCompleter!.future.timeout(
       timeout,
       onTimeout: () {
@@ -665,11 +545,12 @@ class StreamProxy {
 
   void unsubscribeFromChat() {
     _chatSubscribeCompleter = null;
-    trySendCommand({'type': 'UNSUBSCRIBE_CHAT'});
+    _commandSender.trySendCommand({'type': 'UNSUBSCRIBE_CHAT'});
   }
 
   Future<void> stop() async {
     _stopHeartbeatTimer();
+    _commandSender.detach();
     await _wsSubscription?.cancel();
     _wsSubscription = null;
     final ws = _wsChannel;
@@ -682,6 +563,12 @@ class StreamProxy {
     }
     _wsChannel = null;
     _authenticated = false;
+    await _closeStreamControllers();
+    _screenOpen = false;
+    await _videoRelay.stop();
+  }
+
+  Future<void> _closeStreamControllers() async {
     await _accessUnitsController?.close();
     _accessUnitsController = null;
     await _serverResolutionController?.close();
@@ -723,20 +610,5 @@ class StreamProxy {
     _heartbeatAckController = null;
     await _screenStateController?.close();
     _screenStateController = null;
-    _screenOpen = false;
-    // Note: _connectionLostController and _connectionRestoredController persist
-
-    for (final client in _activeClients) {
-      client.destroy();
-    }
-    _activeClients.clear();
-
-    for (final client in _pendingClients) {
-      client.destroy();
-    }
-    _pendingClients.clear();
-
-    await _serverSocket?.close();
-    _serverSocket = null;
   }
 }

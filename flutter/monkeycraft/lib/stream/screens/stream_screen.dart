@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/main.dart';
@@ -25,12 +23,20 @@ import 'package:monkeycraft_client/stream/widgets/look_pad.dart';
 import 'package:monkeycraft_client/stream/widgets/shift_button.dart';
 import 'package:monkeycraft_client/stream/widgets/virtual_joystick.dart';
 import 'package:monkeycraft_client/stream/widgets/screen_controls.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:monkeycraft_client/stream/widgets/stream_overlays.dart';
+import 'package:monkeycraft_client/stream/widgets/command_palette.dart';
 
 class StreamScreen extends StatefulWidget {
   final StreamProxy proxy;
+  final String server;
+  final String password;
 
-  const StreamScreen({super.key, required this.proxy});
+  const StreamScreen({
+    super.key,
+    required this.proxy,
+    required this.server,
+    required this.password,
+  });
 
   @override
   State<StreamScreen> createState() => _StreamScreenState();
@@ -105,9 +111,9 @@ class _StreamScreenState extends State<StreamScreen>
     _loadStreamSettings();
     _liveActivityService.init();
     _session.initialize();
+    _session.setCredentials(widget.server, widget.password);
     _attachProxyStreams();
     _attachSessionState();
-    _loadCredentialsToSession();
 
     openAudioMcService.setInfoPacketHandler((packet) {
       widget.proxy.trySendCommand(packet);
@@ -461,13 +467,6 @@ class _StreamScreenState extends State<StreamScreen>
     await _restartStream();
   }
 
-  Future<void> _loadCredentialsToSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final server = prefs.getString('server') ?? '127.0.0.1:9600';
-    final password = prefs.getString('password') ?? '';
-    _session.setCredentials(server, password);
-  }
-
   Future<void> _loadStreamSettings() async {
     final settings = await _settingsStore.load();
     if (!mounted) return;
@@ -559,7 +558,7 @@ class _StreamScreenState extends State<StreamScreen>
           await _pauseStreaming();
         }
       } catch (e) {
-        // ignore
+        debugPrint('StreamScreen lifecycle error: $e');
       }
     }
     _isProcessingLifecycle = false;
@@ -580,61 +579,27 @@ class _StreamScreenState extends State<StreamScreen>
     await widget.proxy.stop();
   }
 
-  void _onConnectionRestored() {
+  Future<void> _onConnectionRestored() async {
     if (!mounted || _closing) return;
     _session.updateConnectionState(true);
     _session.reattachToProxy();
     _attachProxyStreams();
-    _initHardwareDecoder().then((_) {
-      if (!mounted) return;
-      _lastIsPortrait = null;
-      _session.resetFrameTime();
-      _syncClientStatus();
-    });
+    if (_supportedPlatform) {
+      await _initHardwareDecoder();
+    }
+    if (!mounted) return;
+    _lastIsPortrait = null;
+    _session.resetFrameTime();
+    _syncClientStatus();
   }
 
   Future<void> _resumeIfNeeded() async {
     if (_closing || !mounted) {
       return;
     }
+    if (widget.proxy.isConnected) return;
 
-    try {
-      final server = widget.proxy.isConnected ? null : await _getStoredServer();
-      final password = widget.proxy.isConnected
-          ? null
-          : await _getStoredPassword();
-      if (server == null || password == null) {
-        return;
-      }
-
-      await widget.proxy.start(server, password);
-      widget.proxy.sendPing();
-      _session.updateConnectionState(widget.proxy.isConnected);
-      _session.reattachToProxy();
-      _attachProxyStreams();
-      if (_supportedPlatform) {
-        await _initHardwareDecoder();
-      }
-      _lastIsPortrait = null;
-      _session.resetFrameTime();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      _syncClientStatus();
-      _session.resetReconnectionState();
-    } on AuthFailureException {
-      _session.handleConnectionLost();
-    } catch (_) {
-      _session.handleConnectionLost();
-    }
-  }
-
-  Future<String?> _getStoredServer() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('server') ?? '127.0.0.1:9600';
-  }
-
-  Future<String?> _getStoredPassword() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('password') ?? '';
+    await _session.resumeConnection();
   }
 
   Future<void> _closeScreen() async {
@@ -761,132 +726,7 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _openCommandPalette() async {
     if (!mounted) return;
-    final controller = TextEditingController(text: '/');
-
-    Future<void> submit(BuildContext ctx) async {
-      final text = controller.text.trim();
-      if (!text.startsWith('/')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Command must start with /')),
-        );
-        return;
-      }
-      final sent = widget.proxy.trySendRunCommand(text);
-      if (!sent) {
-        if (!ctx.mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Not connected')));
-        return;
-      }
-      if (!ctx.mounted) return;
-      Navigator.of(ctx).pop();
-    }
-
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 150),
-      pageBuilder: (ctx, animation, secondaryAnimation) {
-        return Center(
-          child: GestureDetector(
-            onTap: () => FocusScope.of(ctx).unfocus(),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Material(
-                    color: const Color(0xCC111111),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Command',
-                            style: appSettings.textStyleWithFont(
-                              const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: controller,
-                            autofocus: true,
-                            textInputAction: TextInputAction.send,
-                            style: appSettings.textStyleWithFont(
-                              const TextStyle(color: Colors.white),
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[ -~]'),
-                              ),
-                            ],
-                            decoration: InputDecoration(
-                              hintText: '/warp home',
-                              hintStyle: appSettings.textStyleWithFont(
-                                const TextStyle(color: Colors.white38),
-                              ),
-                              helperText: 'Must start with /',
-                              helperStyle: appSettings.textStyleWithFont(
-                                const TextStyle(color: Colors.white54),
-                              ),
-                              filled: true,
-                              fillColor: const Color(0x33111111),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            onSubmitted: (_) => submit(ctx),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => Navigator.of(ctx).pop(),
-                                  child: const Text('Cancel'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: () => submit(ctx),
-                                  child: const Text('Send'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.95, end: 1.0).animate(animation),
-            child: child,
-          ),
-        );
-      },
-    );
+    await showCommandPalette(context: context, proxy: widget.proxy);
   }
 
   @override
@@ -1100,113 +940,25 @@ class _StreamScreenState extends State<StreamScreen>
               if (state.shouldShowVideo && _session.textureId != null)
                 Center(child: _buildTextureWithAspectRatio(pad)),
               if (state.shouldShowHibernation)
-                Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.black54,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: state.videoStateMessage
-                                  .split('\n')
-                                  .map(
-                                    (line) => Text(
-                                      line,
-                                      style: appSettings.textStyleWithFont(
-                                        const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          ],
-                        ),
+                HibernationOverlay(message: state.videoStateMessage),
+              if (state.shouldShowWaiting) const WaitingOverlay(),
+              if (state.isReconnecting)
+                const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Reconnecting...',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
-                    ),
-                  ),
-                ),
-              if (state.shouldShowWaiting)
-                Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.black,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.bedtime,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Waiting for video stream...',
-                              style: appSettings.textStyleWithFont(
-                                const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               if (state.shouldShowResolutionMismatch)
-                Positioned.fill(
-                  child: ColoredBox(
-                    color: Colors.black,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.aspect_ratio,
-                              color: Colors.white,
-                              size: 48,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Waiting for correct resolution...',
-                              style: appSettings.textStyleWithFont(
-                                const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              state.resolutionMismatchMessage,
-                              style: appSettings.textStyleWithFont(
-                                const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                ResolutionMismatchOverlay(
+                  message: state.resolutionMismatchMessage,
                 ),
               if (showTouchControls && state.shouldShowVideo && _isScreenOpen)
                 ScreenTouchHandler(

@@ -23,8 +23,29 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: test
+        run: ./gradlew test
       - name: capture build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: build/libs/
+
+  flutter:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: flutter/monkeycraft
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: get dependencies
+        run: flutter pub get
+      - name: analyze
+        run: flutter analyze
+      - name: test
+        run: flutter test

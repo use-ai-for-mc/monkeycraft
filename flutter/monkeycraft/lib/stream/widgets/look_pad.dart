@@ -69,7 +69,9 @@ class _LookPadState extends State<LookPad> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      label: 'Camera look pad',
+      child: GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTapDown: (details) {
         if (isPointExcluded(details.localPosition, widget.excludedRegions)) {
@@ -150,6 +152,7 @@ class _LookPadState extends State<LookPad> {
         },
         child: const SizedBox.expand(),
       ),
+    ),
     );
   }
 }

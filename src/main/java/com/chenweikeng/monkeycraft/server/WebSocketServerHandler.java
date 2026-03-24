@@ -1,32 +1,21 @@
 package com.chenweikeng.monkeycraft.server;
 
-import static org.lwjgl.glfw.GLFW.*;
-
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ModConfig;
-import com.chenweikeng.monkeycraft.mixin.KeyMappingAccessor;
-import com.chenweikeng.monkeycraft.mixin.MouseHandlerAccessor;
+import com.chenweikeng.monkeycraft.server.handler.AuthenticationHandler;
+import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
+import com.chenweikeng.monkeycraft.server.handler.InputHandler;
+import com.chenweikeng.monkeycraft.server.handler.ScreenInteractionHandler;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
-import com.chenweikeng.monkeycraft.utils.ScreenHelper;
-import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
-import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
-import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.MouseButtonInfo;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -39,7 +28,10 @@ public class WebSocketServerHandler {
 
   private static final long QR_TIMEOUT_MS = 2 * 60 * 1000;
 
-  private static WebSocketServerHandler instance;
+  private static final class InstanceHolder {
+    static final WebSocketServerHandler INSTANCE = new WebSocketServerHandler();
+  }
+
   private MonkeycraftWebSocketServer server;
   private int currentPort = -1;
   private final AtomicBoolean running = new AtomicBoolean(false);
@@ -66,6 +58,11 @@ public class WebSocketServerHandler {
 
   private boolean isScreenOpen = false;
 
+  private final InputHandler inputHandler;
+  private final ScreenInteractionHandler screenHandler;
+  private final ChatCommandHandler chatCommandHandler;
+  private final AuthenticationHandler authHandler;
+
   public boolean isTurningLeft() {
     return turnLeft;
   }
@@ -86,13 +83,29 @@ public class WebSocketServerHandler {
     return autoFaceMovement;
   }
 
+  public void setTurnLeft(boolean value) {
+    turnLeft = value;
+  }
+
+  public void setTurnRight(boolean value) {
+    turnRight = value;
+  }
+
+  public void setLookUp(boolean value) {
+    lookUp = value;
+  }
+
+  public void setLookDown(boolean value) {
+    lookDown = value;
+  }
+
   public boolean isChatSubscribed() {
     return isChatSubscribed;
   }
 
   public void subscribeChat(WebSocket conn) {
     isChatSubscribed = true;
-    JsonArray cachedMessages = ChatHandler.getInstance().getCachedMessages();
+    com.google.gson.JsonArray cachedMessages = ChatHandler.getInstance().getCachedMessages();
     JsonObject response = new JsonObject();
     response.addProperty("type", "CACHED_CHAT_MESSAGES");
     response.add("messages", cachedMessages);
@@ -110,7 +123,7 @@ public class WebSocketServerHandler {
   public void updateScreenState(net.minecraft.client.gui.screens.Screen screen) {
     boolean wasOpen = isScreenOpen;
 
-    if (ScreenHelper.hasSpecialCropping(screen)) {
+    if (com.chenweikeng.monkeycraft.utils.ScreenHelper.hasSpecialCropping(screen)) {
       isScreenOpen = true;
     } else {
       isScreenOpen = false;
@@ -142,13 +155,15 @@ public class WebSocketServerHandler {
     public int fps = 10;
   }
 
-  private WebSocketServerHandler() {}
+  private WebSocketServerHandler() {
+    inputHandler = new InputHandler(this);
+    screenHandler = new ScreenInteractionHandler(this);
+    chatCommandHandler = new ChatCommandHandler(this);
+    authHandler = new AuthenticationHandler(this);
+  }
 
   public static WebSocketServerHandler getInstance() {
-    if (instance == null) {
-      instance = new WebSocketServerHandler();
-    }
-    return instance;
+    return InstanceHolder.INSTANCE;
   }
 
   public StreamConfig getStreamConfig() {
@@ -245,7 +260,6 @@ public class WebSocketServerHandler {
 
     byte[] bytes = addr.getAddress();
 
-    // Check localhost (127.0.0.0/8 for IPv4, ::1 for IPv6)
     if (addr.isLoopbackAddress()) {
       return true;
     }
@@ -254,22 +268,17 @@ public class WebSocketServerHandler {
       return false;
     }
 
-    // ONLY_LOCAL_NETWORK: check private IP ranges
     if (addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
       return true;
     }
 
-    // Additional explicit checks for common private ranges
     if (bytes.length == 4) {
-      // 10.0.0.0/8
       if (bytes[0] == 10) {
         return true;
       }
-      // 172.16.0.0/12 (172.16.x.x - 172.31.x.x)
       if ((bytes[0] & 0xFF) == 172 && (bytes[1] & 0xFF) >= 16 && (bytes[1] & 0xFF) <= 31) {
         return true;
       }
-      // 192.168.0.0/16
       if ((bytes[0] & 0xFF) == 192 && (bytes[1] & 0xFF) == 168) {
         return true;
       }
@@ -305,7 +314,6 @@ public class WebSocketServerHandler {
       return;
     }
 
-    // Only stream if: STREAMING mode AND ACTIVE video state AND isStreaming flag set
     if (clientMode == ClientMode.STREAMING && !isHibernating && isStreaming) {
       streamer.encodeAndSend(image, conn);
     } else {
@@ -319,7 +327,6 @@ public class WebSocketServerHandler {
 
   public void sendTimedNotification(
       Long fireAtEpochMs, String title, String body, boolean sound, String countDownText) {
-    // Skip if fireAtEpochMs is in the past or now
     if (fireAtEpochMs != null && fireAtEpochMs <= System.currentTimeMillis()) {
       fireAtEpochMs = null;
       title = null;
@@ -327,7 +334,6 @@ public class WebSocketServerHandler {
       countDownText = null;
     }
 
-    // Store state
     pendingTimedNotificationFireAt = fireAtEpochMs;
     pendingTimedNotificationTitle = title;
     pendingTimedNotificationBody = body;
@@ -338,7 +344,6 @@ public class WebSocketServerHandler {
   }
 
   public void cancelTimedNotification() {
-    // Clear stored state
     pendingTimedNotificationFireAt = null;
     pendingTimedNotificationTitle = null;
     pendingTimedNotificationBody = null;
@@ -365,28 +370,7 @@ public class WebSocketServerHandler {
     if (server == null) return;
     WebSocket conn = server.authenticatedSession;
     if (conn == null || !conn.isOpen()) return;
-    JsonObject msg = new JsonObject();
-    msg.addProperty("type", "SERVER_STATUS");
-    msg.addProperty("videoState", isHibernating ? "HIBERNATING" : "ACTIVE");
-    if (isHibernating && hibernationMessage != null && !hibernationMessage.isEmpty()) {
-      msg.addProperty("message", hibernationMessage);
-    }
-    if (pendingTimedNotificationFireAt != null) {
-      msg.addProperty("timedFireAtEpochMs", pendingTimedNotificationFireAt);
-      if (pendingTimedNotificationTitle != null) {
-        msg.addProperty("timedTitle", pendingTimedNotificationTitle);
-      }
-      if (pendingTimedNotificationBody != null) {
-        msg.addProperty("timedBody", pendingTimedNotificationBody);
-      }
-      msg.addProperty("timedSound", pendingTimedNotificationSound);
-      if (pendingTimedNotificationCountDownText != null) {
-        msg.addProperty("timedCountDownText", pendingTimedNotificationCountDownText);
-      }
-    } else {
-      msg.add("timedFireAtEpochMs", null);
-    }
-    conn.send(GSON.toJson(msg));
+    sendServerStatus(conn);
   }
 
   private void sendServerStatus(WebSocket conn) {
@@ -470,6 +454,38 @@ public class WebSocketServerHandler {
     conn.send(GSON.toJson(msg));
   }
 
+  public void sendPostAuthState(WebSocket conn) {
+    if (isHibernating) {
+      JsonObject hibernationStatus = new JsonObject();
+      hibernationStatus.addProperty("type", "HIBERNATION_STATUS");
+      hibernationStatus.addProperty("active", true);
+      hibernationStatus.addProperty("message", hibernationMessage);
+      conn.send(GSON.toJson(hibernationStatus));
+    }
+
+    if (pendingTimedNotificationFireAt != null) {
+      JsonObject timedStatus = new JsonObject();
+      timedStatus.addProperty("type", "TIMED_STATUS");
+      timedStatus.addProperty("fireAtEpochMs", pendingTimedNotificationFireAt);
+      if (pendingTimedNotificationTitle != null) {
+        timedStatus.addProperty("title", pendingTimedNotificationTitle);
+      }
+      if (pendingTimedNotificationBody != null) {
+        timedStatus.addProperty("body", pendingTimedNotificationBody);
+      }
+      timedStatus.addProperty("sound", pendingTimedNotificationSound);
+      if (pendingTimedNotificationCountDownText != null) {
+        timedStatus.addProperty("countDownText", pendingTimedNotificationCountDownText);
+      }
+      conn.send(GSON.toJson(timedStatus));
+    }
+
+    JsonObject screenStatus = new JsonObject();
+    screenStatus.addProperty("type", "SCREEN_STATE");
+    screenStatus.addProperty("isOpen", isScreenOpen);
+    conn.send(GSON.toJson(screenStatus));
+  }
+
   private boolean isPortAvailable(int port) {
     try (ServerSocket socket = new ServerSocket(port)) {
       socket.setReuseAddress(true);
@@ -503,7 +519,6 @@ public class WebSocketServerHandler {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-      // Check if connection is allowed based on IP address
       InetSocketAddress remoteAddr = conn.getRemoteSocketAddress();
       if (remoteAddr != null) {
         InetAddress clientAddr = remoteAddr.getAddress();
@@ -536,7 +551,7 @@ public class WebSocketServerHandler {
         isChatSubscribed = false;
         clientMode = ClientMode.STREAMING;
         hasReceivedClientStatus = false;
-        MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
+        com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
       }
     }
 
@@ -549,58 +564,52 @@ public class WebSocketServerHandler {
         String type = json.get("type").getAsString();
 
         if ("AUTH".equals(type)) {
-          handleAuth(conn, json);
+          authHandler.handleAuth(
+              conn,
+              json,
+              authenticatedSession,
+              authenticated -> {
+                authenticatedSession = authenticated;
+                hasEverConnected.set(true);
+              });
         } else {
           if (conn != authenticatedSession) {
             sendError(conn, "Unauthorized");
             conn.close();
           } else {
-            if ("CLIENT_STATUS".equals(type)) {
-              handleClientStatus(conn, json);
-            } else if ("INPUT".equals(type)) {
-              handleInput(json);
-            } else if ("LOOK_DELTA".equals(type)) {
-              handleLookDelta(conn, json);
-            } else if ("GET_PLAYER_POSE".equals(type)) {
-              handleGetPlayerPose(conn);
-            } else if ("ACK".equals(type)) {
-              if (streamer != null) streamer.ack();
-            } else if ("RUN_COMMAND".equals(type)) {
-              handleRunCommand(conn, json);
-            } else if ("CLICK".equals(type)) {
-              handleClick(json);
-            } else if ("HOTBAR_SELECT".equals(type)) {
-              handleHotbarSelect(json);
-            } else if ("REQUEST_KEYFRAME".equals(type)) {
-              handleRequestKeyframe();
-            } else if ("SEND_CHAT".equals(type)) {
-              handleSendChat(conn, json);
-            } else if ("ENTER_CHAT".equals(type)) {
-              handleEnterChat(conn);
-            } else if ("EXIT_CHAT".equals(type)) {
-              handleExitChat(conn);
-            } else if ("SUBSCRIBE_CHAT".equals(type)) {
-              handleSubscribeChat(conn);
-            } else if ("UNSUBSCRIBE_CHAT".equals(type)) {
-              handleUnsubscribeChat();
-            } else if ("PING".equals(type)) {
-              handlePing(conn);
-            } else if ("HEARTBEAT".equals(type)) {
-              handleHeartbeat(conn);
-            } else if ("SCREEN_TAP".equals(type)) {
-              handleScreenTap(json);
-            } else if ("SCREEN_KEY".equals(type)) {
-              handleScreenKey(json);
-            } else if ("SCREEN_CLICK".equals(type)) {
-              handleScreenClick(json);
-            } else if ("SCREEN_HOVER".equals(type)) {
-              handleScreenHover(json);
-            } else if ("SCREEN_MODIFIER".equals(type)) {
-              handleScreenModifier(json);
-            } else if ("INFO".equals(type)) {
-              handleInfo(json);
-            } else {
-              MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
+            switch (type) {
+              case "CLIENT_STATUS" -> handleClientStatus(conn, json);
+              case "INPUT" -> inputHandler.handleInput(json);
+              case "LOOK_DELTA" -> inputHandler.handleLookDelta(conn, json);
+              case "GET_PLAYER_POSE" -> inputHandler.handleGetPlayerPose(conn);
+              case "ACK" -> {
+                if (streamer != null) streamer.ack();
+              }
+              case "RUN_COMMAND" -> chatCommandHandler.handleRunCommand(conn, json);
+              case "CLICK" -> inputHandler.handleClick(json);
+              case "HOTBAR_SELECT" -> inputHandler.handleHotbarSelect(json);
+              case "REQUEST_KEYFRAME" -> {
+                if (streamer != null) streamer.resetBackpressure();
+              }
+              case "SEND_CHAT" -> chatCommandHandler.handleSendChat(conn, json);
+              case "ENTER_CHAT" -> chatCommandHandler.handleEnterChat(conn);
+              case "EXIT_CHAT" -> chatCommandHandler.handleExitChat(conn);
+              case "SUBSCRIBE_CHAT" -> chatCommandHandler.handleSubscribeChat(conn);
+              case "UNSUBSCRIBE_CHAT" -> chatCommandHandler.handleUnsubscribeChat();
+              case "PING" -> sendServerStatus(conn);
+              case "HEARTBEAT" -> {
+                JsonObject ack = new JsonObject();
+                ack.addProperty("type", "HEARTBEAT_ACK");
+                conn.send(GSON.toJson(ack));
+              }
+              case "SCREEN_TAP" -> screenHandler.handleScreenTap(json);
+              case "SCREEN_KEY" -> screenHandler.handleScreenKey(json);
+              case "SCREEN_CLICK" -> screenHandler.handleScreenClick(json);
+              case "SCREEN_HOVER" -> screenHandler.handleScreenHover(json);
+              case "SCREEN_MODIFIER" -> screenHandler.handleScreenModifier(json);
+              case "INFO" -> {}
+              default ->
+                  MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
           }
         }
@@ -609,449 +618,15 @@ public class WebSocketServerHandler {
       }
     }
 
-    private void handleClick(JsonObject json) {
-      int button = json.has("button") ? json.get("button").getAsInt() : 0;
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            try {
-              if (MonkeycraftClient.pendingMouseReleaseTicks > 0) {
-                if (MonkeycraftClient.pendingMouseButton == 1) mc.options.keyUse.setDown(false);
-                if (MonkeycraftClient.pendingMouseButton == 0) mc.options.keyAttack.setDown(false);
-                MonkeycraftClient.pendingMouseReleaseTicks = 0;
-              }
-
-              if (button == 1) mc.options.keyUse.setDown(true);
-              if (button == 0) mc.options.keyAttack.setDown(true);
-
-              MonkeycraftClient.pendingMouseButton = button;
-              MonkeycraftClient.pendingMouseReleaseTicks = 2;
-            } catch (Exception e) {
-              MonkeycraftClient.LOGGER.warn("Failed to synthesize click", e);
-            }
-          });
-    }
-
-    private void handleHotbarSelect(JsonObject json) {
-      if (!json.has("slot")) return;
-      int slot = json.get("slot").getAsInt();
-      if (slot < 0) slot = 0;
-      if (slot > 8) slot = 8;
-
-      final int selectedSlot = slot;
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            if (mc.player == null) return;
-            try {
-              mc.player.getInventory().setSelectedSlot(selectedSlot);
-            } catch (Exception e) {
-              MonkeycraftClient.LOGGER.warn("Failed to set hotbar slot", e);
-            }
-          });
-    }
-
-    private void handleRunCommand(WebSocket conn, JsonObject json) {
-      if (!json.has("command")) return;
-      String raw = json.get("command").getAsString();
-      if (raw == null) return;
-      raw = raw.trim();
-      if (raw.isEmpty()) return;
-      if (!raw.startsWith("/")) return;
-      final String command = raw;
-      final String cmd = raw.substring(1);
-
-      ModConfig config = ModConfig.getInstance();
-
-      CommandExecutionResult apiResult =
-          MonkeycraftApi.COMMAND_EXECUTION.invoker().onCommandExecution(command);
-
-      if (apiResult == CommandExecutionResult.DENY || config.isCommandDenied(command)) {
-        sendCommandDenied(conn, command);
-        return;
-      }
-
-      if (apiResult != CommandExecutionResult.ALLOW) {
-        if (config.isCommandAllowed(command)) {
-          // Allowed by allowlist
-        } else if (config.isCommandPermittedByDefault()) {
-          // Allowed by default behavior
-        } else {
-          sendCommandDenied(conn, command);
-          return;
-        }
-      }
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            try {
-              if (mc.player != null && mc.player.connection != null) {
-                mc.player.connection.sendCommand(cmd);
-              } else if (mc.getConnection() != null) {
-                mc.getConnection().sendCommand(cmd);
-              }
-            } catch (Exception e) {
-              MonkeycraftClient.LOGGER.warn("Failed to run command {}", command, e);
-            }
-          });
-    }
-
-    private void sendCommandDenied(WebSocket conn, String command) {
-      JsonObject response = new JsonObject();
-      response.addProperty("type", "COMMAND_DENIED");
-      response.addProperty("command", command);
-      conn.send(GSON.toJson(response));
-    }
-
-    private void handleRequestKeyframe() {
-      if (streamer != null) {
-        streamer.resetBackpressure();
-      }
-    }
-
-    private void handleSendChat(WebSocket conn, JsonObject json) {
-      if (!json.has("message")) return;
-      String message = json.get("message").getAsString();
-      if (message == null || message.trim().isEmpty()) return;
-      if (message.startsWith("/")) {
-        JsonObject response = new JsonObject();
-        response.addProperty("type", "CHAT_DENIED");
-        response.addProperty("reason", "Commands must use RUN_COMMAND");
-        conn.send(GSON.toJson(response));
-        return;
-      }
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            boolean success = ChatHandler.getInstance().handleOutgoingChat(message);
-            if (!success) {
-              JsonObject response = new JsonObject();
-              response.addProperty("type", "CHAT_DENIED");
-              response.addProperty("reason", "Failed to send message");
-              conn.send(GSON.toJson(response));
-            }
-          });
-    }
-
-    private void handleEnterChat(WebSocket conn) {
-      enterChatMode();
-    }
-
-    private void handleExitChat(WebSocket conn) {
-      exitChatMode();
-    }
-
-    private void handleSubscribeChat(WebSocket conn) {
-      subscribeChat(conn);
-    }
-
-    private void handleUnsubscribeChat() {
-      unsubscribeChat();
-    }
-
-    private void handlePing(WebSocket conn) {
-      sendServerStatus(conn);
-    }
-
-    private void handleHeartbeat(WebSocket conn) {
-      JsonObject ack = new JsonObject();
-      ack.addProperty("type", "HEARTBEAT_ACK");
-      conn.send(GSON.toJson(ack));
-    }
-
-    private void handleScreenTap(JsonObject json) {
-      if (!json.has("normalizedX") || !json.has("normalizedY")) return;
-      double normX = json.get("normalizedX").getAsDouble();
-      double normY = json.get("normalizedY").getAsDouble();
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            net.minecraft.client.gui.screens.Screen screen = mc.screen;
-            if (screen == null) return;
-
-            int screenX = (int) (normX * screen.width);
-            int screenY = (int) (normY * screen.height);
-          });
-    }
-
-    private void handleScreenKey(JsonObject json) {
-      if (!json.has("key") || !json.has("pressed")) return;
-      String key = json.get("key").getAsString();
-      boolean pressed = json.get("pressed").getAsBoolean();
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            net.minecraft.client.gui.screens.Screen screen = mc.screen;
-            if (screen == null) return;
-
-            int keyCode =
-                switch (key) {
-                  case "ESCAPE" -> GLFW_KEY_ESCAPE;
-                  default -> -1;
-                };
-
-            if (keyCode >= 0) {
-              int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
-              KeyEvent keyEvent = new KeyEvent(keyCode, 0, modifiers);
-              if (pressed) {
-                screen.keyPressed(keyEvent);
-              } else {
-                screen.keyReleased(keyEvent);
-              }
-            }
-          });
-    }
-
-    private void handleScreenClick(JsonObject json) {
-      if (!json.has("button") || !json.has("normalizedX") || !json.has("normalizedY")) return;
-
-      int button = json.get("button").getAsInt();
-      double normX = json.get("normalizedX").getAsDouble();
-      double normY = json.get("normalizedY").getAsDouble();
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            net.minecraft.client.gui.screens.Screen screen = mc.screen;
-            if (screen == null) return;
-
-            int targetWidth = streamConfig.width;
-            int targetHeight = streamConfig.height;
-            if (targetWidth <= 0 || targetHeight <= 0) return;
-
-            int[] bounds =
-                ScreenHelper.getCropBoundsScreenCoords(screen, targetWidth, targetHeight);
-            if (bounds == null) return;
-
-            int cropX = bounds[0];
-            int cropY = bounds[1];
-            int cropWidth = bounds[2];
-            int cropHeight = bounds[3];
-
-            double screenX = cropX + normX * cropWidth;
-            double screenY = cropY + normY * cropHeight;
-
-            double guiScale = mc.getWindow().getGuiScale();
-            double framebufferX = screenX * guiScale;
-            double framebufferY = screenY * guiScale;
-
-            long windowHandle = mc.getWindow().handle();
-            glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
-
-            if (mc.mouseHandler != null) {
-              MouseHandlerAccessor accessor = (MouseHandlerAccessor) mc.mouseHandler;
-              accessor.monkeycraft$setXpos(framebufferX);
-              accessor.monkeycraft$setYpos(framebufferY);
-            }
-
-            int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
-            MouseButtonEvent mouseEvent =
-                new MouseButtonEvent(screenX, screenY, new MouseButtonInfo(button, modifiers));
-
-            if (screen instanceof AbstractContainerScreen<?> containerScreen
-                && !containerScreen.getMenu().getCarried().isEmpty()) {
-              screen.mouseReleased(mouseEvent);
-            } else {
-              screen.mouseClicked(mouseEvent, false);
-            }
-          });
-    }
-
-    private void handleScreenHover(JsonObject json) {
-      if (!json.has("normalizedX") || !json.has("normalizedY")) return;
-
-      double normX = json.get("normalizedX").getAsDouble();
-      double normY = json.get("normalizedY").getAsDouble();
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            net.minecraft.client.gui.screens.Screen screen = mc.screen;
-            if (screen == null) return;
-
-            int targetWidth = streamConfig.width;
-            int targetHeight = streamConfig.height;
-            if (targetWidth <= 0 || targetHeight <= 0) return;
-
-            int[] bounds =
-                ScreenHelper.getCropBoundsScreenCoords(screen, targetWidth, targetHeight);
-            if (bounds == null) return;
-
-            int cropX = bounds[0];
-            int cropY = bounds[1];
-            int cropWidth = bounds[2];
-            int cropHeight = bounds[3];
-
-            double screenX = cropX + normX * cropWidth;
-            double screenY = cropY + normY * cropHeight;
-
-            double guiScale = mc.getWindow().getGuiScale();
-            double framebufferX = screenX * guiScale;
-            double framebufferY = screenY * guiScale;
-
-            long windowHandle = mc.getWindow().handle();
-            glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
-
-            if (mc.mouseHandler != null) {
-              MouseHandlerAccessor accessor = (MouseHandlerAccessor) mc.mouseHandler;
-              accessor.monkeycraft$setXpos(framebufferX);
-              accessor.monkeycraft$setYpos(framebufferY);
-            }
-          });
-    }
-
-    private boolean screenShiftActive = false;
-
-    private void handleScreenModifier(JsonObject json) {
-      if (!json.has("modifier") || !json.has("active")) return;
-      String modifier = json.get("modifier").getAsString();
-      boolean active = json.get("active").getAsBoolean();
-
-      if ("SHIFT".equals(modifier)) {
-        screenShiftActive = active;
-      }
-    }
-
-    private void handleInfo(JsonObject json) {}
-
-    private void handleInput(JsonObject json) {
-      if (!json.has("key") || !json.has("pressed")) return;
-
-      String key = json.get("key").getAsString();
-      boolean pressed = json.get("pressed").getAsBoolean();
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            if (pressed && shouldCloseChatForInput(key)) {
-              closeChatScreenIfOpen(mc);
-            }
-
-            KeyMapping binding = null;
-
-            switch (key) {
-              case "W":
-                binding = mc.options.keyUp;
-                break;
-              case "A":
-                binding = mc.options.keyLeft;
-                break;
-              case "S":
-                binding = mc.options.keyDown;
-                break;
-              case "D":
-                binding = mc.options.keyRight;
-                break;
-              case "SPACE":
-                binding = mc.options.keyJump;
-                break;
-              case "SHIFT":
-                binding = mc.options.keyShift;
-                break;
-              case "Q":
-                binding = mc.options.keyDrop;
-                break;
-              case "E":
-                binding = mc.options.keyInventory;
-                break;
-              case "F":
-                binding = mc.options.keySwapOffhand;
-                break;
-              case "LEFT":
-                turnLeft = pressed;
-                break;
-              case "RIGHT":
-                turnRight = pressed;
-                break;
-              case "UP":
-                lookUp = pressed;
-                break;
-              case "DOWN":
-                lookDown = pressed;
-                break;
-            }
-
-            if (binding != null) {
-              InputConstants.Key boundKey = ((KeyMappingAccessor) binding).monkeycraft$getKey();
-              if (pressed) {
-                KeyMapping.set(boundKey, true);
-                KeyMapping.click(boundKey);
-              } else {
-                KeyMapping.set(boundKey, false);
-              }
-            }
-          });
-    }
-
-    private boolean shouldCloseChatForInput(String key) {
-      return switch (key) {
-        case "W", "A", "S", "D", "SPACE", "SHIFT", "Q", "E", "F", "LEFT", "RIGHT", "UP", "DOWN" ->
-            true;
-        default -> false;
-      };
-    }
-
-    private void closeChatScreenIfOpen(Minecraft mc) {
-      if (mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen) {
-        mc.gui.getChat().restoreChatScreen();
-        mc.setScreen(null);
-      }
-    }
-
-    private void handleLookDelta(WebSocket conn, JsonObject json) {
-      if (!json.has("yaw") || !json.has("pitch")) return;
-
-      float yawDelta = json.get("yaw").getAsFloat();
-      float pitchDelta = json.get("pitch").getAsFloat();
-
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            if (mc.player == null) return;
-            closeChatScreenIfOpen(mc);
-            float newYaw = mc.player.getYRot() + yawDelta;
-            float newPitch = mc.player.getXRot() + pitchDelta;
-            if (newPitch > 90.0f) newPitch = 90.0f;
-            if (newPitch < -90.0f) newPitch = -90.0f;
-            mc.player.setYRot(newYaw);
-            mc.player.setXRot(newPitch);
-            JsonObject response = new JsonObject();
-            response.addProperty("type", "PLAYER_POSE");
-            response.addProperty("yaw", mc.player.getYRot());
-            response.addProperty("pitch", mc.player.getXRot());
-            conn.send(GSON.toJson(response));
-          });
-    }
-
-    private void handleGetPlayerPose(WebSocket conn) {
-      Minecraft mc = Minecraft.getInstance();
-      mc.execute(
-          () -> {
-            if (mc.player == null) return;
-            JsonObject response = new JsonObject();
-            response.addProperty("type", "PLAYER_POSE");
-            response.addProperty("yaw", mc.player.getYRot());
-            response.addProperty("pitch", mc.player.getXRot());
-            conn.send(GSON.toJson(response));
-          });
-    }
-
     private void handleClientStatus(WebSocket conn, JsonObject json) {
-      // Parse mode
       String modeStr = json.has("mode") ? json.get("mode").getAsString() : "STREAMING";
       clientMode = "CHAT".equals(modeStr) ? ClientMode.CHAT : ClientMode.STREAMING;
       hasReceivedClientStatus = true;
 
-      // Parse autoFaceMovement setting
       if (json.has("autoFaceMovement")) {
         autoFaceMovement = json.get("autoFaceMovement").getAsBoolean();
       }
 
-      // Parse resolution if STREAMING mode
       if (clientMode == ClientMode.STREAMING && json.has("width") && json.has("height")) {
         int requestedWidth = json.get("width").getAsInt();
         int requestedHeight = json.get("height").getAsInt();
@@ -1069,11 +644,9 @@ public class WebSocketServerHandler {
         if (targetWidth < 2) targetWidth = 2;
         if (targetHeight < 2) targetHeight = 2;
 
-        // Ensure even dimensions
         targetWidth = (targetWidth / 2) * 2;
         targetHeight = (targetHeight / 2) * 2;
 
-        // Recreate streamer if needed
         if (streamer == null
             || streamConfig.width != targetWidth
             || streamConfig.height != targetHeight
@@ -1094,109 +667,12 @@ public class WebSocketServerHandler {
           streamer.resetBackpressure();
         }
 
-        // Only set isStreaming if not hibernating
         isStreaming = !isHibernating;
       } else if (clientMode == ClientMode.CHAT) {
-        // CHAT mode - stop streaming
         isStreaming = false;
       }
 
-      // Always respond with current server status
       sendServerStatus(conn);
-    }
-
-    private void handleAuth(WebSocket conn, JsonObject json) {
-      String serverSalt = conn.getAttachment();
-      if (serverSalt == null) {
-        conn.close();
-        return;
-      }
-
-      if (!json.has("salt") || !json.has("signature")) {
-        sendAuthResponse(conn, false, "Missing salt or signature");
-        conn.close();
-        return;
-      }
-
-      String clientSalt = json.get("salt").getAsString();
-      String clientSignature = json.get("signature").getAsString();
-      String password = ModConfig.getInstance().getPassword();
-
-      String expectedSignature = CryptoUtils.computeHmac(password, serverSalt + clientSalt);
-
-      if (expectedSignature.equals(clientSignature)) {
-        if (authenticatedSession != null && authenticatedSession != conn) {
-          if (authenticatedSession.isOpen()) {
-            sendAuthResponse(authenticatedSession, false, "Logged in from another location");
-            authenticatedSession.close();
-          }
-        }
-        authenticatedSession = conn;
-        hasEverConnected.set(true);
-
-        String serverSignature = CryptoUtils.computeHmac(password, clientSalt + serverSalt);
-        JsonObject response = new JsonObject();
-        response.addProperty("type", "AUTH_OK");
-        response.addProperty("signature", serverSignature);
-        conn.send(GSON.toJson(response));
-
-        MonkeycraftApi.CONNECTION.invoker().onConnected(conn.getRemoteSocketAddress().toString());
-
-        // Sync hibernation state using STATUS message
-        if (isHibernating) {
-          JsonObject hibernationStatus = new JsonObject();
-          hibernationStatus.addProperty("type", "HIBERNATION_STATUS");
-          hibernationStatus.addProperty("active", true);
-          hibernationStatus.addProperty("message", hibernationMessage);
-          conn.send(GSON.toJson(hibernationStatus));
-        }
-
-        // Sync timed notification state using STATUS message
-        if (pendingTimedNotificationFireAt != null) {
-          JsonObject timedStatus = new JsonObject();
-          timedStatus.addProperty("type", "TIMED_STATUS");
-          timedStatus.addProperty("fireAtEpochMs", pendingTimedNotificationFireAt);
-          if (pendingTimedNotificationTitle != null) {
-            timedStatus.addProperty("title", pendingTimedNotificationTitle);
-          }
-          if (pendingTimedNotificationBody != null) {
-            timedStatus.addProperty("body", pendingTimedNotificationBody);
-          }
-          timedStatus.addProperty("sound", pendingTimedNotificationSound);
-          if (pendingTimedNotificationCountDownText != null) {
-            timedStatus.addProperty("countDownText", pendingTimedNotificationCountDownText);
-          }
-          conn.send(GSON.toJson(timedStatus));
-        }
-
-        // Sync screen state (always send, so client knows current state)
-        JsonObject screenStatus = new JsonObject();
-        screenStatus.addProperty("type", "SCREEN_STATE");
-        screenStatus.addProperty("isOpen", isScreenOpen);
-        conn.send(GSON.toJson(screenStatus));
-      } else {
-        sendAuthResponse(conn, false, "Invalid signature");
-        conn.close();
-      }
-    }
-
-    private void sendAuthResponse(WebSocket conn, boolean success, String message) {
-      JsonObject response = new JsonObject();
-      response.addProperty("type", "AUTH_RESPONSE");
-      response.addProperty("success", success);
-      response.addProperty("message", message);
-      conn.send(GSON.toJson(response));
-    }
-
-    private void sendResponse(WebSocket conn, String type, boolean success, String message) {
-      if (conn == null || !conn.isOpen()) {
-        return;
-      }
-      JsonObject response = new JsonObject();
-      response.addProperty("type", type);
-      response.addProperty("success", success);
-      response.addProperty("message", message);
-      conn.send(GSON.toJson(response));
     }
 
     private void sendError(WebSocket conn, String message) {

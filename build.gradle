@@ -48,6 +48,9 @@ dependencies {
 	implementation "com.google.zxing:core:3.5.3"
 	include "com.google.zxing:core:3.5.3"
 
+	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+
 	modImplementation("com.github.weikengchen:monkeycraft-api:2026-02-27"){
 		transitive = false
 	}
@@ -64,6 +67,10 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 21
+}
+
+test {
+	useJUnitPlatform()
 }
 
 java {

@@ -48,19 +48,22 @@ class _VirtualJoystickState extends State<VirtualJoystick> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (d) => _update(d.localPosition),
-        onPanUpdate: (d) => _update(d.localPosition),
-        onPanEnd: (_) => _reset(),
-        onPanCancel: _reset,
-        child: CustomPaint(
-          painter: _JoystickPainter(
-            knobOffset: _knob,
-            knobRadius: _knobRadius,
+    return Semantics(
+      label: 'Movement joystick',
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (d) => _update(d.localPosition),
+          onPanUpdate: (d) => _update(d.localPosition),
+          onPanEnd: (_) => _reset(),
+          onPanCancel: _reset,
+          child: CustomPaint(
+            painter: _JoystickPainter(
+              knobOffset: _knob,
+              knobRadius: _knobRadius,
+            ),
           ),
         ),
       ),

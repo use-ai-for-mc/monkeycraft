@@ -27,26 +27,30 @@ class _HotbarToggleButtonState extends State<HotbarToggleButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.expanded || _pressed;
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: Listener(
-        onPointerDown: (_) => _setPressed(true),
-        onPointerUp: (_) => _setPressed(false),
-        onPointerCancel: (_) => _setPressed(false),
-        child: TextButton(
-          onPressed: widget.onPressed,
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            shape: const CircleBorder(),
-            foregroundColor: Colors.white,
-            backgroundColor: Colors.white.withValues(
-              alpha: active ? 0.35 : 0.22,
+    return Semantics(
+      label: 'Hotbar selector',
+      button: true,
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: Listener(
+          onPointerDown: (_) => _setPressed(true),
+          onPointerUp: (_) => _setPressed(false),
+          onPointerCancel: (_) => _setPressed(false),
+          child: TextButton(
+            onPressed: widget.onPressed,
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              shape: const CircleBorder(),
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.white.withValues(
+                alpha: active ? 0.35 : 0.22,
+              ),
             ),
-          ),
-          child: const Text(
-            '1–9',
-            style: TextStyle(fontWeight: FontWeight.w600),
+            child: const Text(
+              '1–9',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ),
       ),
@@ -182,22 +186,27 @@ class HotbarGrid extends StatelessWidget {
 
   Widget _cell(int slot) {
     final selected = slot == selectedSlot;
-    return SizedBox(
-      width: buttonSize,
-      height: buttonSize,
-      child: TextButton(
-        onPressed: () => onSelect(slot),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          shape: const CircleBorder(),
-          foregroundColor: Colors.white,
-          backgroundColor: Colors.white.withValues(
-            alpha: selected ? 0.38 : 0.18,
+    return Semantics(
+      label: 'Hotbar slot ${slot + 1}',
+      button: true,
+      selected: selected,
+      child: SizedBox(
+        width: buttonSize,
+        height: buttonSize,
+        child: TextButton(
+          onPressed: () => onSelect(slot),
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: const CircleBorder(),
+            foregroundColor: Colors.white,
+            backgroundColor: Colors.white.withValues(
+              alpha: selected ? 0.38 : 0.18,
+            ),
           ),
-        ),
-        child: Text(
-          '${slot + 1}',
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          child: Text(
+            '${slot + 1}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
       ),
     );

@@ -116,7 +116,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         await Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => StreamScreen(proxy: proxy)),
+          MaterialPageRoute(
+            builder: (context) => StreamScreen(
+              proxy: proxy,
+              server: _serverController.text,
+              password: _passController.text,
+            ),
+          ),
         );
       }
     } catch (e) {

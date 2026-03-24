@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:live_activities/live_activities.dart';
 
 class LiveActivityService {
@@ -37,7 +38,9 @@ class LiveActivityService {
         'body': body.isNotEmpty ? body : 'TBA',
         'countDownText': countDownText.isNotEmpty ? countDownText : 'TBA',
       }, removeWhenAppIsKilled: true);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Live activity create/update failed: $e');
+    }
   }
 
   Future<void> updateCountdown({

@@ -2,12 +2,9 @@ package com.chenweikeng.monkeycraft;
 
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
-import com.chenweikeng.monkeycraft.mixin.GameRendererAccessor;
-import com.chenweikeng.monkeycraft.mixin.GuiRendererAccessor;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
-import com.chenweikeng.monkeycraft.utils.ImageUtils;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApiRegistration;
@@ -20,14 +17,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Screenshot;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.Vec2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +42,8 @@ public class MonkeycraftClient implements ClientModInitializer {
 
   private int rightPressHoldTicks = 0;
   private static final int RELEASE_MOUSE_HOLD_TICKS = 8;
-  private long lastCaptureTime = 0;
-  private int lastFrameNumber = -1;
+  private final FrameCaptureManager frameCaptureManager = new FrameCaptureManager();
+  private final CameraController cameraController = new CameraController();
 
   @Override
   public void onInitializeClient() {
@@ -119,156 +112,8 @@ public class MonkeycraftClient implements ClientModInitializer {
           }
 
           if (WebSocketServerHandler.getInstance().isStreaming()) {
-            // Apply rotation from input
-            if (client.player != null) {
-              WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-              float turnSpeed = 5.0f;
-              if (handler.isTurningLeft()) client.player.turn(-turnSpeed, 0);
-              if (handler.isTurningRight()) client.player.turn(turnSpeed, 0);
-              if (handler.isLookingUp()) client.player.turn(0, -turnSpeed);
-              if (handler.isLookingDown()) client.player.turn(0, turnSpeed);
-
-              // Auto-face movement direction
-              if (handler.isAutoFaceMovement()
-                  && !handler.isTurningLeft()
-                  && !handler.isTurningRight()
-                  && !handler.isLookingUp()
-                  && !handler.isLookingDown()) {
-                Vec2 moveVec = client.player.input.getMoveVector();
-                if (moveVec.lengthSquared() > 0.01f) {
-                  float targetYawOffset =
-                      (float) (Math.atan2(-moveVec.x, moveVec.y) * (180.0 / Math.PI));
-                  float targetYaw = client.player.getYRot() + targetYawOffset;
-                  float yawDiff = Mth.wrapDegrees(targetYaw - client.player.getYRot());
-                  float turnAmount = yawDiff * 0.15f;
-                  client.player.turn(turnAmount, 0);
-                }
-              }
-            }
-
-            // Get dynamic FPS config
-            WebSocketServerHandler.StreamConfig streamConfig =
-                WebSocketServerHandler.getInstance().getStreamConfig();
-            long interval = 1000 / Math.max(1, streamConfig.fps);
-
-            long now = System.currentTimeMillis();
-            if (now - lastCaptureTime >= interval) {
-              GameRenderer gameRenderer = client.gameRenderer;
-              if (gameRenderer == null) {
-                return;
-              }
-              var guiRenderer = ((GameRendererAccessor) gameRenderer).monkeycraft$getGuiRenderer();
-              if (guiRenderer == null) {
-                return;
-              }
-              int currentFrameNumber =
-                  ((GuiRendererAccessor) guiRenderer).monkeycraft$getFrameNumber();
-              if (currentFrameNumber == lastFrameNumber) {
-                return;
-              }
-              lastFrameNumber = currentFrameNumber;
-              lastCaptureTime = now;
-              try {
-                Screenshot.takeScreenshot(
-                    client.getMainRenderTarget(),
-                    (image) -> {
-                      try {
-                        WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-                        WebSocketServerHandler.StreamConfig config = handler.getStreamConfig();
-
-                        if (handler.isScreenOpen() && client.mouseHandler != null) {
-                          double mouseX = client.mouseHandler.xpos();
-                          double mouseY = client.mouseHandler.ypos();
-                          int framebufferWidth = image.getWidth();
-                          int framebufferHeight = image.getHeight();
-                          int screenWidth = client.getWindow().getScreenWidth();
-                          int screenHeight = client.getWindow().getScreenHeight();
-
-                          int cursorX = (int) (mouseX * framebufferWidth / screenWidth);
-                          int cursorY = (int) (mouseY * framebufferHeight / screenHeight);
-
-                          ImageUtils.drawCursor(image, cursorX, cursorY);
-                        }
-
-                        int targetWidth = config.width;
-                        int targetHeight = config.height;
-
-                        int cropX, cropY, cropWidth, cropHeight;
-                        int resizeWidth = targetWidth;
-                        int resizeHeight = targetHeight;
-                        boolean useLetterbox = false;
-
-                        double scaleFactor = client.getWindow().getGuiScale();
-
-                        if (handler.isScreenOpen()
-                            && ScreenHelper.needsLetterboxing(client.screen)) {
-                          int[] overlayBounds =
-                              ScreenHelper.getCropBoundsForFullScreenOverlay(
-                                  client.screen, image.getWidth(), image.getHeight(), scaleFactor);
-                          if (overlayBounds != null) {
-                            cropX = overlayBounds[0];
-                            cropY = overlayBounds[1];
-                            cropWidth = overlayBounds[2];
-                            cropHeight = overlayBounds[3];
-                            useLetterbox = true;
-                          } else {
-                            cropX = 0;
-                            cropY = 0;
-                            cropWidth = image.getWidth();
-                            cropHeight = image.getHeight();
-                            useLetterbox = true;
-                          }
-                        } else {
-                          int[] cropBounds =
-                              ScreenHelper.getCropBounds(
-                                  client.screen,
-                                  image.getWidth(),
-                                  image.getHeight(),
-                                  targetWidth,
-                                  targetHeight,
-                                  scaleFactor);
-
-                          if (handler.isScreenOpen() && cropBounds != null) {
-                            cropX = cropBounds[0];
-                            cropY = cropBounds[1];
-                            cropWidth = cropBounds[2];
-                            cropHeight = cropBounds[3];
-                          } else {
-                            double targetAspect = (double) targetWidth / (double) targetHeight;
-                            cropWidth = image.getWidth();
-                            cropHeight = image.getHeight();
-
-                            if (cropWidth > cropHeight * targetAspect) {
-                              cropWidth = (int) (cropHeight * targetAspect);
-                            } else {
-                              cropHeight = (int) (cropWidth / targetAspect);
-                            }
-
-                            cropX = (image.getWidth() - cropWidth) / 2;
-                            cropY = image.getHeight() - cropHeight;
-                          }
-                        }
-
-                        com.mojang.blaze3d.platform.NativeImage cropped =
-                            ImageUtils.crop(image, cropX, cropY, cropWidth, cropHeight);
-                        try {
-                          com.mojang.blaze3d.platform.NativeImage resized =
-                              useLetterbox
-                                  ? ImageUtils.resizeWithLetterbox(
-                                      cropped, resizeWidth, resizeHeight)
-                                  : ImageUtils.resize(cropped, resizeWidth, resizeHeight);
-                          handler.broadcastFrame(resized);
-                        } finally {
-                          cropped.close();
-                        }
-                      } finally {
-                        image.close();
-                      }
-                    });
-              } catch (Exception e) {
-                LOGGER.info("Error capturing stream frame", e);
-              }
-            }
+            cameraController.tick(client);
+            frameCaptureManager.tick(client);
           }
         });
   }

@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.java_websocket.WebSocket;
@@ -14,6 +15,14 @@ import org.jcodec.common.model.Picture;
 
 public class H264Streamer {
   private static final byte[] FRAME_HEADER_MAGIC = {0x4D, 0x43};
+  private static final int COLOR_MODE_NORMAL = 0;
+  private static final int COLOR_MODE_HIGH_PERF = 1;
+  private static final int COLOR_MODE_RETRO = 2;
+  private static final int COLOR_MODE_GRAYSCALE = 3;
+  private static final int HIGH_PERF_MASK = 0xF0;
+  private static final int RETRO_MASK = 0xC0;
+  private static final int MAX_PENDING_FRAMES = 1;
+  private static final int NAL_TYPE_IDR = 5;
 
   private final Picture picture;
   private volatile H264Encoder encoder;
@@ -61,7 +70,7 @@ public class H264Streamer {
     for (int i = 0; i < data.length - 4; i++) {
       if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0 && data[i + 3] == 1) {
         int nalType = data[i + 4] & 0x1F;
-        if (nalType == 5) return true;
+        if (nalType == NAL_TYPE_IDR) return true;
       }
     }
     return false;
@@ -73,7 +82,7 @@ public class H264Streamer {
       return;
     }
 
-    if (pendingFrames.get() > 1) {
+    if (pendingFrames.get() > MAX_PENDING_FRAMES) {
       needsIdr = true;
       image.close();
       return;
@@ -144,6 +153,11 @@ public class H264Streamer {
 
   public void close() {
     executor.shutdownNow();
+    try {
+      executor.awaitTermination(2, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private H264Encoder createEncoder() {
@@ -186,15 +200,15 @@ public class H264Streamer {
         int g = (color >> 8) & 0xFF;
         int r = (color >> 0) & 0xFF;
 
-        if (colorMode == 1) {
-          r &= 0xF0;
-          g &= 0xF0;
-          b &= 0xF0;
-        } else if (colorMode == 2) {
-          r &= 0xC0;
-          g &= 0xC0;
-          b &= 0xC0;
-        } else if (colorMode == 3) {
+        if (colorMode == COLOR_MODE_HIGH_PERF) {
+          r &= HIGH_PERF_MASK;
+          g &= HIGH_PERF_MASK;
+          b &= HIGH_PERF_MASK;
+        } else if (colorMode == COLOR_MODE_RETRO) {
+          r &= RETRO_MASK;
+          g &= RETRO_MASK;
+          b &= RETRO_MASK;
+        } else if (colorMode == COLOR_MODE_GRAYSCALE) {
           int gray = (r + g + b) / 3;
           r = g = b = gray;
         }
