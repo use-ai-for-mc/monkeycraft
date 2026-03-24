@@ -15,9 +15,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('MonkeyCraft'), findsOneWidget);
-    expect(find.text('Host (IP or domain)'), findsOneWidget);
-    expect(find.text('Port'), findsOneWidget);
-    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Server'), findsOneWidget);
+    expect(find.text('Password (scan the QR code from the client)'), findsOneWidget);
     expect(find.text('Connect'), findsOneWidget);
   });
 }
