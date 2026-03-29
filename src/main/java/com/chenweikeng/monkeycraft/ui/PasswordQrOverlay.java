@@ -15,7 +15,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
 
@@ -43,7 +43,7 @@ public final class PasswordQrOverlay {
     }
   }
 
-  private static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
+  private static void render(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
     Minecraft mc = Minecraft.getInstance();
     if (mc == null || mc.getWindow() == null) return;
 

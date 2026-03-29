@@ -10,8 +10,8 @@ import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApiRegistration;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -148,7 +148,7 @@ public class MonkeycraftClient implements ClientModInitializer {
       CommandDispatcher<FabricClientCommandSource> dispatcher,
       net.minecraft.commands.CommandBuildContext registryAccess) {
     dispatcher.register(
-        ClientCommandManager.literal("monkey")
+        ClientCommands.literal("monkey")
             .executes(
                 context -> {
                   WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
@@ -159,7 +159,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                   return 1;
                 })
             .then(
-                ClientCommandManager.literal("config")
+                ClientCommands.literal("config")
                     .executes(
                         context -> {
                           Minecraft.getInstance()
@@ -173,7 +173,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                           return 1;
                         }))
             .then(
-                ClientCommandManager.literal("start")
+                ClientCommands.literal("start")
                     .executes(
                         context -> {
                           ModConfig config = ModConfig.getInstance();
@@ -192,7 +192,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                           return 1;
                         }))
             .then(
-                ClientCommandManager.literal("stop")
+                ClientCommands.literal("stop")
                     .executes(
                         context -> {
                           stopServer();
@@ -241,7 +241,7 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static void sendSystemMessage(Component message) {
     Minecraft mc = Minecraft.getInstance();
     if (mc.player != null) {
-      mc.player.displayClientMessage(message, false);
+      mc.player.sendSystemMessage(message);
     }
   }
 
@@ -250,14 +250,13 @@ public class MonkeycraftClient implements ClientModInitializer {
     if (mc.player != null) {
       Component prefix =
           Component.literal("MONKEY: ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
-      mc.player.displayClientMessage(
+      mc.player.sendSystemMessage(
           prefix
               .copy()
               .append(
                   message
                       .copy()
-                      .withStyle(Style.EMPTY.withColor(ChatFormatting.WHITE).withBold(false))),
-          false);
+                      .withStyle(Style.EMPTY.withColor(ChatFormatting.WHITE).withBold(false))));
     }
   }
 
@@ -268,37 +267,33 @@ public class MonkeycraftClient implements ClientModInitializer {
     Component prefix =
         Component.literal("MONKEY: ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
 
-    mc.player.displayClientMessage(
+    mc.player.sendSystemMessage(
         prefix
             .copy()
             .append(clickableCommand("/monkey start"))
-            .append(Component.literal(" - Start server").withStyle(ChatFormatting.WHITE)),
-        false);
-    mc.player.displayClientMessage(
+            .append(Component.literal(" - Start server").withStyle(ChatFormatting.WHITE)));
+    mc.player.sendSystemMessage(
         prefix
             .copy()
             .append(clickableCommand("/monkey stop"))
-            .append(Component.literal(" - Stop server").withStyle(ChatFormatting.WHITE)),
-        false);
-    mc.player.displayClientMessage(
+            .append(Component.literal(" - Stop server").withStyle(ChatFormatting.WHITE)));
+    mc.player.sendSystemMessage(
         prefix
             .copy()
             .append(clickableCommand("/monkey config"))
-            .append(Component.literal(" - Open settings").withStyle(ChatFormatting.WHITE)),
-        false);
+            .append(Component.literal(" - Open settings").withStyle(ChatFormatting.WHITE)));
 
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
     if (handler.isRunning()) {
       if (!handler.isClientConnected()) {
         handler.resetHasEverConnected();
       }
-      mc.player.displayClientMessage(
+      mc.player.sendSystemMessage(
           prefix
               .copy()
               .append(
                   Component.literal("Server running on port " + handler.getCurrentPort())
-                      .withStyle(ChatFormatting.GREEN)),
-          false);
+                      .withStyle(ChatFormatting.GREEN)));
       printLocalIps(handler.getCurrentPort());
     }
   }

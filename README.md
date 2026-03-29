@@ -8,8 +8,8 @@
 
 **Stream and control your Minecraft game from your phone**
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21+-green.svg)](https://www.minecraft.net/)
-[![Fabric](https://img.shields.io/badge/Fabric-0.16.0+-orange.svg)](https://fabricmc.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-26.1+-green.svg)](https://www.minecraft.net/)
+[![Fabric](https://img.shields.io/badge/Fabric-0.18.4+-orange.svg)](https://fabricmc.net/)
 [![License](https://img.shields.io/badge/License-CC0--1.0-purple.svg)](LICENSE)
 
 </div>
@@ -96,7 +96,7 @@ Need to step away but stay connected?
 
 ### 1️⃣ Install the Mod
 
-Install the MonkeyCraft mod on your **Fabric** Minecraft client (version 1.21+).
+Install the MonkeyCraft mod on your **Fabric** Minecraft client (version 26.1+).
 
 ### 2️⃣ Start the Server
 
@@ -159,9 +159,9 @@ Access settings via `/monkey config` or through ModMenu:
 
 | Component | Requirement |
 |-----------|-------------|
-| 🎮 Minecraft | Version 1.21+ |
+| 🎮 Minecraft | Version 26.1+ |
 | 📦 Mod Loader | Fabric |
-| ☕ Java | 21+ |
+| ☕ Java | 25+ |
 | 📱 Phone | iOS or Android |
 
 ### Install Steps
