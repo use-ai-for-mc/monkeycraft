@@ -1,17 +1,13 @@
 package com.chenweikeng.monkeycraft;
 
-import com.chenweikeng.monkeycraft.mixin.GameRendererAccessor;
-import com.chenweikeng.monkeycraft.mixin.GuiRendererAccessor;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.utils.ImageUtils;
 import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.renderer.GameRenderer;
 
 public class FrameCaptureManager {
   private long lastCaptureTime = 0;
-  private int lastFrameNumber = -1;
 
   public void tick(Minecraft client) {
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
@@ -23,16 +19,6 @@ public class FrameCaptureManager {
     long now = System.currentTimeMillis();
     if (now - lastCaptureTime < interval) return;
 
-    GameRenderer gameRenderer = client.gameRenderer;
-    if (gameRenderer == null) return;
-
-    var guiRenderer = ((GameRendererAccessor) gameRenderer).monkeycraft$getGuiRenderer();
-    if (guiRenderer == null) return;
-
-    int currentFrameNumber = ((GuiRendererAccessor) guiRenderer).monkeycraft$getFrameNumber();
-    if (currentFrameNumber == lastFrameNumber) return;
-
-    lastFrameNumber = currentFrameNumber;
     lastCaptureTime = now;
 
     try {

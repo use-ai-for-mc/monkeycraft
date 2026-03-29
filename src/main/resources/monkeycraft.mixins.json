@@ -1,13 +1,11 @@
 {
 	"required": true,
 	"package": "com.chenweikeng.monkeycraft.mixin",
-	"compatibilityLevel": "JAVA_21",
+	"compatibilityLevel": "JAVA_25",
 	"mixins": [
 		"KeyboardMixin",
 		"NativeImageAccessor",
 		"ChatListenerMixin",
-		"GameRendererAccessor",
-		"GuiRendererAccessor",
 		"LocalPlayerMixin",
 		"AbstractContainerScreenAccessor",
 		"KeyMappingAccessor",
