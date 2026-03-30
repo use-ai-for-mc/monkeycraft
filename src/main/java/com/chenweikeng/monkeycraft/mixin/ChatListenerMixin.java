@@ -35,14 +35,16 @@ public class ChatListenerMixin {
   }
 
   @Inject(method = "handleSystemMessage", at = @At("RETURN"))
-  private void onHandleSystemMessage(Component component, boolean overlay, CallbackInfo ci) {
-    if (overlay == true) {
-      return;
-    }
+  private void onHandleSystemMessage(Component component, boolean remote, CallbackInfo ci) {
     try {
       ChatHandler.getInstance().handleIncomingChat(component, null, null);
     } catch (Exception e) {
-      MonkeycraftClient.LOGGER.warn("Error handling chat message", e);
+      MonkeycraftClient.LOGGER.warn("Error handling system message", e);
     }
+  }
+
+  @Inject(method = "handleOverlay", at = @At("RETURN"))
+  private void onHandleOverlay(Component component, CallbackInfo ci) {
+    // Overlay/action bar messages — intentionally not forwarded to chat
   }
 }
