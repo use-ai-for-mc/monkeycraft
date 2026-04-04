@@ -1,4 +1,4 @@
-enum ClientMode { streaming, chat }
+enum ClientMode { streaming, chat, map }
 
 enum VideoState { active, hibernating }
 
@@ -59,4 +59,41 @@ class ServerDisconnectEvent {
   final String reason;
 
   const ServerDisconnectEvent({required this.reason});
+}
+
+class MapEntity {
+  final int type; // 0=vehicle, 1=player, 2=rideable mob
+  final double x;
+  final double z;
+  final int entityId;
+  final String name;
+
+  const MapEntity({
+    required this.type,
+    required this.x,
+    required this.z,
+    required this.entityId,
+    required this.name,
+  });
+
+  bool get isVehicle => type == 0;
+  bool get isPlayer => type == 1;
+  bool get isRideableMob => type == 2;
+  bool get isRideable => type == 0 || type == 2;
+}
+
+class MapData {
+  final double playerX;
+  final double playerZ;
+  final double playerYaw;
+  final String playerUuid;
+  final List<MapEntity> entities;
+
+  const MapData({
+    required this.playerX,
+    required this.playerZ,
+    required this.playerYaw,
+    required this.playerUuid,
+    required this.entities,
+  });
 }

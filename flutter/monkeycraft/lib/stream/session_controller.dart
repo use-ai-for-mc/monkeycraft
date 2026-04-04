@@ -246,7 +246,8 @@ class SessionController extends ChangeNotifier {
   void checkWaitingForStream() {
     if (!_state.foreground ||
         _state.videoState == VideoState.hibernating ||
-        _state.mode == ClientMode.chat) {
+        _state.mode == ClientMode.chat ||
+        _state.mode == ClientMode.map) {
       if (_state.waitingForStream) {
         setWaitingForStream(false);
       }

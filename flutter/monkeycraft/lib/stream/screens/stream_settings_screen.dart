@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
@@ -137,6 +138,51 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             onChanged: (v) => setState(
               () => _settings = _settings.copyWith(autoFaceMovement: v),
             ),
+          ),
+          const Divider(height: 32),
+          ListTile(
+            title: const Text('Chat Background'),
+            subtitle: Text(
+              appSettings.chatBackgroundPath != null ? 'Custom image' : 'Default',
+            ),
+            trailing: const Icon(Icons.image),
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                builder: (ctx) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.photo_library),
+                        title: const Text('Choose Image'),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final picker = ImagePicker();
+                          final picked = await picker.pickImage(
+                            source: ImageSource.gallery,
+                          );
+                          if (picked != null) {
+                            await appSettings.setChatBackground(picked.path);
+                            setState(() {});
+                          }
+                        },
+                      ),
+                      if (appSettings.chatBackgroundPath != null)
+                        ListTile(
+                          leading: const Icon(Icons.delete_outline),
+                          title: const Text('Reset to Default'),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            await appSettings.clearChatBackground();
+                            setState(() {});
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           if (openAudioMcService.isActive) const Divider(height: 32),
           if (openAudioMcService.isActive)

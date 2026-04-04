@@ -54,11 +54,16 @@ class CommandSender {
     int? fps,
     bool? autoFaceMovement,
   }) {
+    final modeStr = switch (mode) {
+      ClientMode.streaming => 'STREAMING',
+      ClientMode.chat => 'CHAT',
+      ClientMode.map => 'MAP',
+    };
     final cmd = <String, dynamic>{
       'type': 'CLIENT_STATUS',
-      'mode': mode == ClientMode.streaming ? 'STREAMING' : 'CHAT',
+      'mode': modeStr,
     };
-    if (mode == ClientMode.streaming) {
+    if (mode == ClientMode.streaming || mode == ClientMode.map) {
       if (width != null) cmd['width'] = width;
       if (height != null) cmd['height'] = height;
       if (colorMode != null) cmd['colorMode'] = colorMode;
@@ -139,5 +144,9 @@ class CommandSender {
 
   void exitChatMode() {
     trySendCommand({'type': 'EXIT_CHAT'});
+  }
+
+  void sendMapInteract(int entityId) {
+    trySendCommand({'type': 'MAP_INTERACT', 'entityId': entityId});
   }
 }

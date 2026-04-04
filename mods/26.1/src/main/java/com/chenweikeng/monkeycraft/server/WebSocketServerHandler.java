@@ -23,7 +23,8 @@ import org.java_websocket.server.WebSocketServer;
 public class WebSocketServerHandler {
   public enum ClientMode {
     STREAMING,
-    CHAT
+    CHAT,
+    MAP
   }
 
   private static final long QR_TIMEOUT_MS = 2 * 60 * 1000;
@@ -39,6 +40,8 @@ public class WebSocketServerHandler {
   private volatile long qrDisplayStartTime = 0;
   private static final Gson GSON = new Gson();
   private H264Streamer streamer;
+  private final com.chenweikeng.monkeycraft.MapDataHandler mapDataHandler =
+      new com.chenweikeng.monkeycraft.MapDataHandler();
   private boolean isStreaming = false;
   private StreamConfig streamConfig = new StreamConfig();
   private boolean isHibernating = false;
@@ -314,7 +317,9 @@ public class WebSocketServerHandler {
       return;
     }
 
-    if (clientMode == ClientMode.STREAMING && !isHibernating && isStreaming) {
+    if ((clientMode == ClientMode.STREAMING || clientMode == ClientMode.MAP)
+        && !isHibernating
+        && isStreaming) {
       streamer.encodeAndSend(image, conn);
     } else {
       image.close();
@@ -323,6 +328,20 @@ public class WebSocketServerHandler {
 
   public boolean isStreaming() {
     return isStreaming && server != null && server.authenticatedSession != null;
+  }
+
+  public boolean isMapMode() {
+    return clientMode == ClientMode.MAP
+        && server != null
+        && server.authenticatedSession != null
+        && hasReceivedClientStatus;
+  }
+
+  public void tickMapData() {
+    if (!isMapMode()) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    mapDataHandler.tick(conn);
   }
 
   public void sendTimedNotification(
@@ -486,6 +505,23 @@ public class WebSocketServerHandler {
     conn.send(GSON.toJson(screenStatus));
   }
 
+  private void handleMapInteract(JsonObject json) {
+    if (!json.has("entityId")) return;
+    int entityId = json.get("entityId").getAsInt();
+
+    net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+    mc.execute(
+        () -> {
+          if (mc.player == null || mc.level == null) return;
+          net.minecraft.world.entity.Entity target = mc.level.getEntity(entityId);
+          if (target == null) return;
+
+          // Use player interaction to mount the entity (simulates right-click)
+          target.interact(
+              mc.player, net.minecraft.world.InteractionHand.MAIN_HAND, target.position());
+        });
+  }
+
   private boolean isPortAvailable(int port) {
     try (ServerSocket socket = new ServerSocket(port)) {
       socket.setReuseAddress(true);
@@ -551,6 +587,7 @@ public class WebSocketServerHandler {
         isChatSubscribed = false;
         clientMode = ClientMode.STREAMING;
         hasReceivedClientStatus = false;
+        mapDataHandler.reset();
         com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
       }
     }
@@ -607,6 +644,7 @@ public class WebSocketServerHandler {
               case "SCREEN_CLICK" -> screenHandler.handleScreenClick(json);
               case "SCREEN_HOVER" -> screenHandler.handleScreenHover(json);
               case "SCREEN_MODIFIER" -> screenHandler.handleScreenModifier(json);
+              case "MAP_INTERACT" -> handleMapInteract(json);
               case "INFO" -> {}
               default ->
                   MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
@@ -620,7 +658,13 @@ public class WebSocketServerHandler {
 
     private void handleClientStatus(WebSocket conn, JsonObject json) {
       String modeStr = json.has("mode") ? json.get("mode").getAsString() : "STREAMING";
-      clientMode = "CHAT".equals(modeStr) ? ClientMode.CHAT : ClientMode.STREAMING;
+      if ("CHAT".equals(modeStr)) {
+        clientMode = ClientMode.CHAT;
+      } else if ("MAP".equals(modeStr)) {
+        clientMode = ClientMode.MAP;
+      } else {
+        clientMode = ClientMode.STREAMING;
+      }
       hasReceivedClientStatus = true;
 
       if (json.has("autoFaceMovement")) {
@@ -668,6 +712,38 @@ public class WebSocketServerHandler {
         }
 
         isStreaming = !isHibernating;
+      } else if (clientMode == ClientMode.MAP) {
+        // MAP mode uses the video streaming pipeline with top-down camera
+        if (json.has("width") && json.has("height")) {
+          int requestedWidth = json.get("width").getAsInt();
+          int requestedHeight = json.get("height").getAsInt();
+          int colorMode = json.has("colorMode") ? json.get("colorMode").getAsInt() : 0;
+          int fps = json.has("fps") ? json.get("fps").getAsInt() : 10;
+
+          if (fps < 1) fps = 1;
+          if (fps > 20) fps = 20;
+
+          int targetWidth = Math.clamp(requestedWidth, 2, 1920);
+          int targetHeight = Math.clamp(requestedHeight, 2, 1920);
+          targetWidth = (targetWidth / 2) * 2;
+          targetHeight = (targetHeight / 2) * 2;
+
+          if (streamer == null
+              || streamConfig.width != targetWidth
+              || streamConfig.height != targetHeight
+              || streamConfig.colorMode != colorMode
+              || streamConfig.fps != fps) {
+            if (streamer != null) streamer.close();
+            streamConfig.width = targetWidth;
+            streamConfig.height = targetHeight;
+            streamConfig.colorMode = colorMode;
+            streamConfig.fps = fps;
+            streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps);
+          }
+          if (streamer != null) streamer.resetBackpressure();
+        }
+        isStreaming = true;
+        mapDataHandler.reset();
       } else if (clientMode == ClientMode.CHAT) {
         isStreaming = false;
       }

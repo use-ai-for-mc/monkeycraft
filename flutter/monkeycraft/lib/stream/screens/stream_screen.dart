@@ -25,6 +25,7 @@ import 'package:monkeycraft_client/stream/widgets/virtual_joystick.dart';
 import 'package:monkeycraft_client/stream/widgets/screen_controls.dart';
 import 'package:monkeycraft_client/stream/widgets/stream_overlays.dart';
 import 'package:monkeycraft_client/stream/widgets/command_palette.dart';
+import 'package:monkeycraft_client/map/map_screen.dart';
 
 class StreamScreen extends StatefulWidget {
   final StreamProxy proxy;
@@ -465,6 +466,48 @@ class _StreamScreenState extends State<StreamScreen>
       resolution: _currentTargetResolution(),
     );
     await _restartStream();
+  }
+
+  Future<void> _openMapScreen() async {
+    // Keep decoder and access unit subscription alive — map mode streams video too
+    _session.setMode(ClientMode.map, resolution: _currentTargetResolution());
+    _input.releaseAll();
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            MapScreen(proxy: widget.proxy, session: _session),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          if (animation.status == AnimationStatus.reverse) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          }
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    _session.setMode(
+      ClientMode.streaming,
+      resolution: _currentTargetResolution(),
+    );
+    // Decoder stayed alive, just re-sync the mode
   }
 
   Future<void> _loadStreamSettings() async {
@@ -1083,6 +1126,14 @@ class _StreamScreenState extends State<StreamScreen>
                 child: IconButton(
                   icon: const Icon(Icons.chat, color: Colors.white),
                   onPressed: _openChatScreen,
+                ),
+              ),
+              Positioned(
+                top: topBarY,
+                right: pad.right + 280,
+                child: IconButton(
+                  icon: const Icon(Icons.map, color: Colors.white),
+                  onPressed: _openMapScreen,
                 ),
               ),
               if (showTouchControls && state.shouldShowVideo && !_isScreenOpen)

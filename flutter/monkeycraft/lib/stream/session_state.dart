@@ -84,6 +84,7 @@ class SessionState {
       foreground;
 
   bool get isInChat => mode == ClientMode.chat;
+  bool get isInMap => mode == ClientMode.map;
 
   bool get shouldStreamVideo =>
       mode == ClientMode.streaming &&

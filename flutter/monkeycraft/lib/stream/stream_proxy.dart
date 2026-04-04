@@ -45,6 +45,7 @@ class StreamProxy {
   StreamController<DateTime>? _nonVideoPacketController;
   StreamController<DateTime>? _heartbeatAckController;
   StreamController<bool>? _screenStateController;
+  StreamController<MapData>? _mapDataController;
   bool _screenOpen = false;
   bool get screenOpen => _screenOpen;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
@@ -103,6 +104,8 @@ class StreamProxy {
       _heartbeatAckController?.stream ?? const Stream.empty();
   Stream<bool> get screenStateEvents =>
       _screenStateController?.stream ?? const Stream.empty();
+  Stream<MapData> get mapDataEvents =>
+      _mapDataController?.stream ?? const Stream.empty();
   Stream<void> get connectionLostEvents => _connectionLostController.stream;
   Stream<void> get connectionRestoredEvents =>
       _connectionRestoredController.stream;
@@ -147,6 +150,8 @@ class StreamProxy {
       _commandSender.trySendChatMessage(message);
   void enterChatMode() => _commandSender.enterChatMode();
   void exitChatMode() => _commandSender.exitChatMode();
+  void sendMapInteract(int entityId) =>
+      _commandSender.sendMapInteract(entityId);
 
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
@@ -305,10 +310,17 @@ class StreamProxy {
     _nonVideoPacketController = StreamController<DateTime>.broadcast();
     _heartbeatAckController = StreamController<DateTime>.broadcast();
     _screenStateController = StreamController<bool>.broadcast();
+    _mapDataController = StreamController<MapData>.broadcast();
   }
 
   void _handleBinaryMessage(List<int> message) {
     if (!_authenticated) return;
+
+    // Check for map data frame (magic: 0x4D 0x4D = "MM")
+    if (message.length >= 24 && message[0] == 0x4D && message[1] == 0x4D) {
+      _handleMapDataFrame(message);
+      return;
+    }
 
     List<int> h264Data = message;
     int? frameWidth;
@@ -333,6 +345,62 @@ class StreamProxy {
 
     final isIdr = _isIdrFrame(h264Data);
     _videoRelay.onVideoFrame(h264Data, isIdr);
+  }
+
+  void _handleMapDataFrame(List<int> message) {
+    try {
+      final data = ByteData.sublistView(Uint8List.fromList(message));
+      int offset = 2; // skip magic bytes
+
+      final playerX = data.getFloat64(offset, Endian.big);
+      offset += 8;
+      final playerZ = data.getFloat64(offset, Endian.big);
+      offset += 8;
+      final playerYaw = data.getFloat32(offset, Endian.big);
+      offset += 4;
+      final uuidLength = data.getInt16(offset, Endian.big);
+      offset += 2;
+      final uuidBytes = message.sublist(offset, offset + uuidLength);
+      final playerUuid = utf8.decode(uuidBytes);
+      offset += uuidLength;
+      final entityCount = data.getInt16(offset, Endian.big);
+      offset += 2;
+
+      final entities = <MapEntity>[];
+      for (int i = 0; i < entityCount; i++) {
+        final type = data.getUint8(offset);
+        offset += 1;
+        final x = data.getFloat64(offset, Endian.big);
+        offset += 8;
+        final z = data.getFloat64(offset, Endian.big);
+        offset += 8;
+        final entityId = data.getInt32(offset, Endian.big);
+        offset += 4;
+        final nameLength = data.getInt16(offset, Endian.big);
+        offset += 2;
+        final nameBytes = message.sublist(offset, offset + nameLength);
+        final name = utf8.decode(nameBytes);
+        offset += nameLength;
+
+        entities.add(MapEntity(
+          type: type,
+          x: x,
+          z: z,
+          entityId: entityId,
+          name: name,
+        ));
+      }
+
+      _mapDataController?.add(MapData(
+        playerX: playerX,
+        playerZ: playerZ,
+        playerYaw: playerYaw.toDouble(),
+        playerUuid: playerUuid,
+        entities: entities,
+      ));
+    } catch (e) {
+      debugPrint('StreamProxy: error parsing map data: $e');
+    }
   }
 
   void _handleTextMessage(
@@ -610,5 +678,7 @@ class StreamProxy {
     _heartbeatAckController = null;
     await _screenStateController?.close();
     _screenStateController = null;
+    await _mapDataController?.close();
+    _mapDataController = null;
   }
 }

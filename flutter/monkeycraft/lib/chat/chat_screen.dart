@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:monkeycraft_client/main.dart';
@@ -461,106 +462,140 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SafeArea(
-        top: true,
-        bottom: false,
-        child: Column(
-          children: [
-            _buildDynamicIsland(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _messages.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No messages yet',
-                        style: TextStyle(color: Colors.white54, fontSize: 16),
+      body: ListenableBuilder(
+        listenable: appSettings,
+        builder: (context, _) {
+          final bgPath = appSettings.chatBackgroundPath;
+          return Stack(
+            children: [
+              if (bgPath != null)
+                Positioned.fill(
+                  child: Image.file(
+                    File(bgPath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              if (bgPath != null)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.65),
+                  ),
+                ),
+              SafeArea(
+                top: true,
+                bottom: false,
+                child: Column(
+                  children: [
+                    _buildDynamicIsland(),
+                    Expanded(
+                      child: _loading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _messages.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No messages yet',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
+                              itemCount: _messages.length,
+                              itemBuilder: (context, index) {
+                                final msg = _messages[index];
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2,
+                                  ),
+                                  child: ChatRichText(
+                                    segments: msg.segments,
+                                    baseStyle: appSettings.textStyleWithFont(
+                                      const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    proxy: widget.proxy,
+                                    openAudioMc: openAudioMcService,
+                                    onSuggestCommand: _onSuggestCommand,
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.only(
+                        left: 8,
+                        right: 8,
+                        top: 8,
+                        bottom: MediaQuery.of(context).padding.bottom + 8,
                       ),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.9),
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
+                        ),
                       ),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = _messages[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: ChatRichText(
-                            segments: msg.segments,
-                            baseStyle: appSettings.textStyleWithFont(
-                              const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _messageController,
+                                focusNode: _messageFocusNode,
+                                style: appSettings.textStyleWithFont(
+                                  const TextStyle(color: Colors.white),
+                                ),
+                                textInputAction: TextInputAction.send,
+                                keyboardType: TextInputType.text,
+                                inputFormatters: [],
+                                decoration: InputDecoration(
+                                  hintText: 'Type a message...',
+                                  hintStyle: appSettings.textStyleWithFont(
+                                    const TextStyle(color: Colors.white54),
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                onSubmitted: (_) => _sendMessage(),
                               ),
                             ),
-                            proxy: widget.proxy,
-                            openAudioMc: openAudioMcService,
-                            onSuggestCommand: _onSuggestCommand,
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            Container(
-              padding: EdgeInsets.only(
-                left: 8,
-                right: 8,
-                top: 8,
-                bottom: MediaQuery.of(context).padding.bottom + 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.9),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                ),
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        focusNode: _messageFocusNode,
-                        style: appSettings.textStyleWithFont(
-                          const TextStyle(color: Colors.white),
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: IconButton(
+                                onPressed: _sendMessage,
+                                icon: const Icon(
+                                  Icons.send,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        textInputAction: TextInputAction.send,
-                        keyboardType: TextInputType.text,
-                        inputFormatters: [],
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          hintStyle: appSettings.textStyleWithFont(
-                            const TextStyle(color: Colors.white54),
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: IconButton(
-                        onPressed: _sendMessage,
-                        icon: const Icon(Icons.send, color: Colors.white),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
       floatingActionButton: _showScrollToBottom
           ? FloatingActionButton(
