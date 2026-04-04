@@ -2,13 +2,13 @@
 
 # 🐒 MonkeyCraft
 
-<img src="src/main/resources/assets/monkeycraft/icon.png" alt="MonkeyCraft Logo" width="128" height="128">
+<img src="mods/26.1/src/main/resources/assets/monkeycraft/icon.png" alt="MonkeyCraft Logo" width="128" height="128">
 
 ### *Play Minecraft from anywhere. Really anywhere.*
 
 **Stream and control your Minecraft game from your phone**
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-26.1+-green.svg)](https://www.minecraft.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11%20%7C%2026.1-green.svg)](https://www.minecraft.net/)
 [![Fabric](https://img.shields.io/badge/Fabric-0.18.4+-orange.svg)](https://fabricmc.net/)
 [![License](https://img.shields.io/badge/License-CC0--1.0-purple.svg)](LICENSE)
 
@@ -96,7 +96,7 @@ Need to step away but stay connected?
 
 ### 1️⃣ Install the Mod
 
-Install the MonkeyCraft mod on your **Fabric** Minecraft client (version 26.1+).
+Install the MonkeyCraft mod on your **Fabric** Minecraft client (1.21.11 or 26.1+).
 
 ### 2️⃣ Start the Server
 
@@ -155,22 +155,33 @@ Access settings via `/monkey config` or through ModMenu:
 
 ## 🚀 Getting Started
 
-### Requirements
+### Supported Versions
 
-| Component | Requirement |
-|-----------|-------------|
-| 🎮 Minecraft | Version 26.1+ |
-| 📦 Mod Loader | Fabric |
-| ☕ Java | 25+ |
-| 📱 Phone | iOS or Android |
+| Minecraft Version | Java | Mod Location |
+|-------------------|------|--------------|
+| 26.1+ | 25+ | `mods/26.1/` |
+| 1.21.11 | 21+ | `mods/1.21.11/` |
 
 ### Install Steps
 
 1. **Install Fabric** — Download from [fabricmc.net](https://fabricmc.net/use/)
-2. **Download MonkeyCraft** — Get the mod JAR
+2. **Download MonkeyCraft** — Get the mod JAR for your Minecraft version
 3. **Install Mod** — Place in your `mods` folder
 4. **Get the App** — Download on your phone
 5. **Connect & Play!**
+
+### Building from Source
+
+```bash
+# Build for Minecraft 26.1
+cd mods/26.1 && ./gradlew build
+
+# Build for Minecraft 1.21.11
+cd mods/1.21.11 && ./gradlew build
+
+# Build Flutter app
+cd flutter/monkeycraft && flutter build apk
+```
 
 ---
 
