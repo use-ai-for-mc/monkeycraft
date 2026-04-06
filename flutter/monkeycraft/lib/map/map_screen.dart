@@ -33,9 +33,6 @@ class _MapScreenState extends State<MapScreen> {
   bool _hotbarExpanded = false;
   int _selectedHotbarSlot = 0;
 
-  // Entity tap detection
-  MapEntity? _selectedEntity;
-
   @override
   void initState() {
     super.initState();
@@ -99,8 +96,6 @@ class _MapScreenState extends State<MapScreen> {
         nearest = entity;
       }
     }
-
-    setState(() => _selectedEntity = nearest);
 
     if (nearest != null && nearest.isRideable) {
       _showEntityAction(nearest);
