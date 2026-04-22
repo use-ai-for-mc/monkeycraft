@@ -10,20 +10,21 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.Map;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.minecraft.client.DeltaTracker;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiComponent;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public final class PasswordQrOverlay {
   private static final int QR_SIZE_PX = 64;
   private static final int MARGIN_PX = 20;
-  private static final Identifier TEXTURE_ID =
-      Identifier.fromNamespaceAndPath(MonkeycraftClient.MOD_ID, "password_qr");
+  private static final ResourceLocation TEXTURE_ID =
+      new ResourceLocation(MonkeycraftClient.MOD_ID, "password_qr");
 
   private static boolean registered = false;
   private static DynamicTexture texture;
@@ -35,15 +36,10 @@ public final class PasswordQrOverlay {
     if (registered) return;
     registered = true;
 
-    Identifier beforeChatId =
-        Identifier.fromNamespaceAndPath(MonkeycraftClient.MOD_ID, "before_chat");
-    if (beforeChatId != null) {
-      HudElementRegistry.attachElementBefore(
-          VanillaHudElements.CHAT, beforeChatId, PasswordQrOverlay::render);
-    }
+    HudRenderCallback.EVENT.register((poseStack, tickDelta) -> render(poseStack));
   }
 
-  private static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
+  private static void render(PoseStack poseStack) {
     Minecraft mc = Minecraft.getInstance();
     if (mc == null || mc.getWindow() == null) return;
 
@@ -65,7 +61,12 @@ public final class PasswordQrOverlay {
     int screenHeight = mc.getWindow().getGuiScaledHeight();
     int x = screenWidth - QR_SIZE_PX - MARGIN_PX;
     int y = screenHeight - QR_SIZE_PX - MARGIN_PX;
-    graphics.blit(TEXTURE_ID, x, y, x + QR_SIZE_PX, y + QR_SIZE_PX, 0f, 1.0f, 0f, 1.0f);
+
+    RenderSystem.setShader(GameRenderer::getPositionTexShader);
+    RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+    RenderSystem.setShaderTexture(0, TEXTURE_ID);
+    GuiComponent.blit(
+        poseStack, x, y, 0, 0, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX);
   }
 
   private static boolean ensureTexture(String password) {
@@ -83,7 +84,7 @@ public final class PasswordQrOverlay {
       return false;
     }
 
-    texture = new DynamicTexture(TEXTURE_ID::toString, image);
+    texture = new DynamicTexture(image);
     Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, texture);
     lastPassword = password;
     return true;
@@ -112,7 +113,7 @@ public final class PasswordQrOverlay {
     for (int y = 0; y < size; y++) {
       for (int x = 0; x < size; x++) {
         int color = matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF;
-        image.setPixel(x, y, color);
+        image.setPixelRGBA(x, y, color);
       }
     }
     return image;
