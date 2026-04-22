@@ -2,8 +2,8 @@ package com.chenweikeng.monkeycraft.mixin;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.server.ChatHandler;
-import com.mojang.authlib.GameProfile;
 import java.util.UUID;
+import net.minecraft.network.chat.ChatSender;
 import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.PlayerChatMessage;
@@ -15,16 +15,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = net.minecraft.client.multiplayer.chat.ChatListener.class, priority = 100)
 public class ChatListenerMixin {
 
-  @Inject(method = "handlePlayerChatMessage", at = @At("RETURN"))
-  private void onHandlePlayerChatMessage(
+  @Inject(method = "handleChatMessage", at = @At("RETURN"))
+  private void monkeycraft$onHandleChatMessage(
       PlayerChatMessage playerChatMessage,
-      GameProfile gameProfile,
+      ChatSender chatSender,
       ChatType.Bound bound,
       CallbackInfo ci) {
     try {
-      Component message = playerChatMessage.decoratedContent();
-      String senderName = gameProfile.name();
-      UUID senderUuid = gameProfile.id();
+      Component message = playerChatMessage.serverContent();
+      String senderName =
+          chatSender != null && chatSender.displayName() != null
+              ? chatSender.displayName().getString()
+              : null;
+      UUID senderUuid = chatSender != null ? chatSender.profileId() : null;
 
       ChatHandler.getInstance()
           .handleIncomingChat(
@@ -35,8 +38,9 @@ public class ChatListenerMixin {
   }
 
   @Inject(method = "handleSystemMessage", at = @At("RETURN"))
-  private void onHandleSystemMessage(Component component, boolean overlay, CallbackInfo ci) {
-    if (overlay == true) {
+  private void monkeycraft$onHandleSystemMessage(
+      Component component, boolean overlay, CallbackInfo ci) {
+    if (overlay) {
       return;
     }
     try {

@@ -4,7 +4,6 @@
 	"compatibilityLevel": "JAVA_17",
 	"mixins": [
 		"KeyboardMixin",
-		"NativeImageAccessor",
 		"ChatListenerMixin",
 		"LocalPlayerMixin",
 		"AbstractContainerScreenAccessor",

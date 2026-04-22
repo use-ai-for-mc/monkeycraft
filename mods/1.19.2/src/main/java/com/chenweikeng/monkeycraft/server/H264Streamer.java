@@ -1,6 +1,5 @@
 package com.chenweikeng.monkeycraft.server;
 
-import com.chenweikeng.monkeycraft.mixin.NativeImageAccessor;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
@@ -193,7 +192,7 @@ public class H264Streamer {
 
     for (int row = 0; row < minH; row++) {
       for (int col = 0; col < minW; col++) {
-        int color = ((NativeImageAccessor) (Object) src).monkeycraft$getPixelABGR(col, row);
+        int color = src.getPixelRGBA(col, row);
 
         int a = (color >> 24) & 0xFF;
         int b = (color >> 16) & 0xFF;
