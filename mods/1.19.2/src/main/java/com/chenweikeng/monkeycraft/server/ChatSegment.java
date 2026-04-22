@@ -59,50 +59,30 @@ public class ChatSegment {
 
           ClickEvent clickEvent = style.getClickEvent();
           if (clickEvent != null) {
-            if (clickEvent.action() == ClickEvent.Action.OPEN_URL) {
-              ClickEvent.OpenUrl clickEventOpenUrl = (ClickEvent.OpenUrl) clickEvent;
-
+            ClickEvent.Action action = clickEvent.getAction();
+            if (action == ClickEvent.Action.OPEN_URL
+                || action == ClickEvent.Action.RUN_COMMAND
+                || action == ClickEvent.Action.SUGGEST_COMMAND
+                || action == ClickEvent.Action.COPY_TO_CLIPBOARD) {
               JsonObject clickEventJson = new JsonObject();
-              clickEventJson.addProperty("action", clickEvent.action().name().toLowerCase());
-              clickEventJson.addProperty("value", clickEventOpenUrl.uri().toString());
-              seg.add("clickEvent", clickEventJson);
-            } else if (clickEvent.action() == ClickEvent.Action.RUN_COMMAND) {
-              ClickEvent.RunCommand clickEventRunCommand = (ClickEvent.RunCommand) clickEvent;
-
-              JsonObject clickEventJson = new JsonObject();
-              clickEventJson.addProperty("action", clickEvent.action().name().toLowerCase());
-              clickEventJson.addProperty("value", clickEventRunCommand.command());
-              seg.add("clickEvent", clickEventJson);
-            } else if (clickEvent.action() == ClickEvent.Action.SUGGEST_COMMAND) {
-              ClickEvent.SuggestCommand clickEventSuggestCommand =
-                  (ClickEvent.SuggestCommand) clickEvent;
-
-              JsonObject clickEventJson = new JsonObject();
-              clickEventJson.addProperty("action", clickEvent.action().name().toLowerCase());
-              clickEventJson.addProperty("value", clickEventSuggestCommand.command());
-              seg.add("clickEvent", clickEventJson);
-            } else if (clickEvent.action() == ClickEvent.Action.COPY_TO_CLIPBOARD) {
-              ClickEvent.CopyToClipboard clickEventCopy = (ClickEvent.CopyToClipboard) clickEvent;
-
-              JsonObject clickEventJson = new JsonObject();
-              clickEventJson.addProperty("action", clickEvent.action().name().toLowerCase());
-              clickEventJson.addProperty("value", clickEventCopy.value());
+              clickEventJson.addProperty("action", action.name().toLowerCase());
+              clickEventJson.addProperty("value", clickEvent.getValue());
               seg.add("clickEvent", clickEventJson);
             }
           }
 
           if (canHaveHover) {
             HoverEvent hoverEvent = style.getHoverEvent();
-            if (hoverEvent != null && hoverEvent.action() == HoverEvent.Action.SHOW_TEXT) {
-              HoverEvent.ShowText showText = (HoverEvent.ShowText) hoverEvent;
-              Component hoverComponent = showText.value();
-
-              JsonObject hoverEventJson = new JsonObject();
-              hoverEventJson.addProperty("action", "show_text");
-              hoverEventJson.add(
-                  "value",
-                  ChatSegment.toJsonArray(ChatSegment.fromComponent(hoverComponent, false)));
-              seg.add("hoverEvent", hoverEventJson);
+            if (hoverEvent != null && hoverEvent.getAction() == HoverEvent.Action.SHOW_TEXT) {
+              Component hoverComponent = hoverEvent.getValue(HoverEvent.Action.SHOW_TEXT);
+              if (hoverComponent != null) {
+                JsonObject hoverEventJson = new JsonObject();
+                hoverEventJson.addProperty("action", "show_text");
+                hoverEventJson.add(
+                    "value",
+                    ChatSegment.toJsonArray(ChatSegment.fromComponent(hoverComponent, false)));
+                seg.add("hoverEvent", hoverEventJson);
+              }
             }
           }
 

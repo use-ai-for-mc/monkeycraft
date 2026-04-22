@@ -8,9 +8,6 @@ import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.MouseButtonInfo;
 
 public class ScreenInteractionHandler {
   private final WebSocketServerHandler handler;
@@ -55,11 +52,10 @@ public class ScreenInteractionHandler {
 
           if (keyCode >= 0) {
             int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
-            KeyEvent keyEvent = new KeyEvent(keyCode, 0, modifiers);
             if (pressed) {
-              screen.keyPressed(keyEvent);
+              screen.keyPressed(keyCode, 0, modifiers);
             } else {
-              screen.keyReleased(keyEvent);
+              screen.keyReleased(keyCode, 0, modifiers);
             }
           }
         });
@@ -99,7 +95,7 @@ public class ScreenInteractionHandler {
           double framebufferX = screenX * guiScale;
           double framebufferY = screenY * guiScale;
 
-          long windowHandle = mc.getWindow().handle();
+          long windowHandle = mc.getWindow().getWindow();
           glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
 
           if (mc.mouseHandler != null) {
@@ -108,15 +104,11 @@ public class ScreenInteractionHandler {
             accessor.monkeycraft$setYpos(framebufferY);
           }
 
-          int modifiers = screenShiftActive ? GLFW_MOD_SHIFT : 0;
-          MouseButtonEvent mouseEvent =
-              new MouseButtonEvent(screenX, screenY, new MouseButtonInfo(button, modifiers));
-
           if (screen instanceof AbstractContainerScreen<?> containerScreen
               && !containerScreen.getMenu().getCarried().isEmpty()) {
-            screen.mouseReleased(mouseEvent);
+            screen.mouseReleased(screenX, screenY, button);
           } else {
-            screen.mouseClicked(mouseEvent, false);
+            screen.mouseClicked(screenX, screenY, button);
           }
         });
   }
@@ -154,7 +146,7 @@ public class ScreenInteractionHandler {
           double framebufferX = screenX * guiScale;
           double framebufferY = screenY * guiScale;
 
-          long windowHandle = mc.getWindow().handle();
+          long windowHandle = mc.getWindow().getWindow();
           glfwSetCursorPos(windowHandle, framebufferX, framebufferY);
 
           if (mc.mouseHandler != null) {

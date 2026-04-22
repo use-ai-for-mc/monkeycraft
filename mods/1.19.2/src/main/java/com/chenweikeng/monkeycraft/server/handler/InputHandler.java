@@ -122,7 +122,7 @@ public class InputHandler {
         () -> {
           if (mc.player == null) return;
           try {
-            mc.player.getInventory().setSelectedSlot(selectedSlot);
+            mc.player.getInventory().selected = selectedSlot;
           } catch (Exception e) {
             MonkeycraftClient.LOGGER.warn("Failed to set hotbar slot", e);
           }
