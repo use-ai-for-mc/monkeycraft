@@ -11,4 +11,7 @@ public interface MouseHandlerAccessor {
 
   @Accessor("ypos")
   void monkeycraft$setYpos(double ypos);
+
+  @Accessor("isRightPressed")
+  boolean monkeycraft$isRightPressed();
 }

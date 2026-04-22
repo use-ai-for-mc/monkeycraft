@@ -2,6 +2,7 @@ package com.chenweikeng.monkeycraft;
 
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.mixin.MouseHandlerAccessor;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
@@ -88,7 +89,7 @@ public class MonkeycraftClient implements ClientModInitializer {
           wasConnectedToClient = connectedNow;
 
           if (connectedNow
-              && client.mouseHandler.isRightPressed()
+              && ((MouseHandlerAccessor) client.mouseHandler).monkeycraft$isRightPressed()
               && client.mouseHandler.isMouseGrabbed()) {
             rightPressHoldTicks++;
             if (rightPressHoldTicks >= RELEASE_MOUSE_HOLD_TICKS) {
@@ -228,9 +229,9 @@ public class MonkeycraftClient implements ClientModInitializer {
                             .withColor(ChatFormatting.BLUE)
                             .withBold(true)
                             .withClickEvent(
-                                new ClickEvent.OpenUrl(
-                                    java.net.URI.create(
-                                        "https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections"))))));
+                                new ClickEvent(
+                                    ClickEvent.Action.OPEN_URL,
+                                    "https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections"))))));
   }
 
   public static void stopServer() {
@@ -309,8 +310,10 @@ public class MonkeycraftClient implements ClientModInitializer {
             Style.EMPTY
                 .withColor(ChatFormatting.YELLOW)
                 .withUnderlined(true)
-                .withClickEvent(new ClickEvent.SuggestCommand(command))
+                .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, command))
                 .withHoverEvent(
-                    new HoverEvent.ShowText(Component.literal("Click to use command"))));
+                    new HoverEvent(
+                        HoverEvent.Action.SHOW_TEXT,
+                        Component.literal("Click to use command"))));
   }
 }
