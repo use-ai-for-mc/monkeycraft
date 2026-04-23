@@ -51,10 +51,10 @@ dependencies {
 	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 
-	modImplementation("com.github.weikengchen:monkeycraft-api:2026-02-27"){
+	modImplementation("com.github.weikengchen:monkeycraft-api:1.0.0-mc1.21.11"){
 		transitive = false
 	}
-	include "com.github.weikengchen:monkeycraft-api:2026-02-27"
+	include "com.github.weikengchen:monkeycraft-api:1.0.0-mc1.21.11"
 }
 
 processResources {
