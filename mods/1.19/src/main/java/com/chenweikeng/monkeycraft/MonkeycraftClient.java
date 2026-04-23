@@ -34,6 +34,11 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static volatile int pendingMouseReleaseTicks = 0;
   public static volatile int pendingMouseButton = 0;
   public static volatile long lastLocalKeyInputTime = 0;
+  // Set by /monkey config; drained by END_CLIENT_TICK once the chat screen
+  // has dismissed itself. In 1.19 the chat-screen close runs after the
+  // command callback returns, so calling setScreen synchronously from the
+  // command — even via mc.execute — is overwritten by the chat dismissal.
+  private static volatile net.minecraft.client.gui.screens.Screen pendingScreen = null;
   private static final long LOCAL_INPUT_GRACE_PERIOD_MS = 10000;
 
   public static boolean hasRecentLocalKeyInput() {
@@ -61,6 +66,11 @@ public class MonkeycraftClient implements ClientModInitializer {
   private void registerTickEvents() {
     ClientTickEvents.END_CLIENT_TICK.register(
         client -> {
+          if (pendingScreen != null && client.screen == null) {
+            client.setScreen(pendingScreen);
+            pendingScreen = null;
+          }
+
           boolean connectedNow = WebSocketServerHandler.getInstance().isClientConnected();
 
           if (pendingMouseReleaseTicks > 0) {
@@ -160,14 +170,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                 ClientCommandManager.literal("config")
                     .executes(
                         context -> {
-                          Minecraft.getInstance()
-                              .execute(
-                                  () -> {
-                                    Minecraft.getInstance()
-                                        .setScreen(
-                                            ConfigScreenFactory.createConfigScreen(
-                                                Minecraft.getInstance().screen));
-                                  });
+                          pendingScreen = ConfigScreenFactory.createConfigScreen(null);
                           return 1;
                         }))
             .then(
