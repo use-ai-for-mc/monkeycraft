@@ -65,8 +65,7 @@ public final class PasswordQrOverlay {
     RenderSystem.setShader(GameRenderer::getPositionTexShader);
     RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     RenderSystem.setShaderTexture(0, TEXTURE_ID);
-    GuiComponent.blit(
-        poseStack, x, y, 0, 0, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX);
+    GuiComponent.blit(poseStack, x, y, 0, 0, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX);
   }
 
   private static boolean ensureTexture(String password) {

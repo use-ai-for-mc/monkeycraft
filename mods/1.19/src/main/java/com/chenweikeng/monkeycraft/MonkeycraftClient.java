@@ -106,9 +106,6 @@ public class MonkeycraftClient implements ClientModInitializer {
               && client.screen != null
               && !ScreenHelper.shouldKeepScreen(client.screen)
               && !hasRecentLocalKeyInput()) {
-            if (client.screen instanceof net.minecraft.client.gui.screens.ChatScreen) {
-              client.gui.getChat().restoreChatScreen();
-            }
             client.setScreen(null);
           }
 
@@ -231,7 +228,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                             .withClickEvent(
                                 new ClickEvent(
                                     ClickEvent.Action.OPEN_URL,
-                                    "https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections"))))));
+                                    "https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections")))));
   }
 
   public static void stopServer() {
@@ -313,7 +310,6 @@ public class MonkeycraftClient implements ClientModInitializer {
                 .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, command))
                 .withHoverEvent(
                     new HoverEvent(
-                        HoverEvent.Action.SHOW_TEXT,
-                        Component.literal("Click to use command"))));
+                        HoverEvent.Action.SHOW_TEXT, Component.literal("Click to use command"))));
   }
 }

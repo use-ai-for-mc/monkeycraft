@@ -24,8 +24,7 @@ public class CameraController {
         && !handler.isTurningRight()
         && !handler.isLookingUp()
         && !handler.isLookingDown()) {
-      Vec2 moveVec =
-          new Vec2(client.player.input.leftImpulse, client.player.input.forwardImpulse);
+      Vec2 moveVec = new Vec2(client.player.input.leftImpulse, client.player.input.forwardImpulse);
       if (moveVec.lengthSquared() > 0.01f) {
         float targetYawOffset = (float) (Math.atan2(-moveVec.x, moveVec.y) * (180.0 / Math.PI));
         float targetYaw = client.player.getYRot() + targetYawOffset;

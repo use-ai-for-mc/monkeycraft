@@ -1,5 +1,5 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'fabric-loom' version "${loom_version}"
 	id 'maven-publish'
 	id 'com.diffplug.spotless' version '6.25.0'
 }
@@ -51,10 +51,10 @@ dependencies {
 	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 
-	modImplementation("com.github.weikengchen:monkeycraft-api:2026-02-27"){
+	modImplementation("com.github.weikengchen:monkeycraft-api:1.0.0-mc1.19"){
 		transitive = false
 	}
-	include "com.github.weikengchen:monkeycraft-api:2026-02-27"
+	include "com.github.weikengchen:monkeycraft-api:1.0.0-mc1.19"
 }
 
 processResources {

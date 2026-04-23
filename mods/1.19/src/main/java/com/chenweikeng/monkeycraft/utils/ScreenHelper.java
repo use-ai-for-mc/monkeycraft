@@ -5,7 +5,6 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.BookEditScreen;
-import net.minecraft.client.gui.screens.inventory.BookSignScreen;
 import net.minecraft.client.gui.screens.inventory.BookViewScreen;
 
 public final class ScreenHelper {
@@ -63,9 +62,7 @@ public final class ScreenHelper {
   }
 
   private static boolean isBookScreen(Screen screen) {
-    return screen instanceof BookViewScreen
-        || screen instanceof BookEditScreen
-        || screen instanceof BookSignScreen;
+    return screen instanceof BookViewScreen || screen instanceof BookEditScreen;
   }
 
   public static int[] getCropBounds(

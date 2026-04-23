@@ -30,20 +30,24 @@ public class ImageUtils {
   private static final int CURSOR_BLACK = 0xFF000000;
 
   public static NativeImage resize(NativeImage source, int targetWidth, int targetHeight) {
-    NativeImage resized = new NativeImage(source.getFormat(), targetWidth, targetHeight, false);
+    NativeImage resized = new NativeImage(source.format(), targetWidth, targetHeight, false);
     source.resizeSubRectTo(0, 0, source.getWidth(), source.getHeight(), resized);
     return resized;
   }
 
   public static NativeImage crop(NativeImage source, int x, int y, int width, int height) {
-    NativeImage cropped = new NativeImage(source.getFormat(), width, height, false);
-    source.copyRect(cropped, x, y, 0, 0, width, height, false, false);
+    NativeImage cropped = new NativeImage(source.format(), width, height, false);
+    for (int dy = 0; dy < height; dy++) {
+      for (int dx = 0; dx < width; dx++) {
+        cropped.setPixelRGBA(dx, dy, source.getPixelRGBA(x + dx, y + dy));
+      }
+    }
     return cropped;
   }
 
   public static NativeImage resizeWithLetterbox(
       NativeImage source, int targetWidth, int targetHeight) {
-    NativeImage result = new NativeImage(source.getFormat(), targetWidth, targetHeight, false);
+    NativeImage result = new NativeImage(source.format(), targetWidth, targetHeight, false);
 
     for (int y = 0; y < targetHeight; y++) {
       for (int x = 0; x < targetWidth; x++) {
@@ -61,10 +65,14 @@ public class ImageUtils {
     int offsetX = (targetWidth - scaledWidth) / 2;
     int offsetY = (targetHeight - scaledHeight) / 2;
 
-    NativeImage scaled = new NativeImage(source.getFormat(), scaledWidth, scaledHeight, false);
+    NativeImage scaled = new NativeImage(source.format(), scaledWidth, scaledHeight, false);
     source.resizeSubRectTo(0, 0, source.getWidth(), source.getHeight(), scaled);
 
-    scaled.copyRect(result, 0, 0, offsetX, offsetY, scaledWidth, scaledHeight, false, false);
+    for (int dy = 0; dy < scaledHeight; dy++) {
+      for (int dx = 0; dx < scaledWidth; dx++) {
+        result.setPixelRGBA(offsetX + dx, offsetY + dy, scaled.getPixelRGBA(dx, dy));
+      }
+    }
     scaled.close();
 
     return result;

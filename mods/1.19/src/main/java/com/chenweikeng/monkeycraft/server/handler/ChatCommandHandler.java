@@ -54,10 +54,8 @@ public class ChatCommandHandler {
     mc.execute(
         () -> {
           try {
-            if (mc.player != null && mc.player.connection != null) {
-              mc.player.connection.sendCommand(cmd);
-            } else if (mc.getConnection() != null) {
-              mc.getConnection().sendCommand(cmd);
+            if (mc.player != null) {
+              mc.player.command(cmd);
             }
           } catch (Exception e) {
             MonkeycraftClient.LOGGER.warn("Failed to run command {}", command, e);

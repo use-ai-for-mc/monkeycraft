@@ -177,7 +177,6 @@ public class InputHandler {
 
   private void closeChatScreenIfOpen(Minecraft mc) {
     if (mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen) {
-      mc.gui.getChat().restoreChatScreen();
       mc.setScreen(null);
     }
   }

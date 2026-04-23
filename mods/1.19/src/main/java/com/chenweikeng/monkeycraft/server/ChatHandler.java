@@ -80,7 +80,7 @@ public class ChatHandler {
     String finalMessage = context.getMessage();
 
     if (mc.player != null) {
-      mc.player.connection.sendChat(finalMessage);
+      mc.player.chat(finalMessage);
       return true;
     }
 
