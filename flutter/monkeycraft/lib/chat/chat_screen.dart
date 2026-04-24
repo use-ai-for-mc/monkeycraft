@@ -105,6 +105,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     });
 
+    mcParksV1Service.setInfoPacketHandler((packet) {
+      widget.proxy.trySendCommand(packet);
+    });
+
+    mcParksV1Service.setOnFailureHandler(() {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('MCParks audio session failed to open'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    });
+
     _loadCredentialsToSession();
     _loadCachedMessages();
   }
@@ -524,6 +538,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                     ),
                                     proxy: widget.proxy,
                                     openAudioMc: openAudioMcService,
+                                    mcParksV1: mcParksV1Service,
                                     onSuggestCommand: _onSuggestCommand,
                                   ),
                                 );

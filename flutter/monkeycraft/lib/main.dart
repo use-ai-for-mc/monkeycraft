@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:monkeycraft_client/auth/login_screen.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
+import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:monkeycraft_client/shared/keyboard_prewarmer.dart';
 
 final AppSettings appSettings = AppSettings();
 final OpenAudioMcService openAudioMcService = OpenAudioMcService();
+final McParksV1Service mcParksV1Service = McParksV1Service();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

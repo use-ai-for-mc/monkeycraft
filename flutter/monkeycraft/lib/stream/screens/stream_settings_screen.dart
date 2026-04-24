@@ -216,6 +216,38 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                 ],
               ),
             ),
+          if (mcParksV1Service.isActive) const Divider(height: 32),
+          if (mcParksV1Service.isActive)
+            ListTile(
+              title: const Text('Audio Connection'),
+              subtitle: Text(
+                mcParksV1Service.isConnected
+                    ? 'Connected to MCParks'
+                    : 'Connecting...',
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () async {
+                      await mcParksV1Service.disconnect();
+                      setState(() {});
+                    },
+                    child: Text(
+                      mcParksV1Service.isConnected ? 'Disconnect' : 'Cancel',
+                    ),
+                  ),
+                  if (mcParksV1Service.isConnected)
+                    TextButton(
+                      onPressed: () async {
+                        await mcParksV1Service.reconnect();
+                        setState(() {});
+                      },
+                      child: const Text('Refresh'),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );

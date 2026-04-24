@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
+import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChatRichText extends StatefulWidget {
@@ -10,6 +11,7 @@ class ChatRichText extends StatefulWidget {
   final TextStyle? baseStyle;
   final StreamProxy? proxy;
   final OpenAudioMcService? openAudioMc;
+  final McParksV1Service? mcParksV1;
   final void Function(String command)? onSuggestCommand;
 
   const ChatRichText({
@@ -18,6 +20,7 @@ class ChatRichText extends StatefulWidget {
     this.baseStyle,
     this.proxy,
     this.openAudioMc,
+    this.mcParksV1,
     this.onSuggestCommand,
   });
 
@@ -119,7 +122,17 @@ class _ChatRichTextState extends State<ChatRichText> {
     switch (action.action) {
       case 'open_url':
         final uri = Uri.tryParse(action.value);
-        if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        if (uri == null) break;
+
+        // Server adapters rewrite recognized chat links into our custom
+        // scheme so we can route them to in-app handlers (audio sessions,
+        // future panels, etc.) without a real browser hop.
+        if (uri.scheme == 'monkeycraft') {
+          _dispatchMonkeycraftUri(uri);
+          break;
+        }
+
+        if (uri.scheme == 'http' || uri.scheme == 'https') {
           if (OpenAudioMcService.isOpenAudioMcUrl(action.value)) {
             widget.openAudioMc?.connect(action.value);
           } else {
@@ -144,6 +157,26 @@ class _ChatRichTextState extends State<ChatRichText> {
           );
         }
         break;
+    }
+  }
+
+  // Routes a monkeycraft:// URI to the right in-app handler.
+  // Validates `type` against a known set — never trust a URI's `type`
+  // value to dispatch to an unknown handler (a malicious adapter could
+  // otherwise point us at anything).
+  void _dispatchMonkeycraftUri(Uri uri) {
+    if (uri.host == 'audio') {
+      final type = uri.queryParameters['type'];
+      final url = uri.queryParameters['url'];
+      if (url == null || url.isEmpty) return;
+      switch (type) {
+        case 'mcparks-v1':
+          widget.mcParksV1?.connect(url);
+          break;
+        default:
+          // Unknown type: drop silently. New types must ship in-app.
+          break;
+      }
     }
   }
 

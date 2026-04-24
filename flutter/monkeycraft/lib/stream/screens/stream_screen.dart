@@ -137,6 +137,20 @@ class _StreamScreenState extends State<StreamScreen>
       );
     });
 
+    mcParksV1Service.setInfoPacketHandler((packet) {
+      widget.proxy.trySendCommand(packet);
+    });
+
+    mcParksV1Service.setOnFailureHandler(() {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('MCParks audio session failed to open'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    });
+
     _notificationCheckTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _checkTimedNotification();
       _session.checkWaitingForStream();
@@ -278,6 +292,7 @@ class _StreamScreenState extends State<StreamScreen>
     _liveActivityService.dispose();
     await widget.proxy.stop();
     await openAudioMcService.disconnect();
+    await mcParksV1Service.disconnect();
 
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -660,6 +675,7 @@ class _StreamScreenState extends State<StreamScreen>
     await _session.disposeDecoder();
     await widget.proxy.stop();
     await openAudioMcService.disconnect();
+    await mcParksV1Service.disconnect();
 
     if (mounted) {
       Navigator.of(context).pop();
