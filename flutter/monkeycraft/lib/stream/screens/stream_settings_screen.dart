@@ -248,6 +248,34 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                 ],
               ),
             ),
+          if (mcParksV1Service.isActive)
+            ListenableBuilder(
+              listenable: appSettings,
+              builder: (context, _) {
+                final pct = (appSettings.mcParksVolume * 100).round();
+                return ListTile(
+                  title: const Text('MCParks Volume'),
+                  subtitle: Slider(
+                    value: appSettings.mcParksVolume,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 100,
+                    label: '$pct%',
+                    onChanged: (v) {
+                      appSettings.setMcParksVolume(v);
+                      mcParksV1Service.setVolume(v);
+                    },
+                  ),
+                  trailing: SizedBox(
+                    width: 48,
+                    child: Text(
+                      '$pct%',
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

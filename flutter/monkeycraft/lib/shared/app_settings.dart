@@ -33,13 +33,18 @@ extension AppFontDisplay on AppFont {
 class AppSettings extends ChangeNotifier {
   static const _kFont = 'app_font';
   static const _kChatBackground = 'app_chat_background';
+  static const _kMcParksVolume = 'mcparks_volume';
   static const AppFont defaultFont = AppFont.mulish;
+  static const double defaultMcParksVolume = 0.5;
 
   AppFont _font = defaultFont;
   AppFont get font => _font;
 
   String? _chatBackgroundPath;
   String? get chatBackgroundPath => _chatBackgroundPath;
+
+  double _mcParksVolume = defaultMcParksVolume;
+  double get mcParksVolume => _mcParksVolume;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -50,6 +55,9 @@ class AppSettings extends ChangeNotifier {
     if (bgPath != null && File(bgPath).existsSync()) {
       _chatBackgroundPath = bgPath;
     }
+
+    _mcParksVolume = (prefs.getDouble(_kMcParksVolume) ?? defaultMcParksVolume)
+        .clamp(0.0, 1.0);
 
     notifyListeners();
   }
@@ -82,6 +90,15 @@ class AppSettings extends ChangeNotifier {
     _chatBackgroundPath = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kChatBackground);
+    notifyListeners();
+  }
+
+  Future<void> setMcParksVolume(double volume) async {
+    final clamped = volume.clamp(0.0, 1.0);
+    if (_mcParksVolume == clamped) return;
+    _mcParksVolume = clamped;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_kMcParksVolume, clamped);
     notifyListeners();
   }
 

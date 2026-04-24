@@ -4,6 +4,7 @@ import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
 import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
+import 'package:monkeycraft_client/main.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChatRichText extends StatefulWidget {
@@ -171,7 +172,13 @@ class _ChatRichTextState extends State<ChatRichText> {
       if (url == null || url.isEmpty) return;
       switch (type) {
         case 'mcparks-v1':
-          widget.mcParksV1?.connect(url);
+          final svc = widget.mcParksV1;
+          if (svc != null) {
+            // Apply saved volume before/after connect so the user's
+            // setting takes effect immediately for the new session.
+            svc.setVolume(appSettings.mcParksVolume);
+            svc.connect(url).then((_) => svc.setVolume(appSettings.mcParksVolume));
+          }
           break;
         default:
           // Unknown type: drop silently. New types must ship in-app.
