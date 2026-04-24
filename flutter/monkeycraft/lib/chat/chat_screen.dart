@@ -296,6 +296,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       try {
         if (currentState == AppLifecycleState.resumed) {
           openAudioMcService.softRefresh();
+          mcParksV1Service.softRefresh();
           if (widget.manageConnection) {
             await _reconnect();
           } else {

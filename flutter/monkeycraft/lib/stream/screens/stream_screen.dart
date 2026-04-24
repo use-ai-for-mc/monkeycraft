@@ -607,6 +607,7 @@ class _StreamScreenState extends State<StreamScreen>
       try {
         if (currentState == AppLifecycleState.resumed) {
           openAudioMcService.softRefresh();
+          mcParksV1Service.softRefresh();
           _session.setForeground(true);
           await _resumeIfNeeded();
         } else if (currentState == AppLifecycleState.inactive ||

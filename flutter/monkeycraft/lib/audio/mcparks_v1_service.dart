@@ -269,4 +269,47 @@ class McParksV1Service {
   bool get isActive => _isActive;
   String? get savedSessionUrl => _savedSessionUrl;
   double get volume => _volume;
+
+  /// Cheap liveness probe for the app-resume path. If the WebView lost
+  /// state during background (iOS often suspends WebViews and tears down
+  /// their WebSockets), full-reload the session URL. Healthy means the
+  /// React app is rendering "Connected!" or "Connecting..." — otherwise
+  /// the page is gone, broken, or has flipped to a "Disconnected." /
+  /// "Error!" state and we should re-establish.
+  Future<void> softRefresh() async {
+    if (!_isActive || _headlessWebView == null || _savedSessionUrl == null) {
+      return;
+    }
+
+    final controller = _headlessWebView!.webViewController;
+    if (controller == null) {
+      return;
+    }
+
+    final result = await controller.evaluateJavascript(
+      source: '''
+      (function() {
+        var healthy = false;
+        var nodes = document.querySelectorAll('h5, .item, b');
+        for (var i = 0; i < nodes.length; i++) {
+          var t = nodes[i].textContent || '';
+          if (t.indexOf('Connected!') >= 0 || t.indexOf('Connecting') >= 0) {
+            healthy = true;
+            break;
+          }
+        }
+        return { healthy: healthy };
+      })();
+    ''',
+    );
+
+    if (result == null) {
+      await reconnect();
+      return;
+    }
+
+    if (result['healthy'] != true) {
+      await reconnect();
+    }
+  }
 }
