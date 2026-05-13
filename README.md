@@ -16,7 +16,7 @@
 
 ---
 
-iOS client is available in TestFlight and has passed Beta Review by Apple App Store Connect. Android client is clear for closed testing. Please refer to the [wiki](https://github.com/weikengchen/monkeycraft/wiki) for the latest client release information. 
+iOS client is available in TestFlight and has passed Beta Review by Apple App Store Connect. Android client is clear for closed testing. Please refer to the [wiki](https://github.com/use-ai-for-mc/monkeycraft/wiki) for the latest client release information. 
 
 ---
 
