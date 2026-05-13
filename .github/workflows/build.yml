@@ -63,6 +63,34 @@ jobs:
           name: Artifacts-1.21.11
           path: mods/1.21.11/build/libs/
 
+  build-1-19:
+    name: Build mod (Minecraft 1.19)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mods/1.19
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      - name: setup jdk
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build
+      - name: test
+        run: ./gradlew test
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Artifacts-1.19
+          path: mods/1.19/build/libs/
+
   flutter:
     runs-on: ubuntu-24.04
     defaults:
