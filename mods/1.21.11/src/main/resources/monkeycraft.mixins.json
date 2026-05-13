@@ -11,7 +11,9 @@
 		"LocalPlayerMixin",
 		"AbstractContainerScreenAccessor",
 		"KeyMappingAccessor",
-		"MouseHandlerAccessor"
+		"MouseHandlerAccessor",
+		"CameraAccessor",
+		"CameraMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

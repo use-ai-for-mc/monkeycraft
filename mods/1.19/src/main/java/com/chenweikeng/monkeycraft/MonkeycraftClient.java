@@ -123,6 +123,16 @@ public class MonkeycraftClient implements ClientModInitializer {
             cameraController.tick(client);
             frameCaptureManager.tick(client);
           }
+
+          if (WebSocketServerHandler.getInstance().isMapMode()) {
+            // Lock player facing north so WASD maps to cardinal directions
+            if (client.player != null) {
+              client.player.setYRot(180.0f); // 180 = facing north
+              client.player.setXRot(0.0f); // level pitch
+            }
+            frameCaptureManager.tick(client);
+            WebSocketServerHandler.getInstance().tickMapData();
+          }
         });
   }
 
