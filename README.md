@@ -43,7 +43,7 @@ Watch your Minecraft game in real-time on your phone with:
 | Setting | Options |
 |---------|---------|
 | 📐 Resolution | Low, Medium, High |
-| 🎨 Color Mode | Normal, High Performance, Retro, Grayscale |
+| 🎨 Color Mode | Normal, High Perf (12-bit), Retro (6-bit), Grayscale |
 | ⚡ FPS | 1–20 frames per second |
 
 ### 🗺️ 2D Map Mode
@@ -148,10 +148,9 @@ Access settings via `/monkey config` or through ModMenu:
 
 | Command | Description |
 |---------|-------------|
-| `/monkey` | Show help |
+| `/monkey` | Show help (also prints your IPs while the server is running) |
 | `/monkey start` | Start the WebSocket server |
 | `/monkey stop` | Stop the server |
-| `/monkey ip` | Show your IP addresses |
 | `/monkey config` | Open settings screen |
 
 ---
