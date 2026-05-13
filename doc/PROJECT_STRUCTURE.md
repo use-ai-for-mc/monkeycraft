@@ -7,70 +7,80 @@ This is a **Fabric Minecraft Mod** project (Monkeycraft) that enables remote con
 
 ```
 monkeycraft/
-├── src/                          # Source code
-│   └── main/
-│       ├── java/                 # Java source files
-│       │   └── com/chenweikeng/monkeycraft/
-│       │       ├── MonkeycraftClient.java    # Main entry point
-│       │       ├── config/                   # Configuration
-│       │       ├── integration/              # ModMenu integration
-│       │       ├── mixin/                    # Mixin classes
-│       │       ├── server/                   # WebSocket server
-│       │       ├── ui/                       # UI components
-│       │       └── utils/                    # Utility classes
-│       └── resources/
-│           ├── fabric.mod.json               # Fabric mod metadata
-│           ├── monkeycraft.mixins.json       # Mixin config
-│           └── assets/monkeycraft/           # Mod assets (lang, icon)
+├── mods/                         # One mod tree per Minecraft target
+│   ├── 26.1/                     # Minecraft 26.1, Java 25
+│   ├── 1.21.11/                  # Minecraft 1.21.11, Java 21
+│   └── 1.19/                     # Minecraft 1.19, Java 17
+│       └── src/main/
+│           ├── java/com/chenweikeng/monkeycraft/
+│           │   ├── MonkeycraftClient.java    # Mod entry point
+│           │   ├── MapDataHandler.java       # 2D map mode (data side)
+│           │   ├── CameraController.java     # Smooth-look camera
+│           │   ├── FrameCaptureManager.java  # Per-tick frame grabber
+│           │   ├── config/                   # ModConfig, ConfigScreen
+│           │   ├── integration/              # ModMenu integration
+│           │   ├── mixin/                    # Mixins / accessors
+│           │   ├── server/                   # WebSocket server + handlers
+│           │   ├── ui/                       # In-game overlays (QR)
+│           │   └── utils/                    # Crypto, image, network
+│           └── resources/
+│               ├── fabric.mod.json
+│               ├── monkeycraft.mixins.json
+│               └── assets/monkeycraft/       # icon, lang
 │
-├── flutter/                      # Flutter companion app
-│   └── monkeycraft/
-│
-├── gradle/                       # Gradle wrapper
-├── build/                        # Gradle build output (gitignored)
+├── flutter/monkeycraft/          # Flutter companion app
 ├── doc/                          # Documentation
-│
-├── build.gradle                  # Gradle build config
-├── gradle.properties             # Project properties (version, deps)
-├── settings.gradle               # Gradle settings
-├── build-and-deploy.sh           # Build & deploy to local Modrinth
-├── HOW-TO-USE.md                 # Usage guide
-└── LICENSE                       # MIT License
+├── .github/workflows/            # Build & release CI
+├── AGENTS.md                     # Notes for AI agents
+├── HOW-TO-USE.md                 # External mod API guide
+└── LICENSE                       # CC0-1.0
 ```
+
+Each `mods/<mc-version>/` directory is a self-contained Gradle project
+with its own `build.gradle`, `gradle.properties`, wrapper, and
+`build-and-deploy.sh`.
 
 ## Key Components
 
-### Java Source (`src/main/java/`)
+### Java Source (`mods/<mc>/src/main/java/com/chenweikeng/monkeycraft/`)
 | Package | Purpose |
 |---------|---------|
-| `config/` | Mod configuration & settings screen |
-| `server/` | WebSocket server, H264 streaming, chat handling, API provider |
-| `mixin/` | Minecraft code mixins for injection |
-| `ui/` | UI overlays (e.g., QR code display) |
-| `utils/` | Crypto, network, image utilities |
+| `config/` | ModConfig, Cloth-Config screen, AllowConnectionsFrom enum |
+| `server/` | WebSocket server, H.264 streaming, chat / command / input / screen handlers, API provider |
+| `mixin/` | Mixin classes and `@Invoker` accessors |
+| `ui/` | In-game overlays (e.g. password QR) |
+| `utils/` | Crypto (HMAC-SHA256), network (local IPs), image |
+| (root)  | `MonkeycraftClient`, `MapDataHandler`, `CameraController`, `FrameCaptureManager` |
 
-### Resources (`src/main/resources/`)
-- `fabric.mod.json` - Mod metadata (ID, version, dependencies)
-- `monkeycraft.mixins.json` - Mixin configuration
-- `assets/monkeycraft/` - Language files, icon
+### Resources (`mods/<mc>/src/main/resources/`)
+- `fabric.mod.json` — Mod metadata
+- `monkeycraft.mixins.json` — Mixin registration
+- `assets/monkeycraft/` — Language files, icon
 
 ### Flutter App (`flutter/monkeycraft/`)
 Companion mobile app for remote Minecraft control.
 
 ### External Dependencies
-- **monkeycraft-api** (`com.github.weikengchen:monkeycraft-api`) - Public API library for external mod integrations
+- **monkeycraft-api** — published as one artifact per Minecraft target,
+  e.g. `com.github.weikengchen:monkeycraft-api:1.0.0-mc26.1`. The mod
+  consumes it via JitPack; external mods integrating with Monkeycraft
+  do the same. See [HOW-TO-USE.md](../HOW-TO-USE.md).
 
 ## Build Commands
 
+Each mod is its own Gradle project — `cd` into the target first.
+
 ```bash
-./gradlew build        # Build the mod
-./gradlew jar          # Create JAR
-./gradlew clean        # Clean build artifacts
-./gradlew spotlessApply # Format code
+cd mods/26.1     && ./gradlew build           # MC 26.1   (Java 25)
+cd mods/1.21.11  && ./gradlew build           # MC 1.21.11 (Java 21)
+cd mods/1.19     && ./gradlew build           # MC 1.19   (Java 17)
+
+./gradlew spotlessApply                       # Format code
+./gradlew clean                               # Clean build artifacts
 ```
 
 ## Deployment
 
 ```bash
-./build-and-deploy.sh  # Build and copy to local Modrinth profile
+./build-and-deploy.sh  # (within mods/<mc>/) Build and copy to local Modrinth profile
 ```

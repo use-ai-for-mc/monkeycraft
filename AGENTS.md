@@ -20,22 +20,30 @@ MonkeyCraft is a **remote Minecraft control system** consisting of:
 
 ## Key Files to Understand
 
+Paths prefixed with `mods/<mc>/` exist in all three mod trees (`mods/26.1/`,
+`mods/1.21.11/`, `mods/1.19/`) with the same role; differences are usually
+narrow API adaptations.
+
 | File | Purpose |
 |------|---------|
-| `src/main/java/.../MonkeycraftClient.java` | Mod entry point, tick events |
-| `src/main/java/.../server/WebSocketServerHandler.java` | Protocol handling, all message types |
-| `src/main/java/.../server/H264Streamer.java` | Video encoding |
+| `mods/<mc>/src/main/java/.../MonkeycraftClient.java` | Mod entry point, tick events, command registration |
+| `mods/<mc>/src/main/java/.../server/WebSocketServerHandler.java` | Protocol handling, all message types |
+| `mods/<mc>/src/main/java/.../server/H264Streamer.java` | Video encoding |
+| `mods/<mc>/src/main/java/.../MapDataHandler.java` | 2D map data frames |
 | `flutter/monkeycraft/lib/stream/screens/stream_screen.dart` | Main gameplay UI |
 | `flutter/monkeycraft/lib/stream/stream_proxy.dart` | WebSocket communication |
 | `flutter/monkeycraft/lib/stream/game_input_controller.dart` | Input state machine |
 | `flutter/monkeycraft/lib/stream/session_controller.dart` | Session state management |
+| `flutter/monkeycraft/lib/audio/mcparks_v1_service.dart` | MCParks audio session (headless WebView) |
 
 ## Build Commands
 
 ```bash
-# Java Mod
-./gradlew build              # Build the mod JAR
-./gradlew spotlessApply      # Format code (REQUIRED before commit)
+# Java Mod — pick a target
+cd mods/26.1     && ./gradlew build    # needs Java 25
+cd mods/1.21.11  && ./gradlew build    # needs Java 21
+cd mods/1.19     && ./gradlew build    # needs Java 17 (Gradle launcher needs 21+)
+./gradlew spotlessApply                # Format code (REQUIRED before commit)
 
 # Flutter App
 cd flutter/monkeycraft
@@ -98,8 +106,8 @@ When adding new protocol messages:
 
 ## Important Constraints
 
-- Minecraft version: 1.21+
-- Java version: 21+
+- Minecraft targets: 1.19, 1.21.11, 26.1 (three parallel mod trees under `mods/`)
+- Java versions: 17 (1.19), 21 (1.21.11), 25 (26.1) — matches each MC release
 - Fabric mod (client-side only)
 - Only ONE phone can connect at a time
 - Video is H.264 encoded, max 20 FPS
@@ -119,5 +127,4 @@ For finding relevant implementation locations, check the `doc/` directory first 
 - `doc/PROJECT_STRUCTURE.md` - Overall project organization
 - `doc/JAVA_MOD_ARCHITECTURE.md` - Java mod internals
 - `doc/FLUTTER_CLIENT.md` - Flutter app architecture and WebSocket protocol
-- `doc/SCREEN.md` - Screen/container handling implementation
-- `doc/PLAN.md` - Project planning and roadmap
+- `doc/AudioPlayer.md` - In-app audio routing (OpenAudioMc / MCParks)
