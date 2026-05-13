@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
@@ -18,13 +19,29 @@ class StreamSettingsScreen extends StatefulWidget {
 class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
   late StreamSettings _settings;
   Timer? _updateTimer;
+  List<McParksActiveTrack> _mcParksTracks = const [];
 
   @override
   void initState() {
     super.initState();
     _settings = widget.initial;
-    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {});
+    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (!mounted) return;
+      List<McParksActiveTrack> next = const [];
+      if (mcParksV1Service.isActive) {
+        try {
+          next = await mcParksV1Service.snapshotActive();
+        } catch (_) {
+          // Best-effort; leave previous snapshot in place on transient error.
+          if (!mounted) return;
+          setState(() {});
+          return;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _mcParksTracks = next;
+      });
     });
   }
 
@@ -32,6 +49,24 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
   void dispose() {
     _updateTimer?.cancel();
     super.dispose();
+  }
+
+  static String _humanDuration(Duration d) {
+    final s = d.inSeconds.abs();
+    if (s < 60) return '${s}s';
+    final m = s ~/ 60;
+    final rs = s % 60;
+    if (m < 60) return '${m}m ${rs}s';
+    final h = m ~/ 60;
+    final rm = m % 60;
+    return '${h}h ${rm}m';
+  }
+
+  static ({String label, Color color}) _badgeFor(McParksActiveTrack t) {
+    if (!t.active) return (label: 'STOPPED', color: const Color(0xFF808080));
+    if (t.fadingOut) return (label: 'FADING', color: const Color(0xFFF5A623));
+    if (t.looping) return (label: 'LOOP', color: const Color(0xFF4FC3F7));
+    return (label: 'ONESHOT', color: const Color(0xFFE1BEE7));
   }
 
   @override
@@ -276,7 +311,161 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                 );
               },
             ),
+          if (mcParksV1Service.isActive) ..._buildMcParksTrackList(),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMcParksTrackList() {
+    final now = DateTime.now();
+    final count = _mcParksTracks.length;
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        count == 0
+            ? 'MCParks Active Tracks — nothing playing'
+            : 'MCParks Active Tracks — $count active',
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      ),
+    );
+    if (count == 0) {
+      return [header];
+    }
+    return [
+      header,
+      for (final t in _mcParksTracks) _buildTrackTile(t, now),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Text(
+          'Tap Stop to fade a specific track over 3s.',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.black.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildTrackTile(McParksActiveTrack t, DateTime now) {
+    final badge = _badgeFor(t);
+    final startedAgo = t.startedAt != null
+        ? _humanDuration(now.difference(t.startedAt!))
+        : '?';
+    final lastTriggeredAgo = t.lastTriggerAt != null
+        ? _humanDuration(now.difference(t.lastTriggerAt!))
+        : '?';
+    final diagnosis = t.diagnose(now);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          t.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: badge.color.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          badge.label,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: badge.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () async {
+                    final stopped = await mcParksV1Service.stopSoundByName(
+                      t.name,
+                    );
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          stopped
+                              ? 'Stopped audio: ${t.name}'
+                              : 'No active audio named "${t.name}"',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: const Text('Stop'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'started $startedAgo ago \u00B7 triggered ${t.triggerCount}\u00D7'
+              ' (last: $lastTriggeredAgo ago) \u00B7 vol ${t.serverVolume}%',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.black.withValues(alpha: 0.65),
+              ),
+            ),
+            if (diagnosis != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '\u2192 $diagnosis',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: t.triggerCount > 1 && t.looping
+                      ? const Color(0xFFB8860B)
+                      : Colors.black.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+            const SizedBox(height: 2),
+            Text(
+              'msg: ${t.lastServerMessage}',
+              style: TextStyle(
+                fontSize: 10,
+                fontFamily: 'monospace',
+                color: Colors.black.withValues(alpha: 0.55),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
