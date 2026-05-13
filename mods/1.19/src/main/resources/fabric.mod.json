@@ -8,9 +8,9 @@
 		"weikengchen"
 	],
 	"contact": {
-		"homepage": "https://github.com/weikengchen/monkeycraft",
-		"sources": "https://github.com/weikengchen/monkeycraft",
-		"issues": "https://github.com/weikengchen/monkeycraft/issues"
+		"homepage": "https://github.com/use-ai-for-mc/monkeycraft",
+		"sources": "https://github.com/use-ai-for-mc/monkeycraft",
+		"issues": "https://github.com/use-ai-for-mc/monkeycraft/issues"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/monkeycraft/icon.png",
