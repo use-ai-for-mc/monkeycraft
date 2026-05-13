@@ -8,8 +8,8 @@
 
 **Stream and control your Minecraft game from your phone**
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11%20%7C%2026.1-green.svg)](https://www.minecraft.net/)
-[![Fabric](https://img.shields.io/badge/Fabric-0.18.4+-orange.svg)](https://fabricmc.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.19%20%7C%201.21.11%20%7C%2026.1-green.svg)](https://www.minecraft.net/)
+[![Fabric](https://img.shields.io/badge/Fabric-0.14.22+-orange.svg)](https://fabricmc.net/)
 [![License](https://img.shields.io/badge/License-CC0--1.0-purple.svg)](LICENSE)
 
 </div>
@@ -46,6 +46,11 @@ Watch your Minecraft game in real-time on your phone with:
 | 🎨 Color Mode | Normal, High Performance, Retro, Grayscale |
 | ⚡ FPS | 1–20 frames per second |
 
+### 🗺️ 2D Map Mode
+
+Switch to a **top-down view** of the world around you, streamed as H.264 video just like the
+first-person feed. Handy for navigation, base layout, or following someone else on the server.
+
 ### 🕹️ Touch Controls
 
 Full gameplay control with intuitive touch interface:
@@ -74,6 +79,15 @@ Stay informed even when not actively playing:
 | ⏰ **Timed Notification** | Get reminded at a specific time with countdown |
 | 📳 **Instant Nudge** | Receive immediate alerts from in-game events |
 
+### 🎵 Spatial Audio
+
+When the server you're on runs [OpenAudioMc](https://openaudiomc.net/) or the MCParks v1
+audio system, MonkeyCraft can route the audio session to your phone:
+
+- 🎧 **Server-side spatial audio** — voice, ambience, music played by the server reaches your phone
+- 🔊 **Volume slider** — adjust MCParks playback volume independently in Settings
+- 🔁 **Soft-refresh on resume** — when the app returns from background, the audio session reconnects without a full re-pair
+
 ### 😴 Hibernation Mode
 
 Need to step away but stay connected?
@@ -96,7 +110,7 @@ Need to step away but stay connected?
 
 ### 1️⃣ Install the Mod
 
-Install the MonkeyCraft mod on your **Fabric** Minecraft client (1.21.11 or 26.1+).
+Install the MonkeyCraft mod on your **Fabric** Minecraft client (1.19, 1.21.11, or 26.1+).
 
 ### 2️⃣ Start the Server
 
@@ -161,6 +175,7 @@ Access settings via `/monkey config` or through ModMenu:
 |-------------------|------|--------------|
 | 26.1+ | 25+ | `mods/26.1/` |
 | 1.21.11 | 21+ | `mods/1.21.11/` |
+| 1.19 | 17+ | `mods/1.19/` |
 
 ### Install Steps
 
@@ -173,11 +188,14 @@ Access settings via `/monkey config` or through ModMenu:
 ### Building from Source
 
 ```bash
-# Build for Minecraft 26.1
+# Build for Minecraft 26.1 (needs Java 25)
 cd mods/26.1 && ./gradlew build
 
-# Build for Minecraft 1.21.11
+# Build for Minecraft 1.21.11 (needs Java 21)
 cd mods/1.21.11 && ./gradlew build
+
+# Build for Minecraft 1.19 (needs Java 17)
+cd mods/1.19 && ./gradlew build
 
 # Build Flutter app
 cd flutter/monkeycraft && flutter build apk

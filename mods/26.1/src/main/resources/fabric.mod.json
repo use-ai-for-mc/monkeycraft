@@ -3,13 +3,14 @@
 	"id": "monkeycraft",
 	"version": "${version}",
 	"name": "MonkeyCraft",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Stream and control your Minecraft game from your phone. Live H.264 video, touch controls, chat, and notifications from anywhere.",
 	"authors": [
-		"Me!"
+		"weikengchen"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/weikengchen/monkeycraft",
+		"sources": "https://github.com/weikengchen/monkeycraft",
+		"issues": "https://github.com/weikengchen/monkeycraft/issues"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/monkeycraft/icon.png",
