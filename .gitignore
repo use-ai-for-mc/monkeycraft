@@ -40,3 +40,7 @@ replay_*.log
 *.jfr
 
 .trae
+
+# dream skill audit workspace
+
+.dream/
