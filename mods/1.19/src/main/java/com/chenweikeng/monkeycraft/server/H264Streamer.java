@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -93,61 +94,73 @@ public class H264Streamer {
       return;
     }
 
-    executor.submit(
-        () -> {
-          try {
-            if (needsIdr) {
-              encoder = createEncoder();
-              needsIdr = false;
-              sendResolutionHeader = true;
-            }
-
-            convertNativeImageToYuv(image, picture);
+    try {
+      executor.submit(
+          () -> {
             try {
-              image.close();
-            } catch (Exception ignored) {
-            }
-
-            ByteBuffer encoded = encodeFrame(picture);
-            int size = encoded.remaining();
-
-            if (conn.isOpen()) {
-              byte[] h264Data = new byte[size];
-              encoded.get(h264Data);
-
-              boolean isIdr = isIdrFrame(h264Data);
-              byte[] dataToSend;
-
-              if (isIdr && sendResolutionHeader) {
-                dataToSend = new byte[6 + h264Data.length];
-                System.arraycopy(FRAME_HEADER_MAGIC, 0, dataToSend, 0, 2);
-                dataToSend[2] = (byte) ((width >> 8) & 0xFF);
-                dataToSend[3] = (byte) (width & 0xFF);
-                dataToSend[4] = (byte) ((height >> 8) & 0xFF);
-                dataToSend[5] = (byte) (height & 0xFF);
-                System.arraycopy(h264Data, 0, dataToSend, 6, h264Data.length);
-                sendResolutionHeader = false;
-              } else {
-                dataToSend = h264Data;
+              if (needsIdr) {
+                encoder = createEncoder();
+                needsIdr = false;
+                sendResolutionHeader = true;
               }
 
-              conn.send(dataToSend);
-              pendingFrames.incrementAndGet();
-
-              if (!isIdr) {
-                needsIdr = true;
+              convertNativeImageToYuv(image, picture);
+              try {
+                image.close();
+              } catch (Exception ignored) {
               }
+
+              ByteBuffer encoded = encodeFrame(picture);
+              int size = encoded.remaining();
+
+              if (conn.isOpen()) {
+                byte[] h264Data = new byte[size];
+                encoded.get(h264Data);
+
+                boolean isIdr = isIdrFrame(h264Data);
+                byte[] dataToSend;
+
+                if (isIdr && sendResolutionHeader) {
+                  dataToSend = new byte[6 + h264Data.length];
+                  System.arraycopy(FRAME_HEADER_MAGIC, 0, dataToSend, 0, 2);
+                  dataToSend[2] = (byte) ((width >> 8) & 0xFF);
+                  dataToSend[3] = (byte) (width & 0xFF);
+                  dataToSend[4] = (byte) ((height >> 8) & 0xFF);
+                  dataToSend[5] = (byte) (height & 0xFF);
+                  System.arraycopy(h264Data, 0, dataToSend, 6, h264Data.length);
+                  sendResolutionHeader = false;
+                } else {
+                  dataToSend = h264Data;
+                }
+
+                conn.send(dataToSend);
+                pendingFrames.incrementAndGet();
+
+                if (!isIdr) {
+                  needsIdr = true;
+                }
+              }
+            } catch (Exception e) {
+              needsIdr = true;
+            } finally {
+              try {
+                image.close();
+              } catch (Exception ignored) {
+              }
+              isEncoding.set(false);
             }
-          } catch (Exception e) {
-            needsIdr = true;
-          } finally {
-            try {
-              image.close();
-            } catch (Exception ignored) {
-            }
-            isEncoding.set(false);
-          }
-        });
+          });
+    } catch (RejectedExecutionException e) {
+      // close() shut the executor down on another thread (stream reconfigure
+      // or server stop) between the guards above and this submit — drop the
+      // frame instead of letting the exception crash the render thread.
+      needsIdr = true;
+      isEncoding.set(false);
+      try {
+        image.close();
+      } catch (Exception ignored) {
+      }
+    }
   }
 
   public void close() {
