@@ -2,8 +2,9 @@ package com.chenweikeng.monkeycraft.mixin;
 
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import net.minecraft.client.Camera;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -14,15 +15,22 @@ public class CameraMixin {
 
   private static final float TOP_DOWN_HEIGHT = 4.0f;
 
-  @Inject(method = "update", at = @At("RETURN"))
-  private void onCameraUpdateReturn(DeltaTracker deltaTracker, CallbackInfo ci) {
+  // 1.21.11 Camera.setup(Level, Entity, boolean, boolean, float).
+  // 1.19 uses BlockGetter for param 1; the 26.x trees renamed it update(DeltaTracker).
+  @Inject(method = "setup", at = @At("RETURN"))
+  private void onCameraSetupReturn(
+      Level level,
+      Entity focusedEntity,
+      boolean detached,
+      boolean thirdPersonReverse,
+      float partialTick,
+      CallbackInfo ci) {
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
     if (!handler.isMapMode()) return;
 
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null) return;
 
-    float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
     double playerX = mc.player.xo + (mc.player.getX() - mc.player.xo) * partialTick;
     double playerY = mc.player.yo + (mc.player.getY() - mc.player.yo) * partialTick;
     double playerZ = mc.player.zo + (mc.player.getZ() - mc.player.zo) * partialTick;

@@ -15,8 +15,8 @@ public class CameraMixin {
 
   private static final float TOP_DOWN_HEIGHT = 4.0f;
 
-  // 1.19 Camera.setup(BlockGetter, Entity, boolean, boolean, float)
-  // (1.21+ renamed/replaced this with update(DeltaTracker) — same role.)
+  // 1.19 Camera.setup(BlockGetter, Entity, boolean, boolean, float).
+  // 1.21.11 keeps setup (param 1 is Level); the 26.x trees renamed it update(DeltaTracker).
   @Inject(method = "setup", at = @At("RETURN"))
   private void onCameraSetupReturn(
       BlockGetter level,
