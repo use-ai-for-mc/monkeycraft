@@ -3,6 +3,7 @@ package com.chenweikeng.monkeycraft.ui;
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
+import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
@@ -14,8 +15,11 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.Map;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiComponent;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -37,6 +41,13 @@ public final class PasswordQrOverlay {
     registered = true;
 
     HudRenderCallback.EVENT.register((poseStack, tickDelta) -> render(poseStack));
+
+    ScreenEvents.AFTER_INIT.register(
+        (client, screen, scaledWidth, scaledHeight) -> {
+          if (screen instanceof TitleScreen) {
+            ScreenEvents.afterRender(screen).register(PasswordQrOverlay::renderTitleScreen);
+          }
+        });
   }
 
   private static void render(PoseStack poseStack) {
@@ -66,6 +77,56 @@ public final class PasswordQrOverlay {
     RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
     RenderSystem.setShaderTexture(0, TEXTURE_ID);
     GuiComponent.blit(poseStack, x, y, 0, 0, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX);
+  }
+
+  /**
+   * Renders the connection QR and local addresses on the title screen, so the app can be paired
+   * before joining a world. Shown whenever the server is running and no client is connected.
+   */
+  private static void renderTitleScreen(
+      Screen screen, PoseStack poseStack, int mouseX, int mouseY, float tickDelta) {
+    Minecraft mc = Minecraft.getInstance();
+    if (mc == null || mc.getWindow() == null) return;
+
+    WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+    if (!handler.isRunning() || handler.isClientConnected()) {
+      return;
+    }
+
+    String password = ModConfig.getInstance().getPassword();
+    if (password == null || password.isBlank()) {
+      return;
+    }
+    if (!ensureTexture(password.trim())) {
+      return;
+    }
+
+    int screenWidth = mc.getWindow().getGuiScaledWidth();
+    int screenHeight = mc.getWindow().getGuiScaledHeight();
+    int x = screenWidth - QR_SIZE_PX - MARGIN_PX;
+    int y = screenHeight - QR_SIZE_PX - MARGIN_PX;
+
+    java.util.List<String> ips = NetworkUtils.getLocalIpAddressesWithPort(handler.getCurrentPort());
+    int lineHeight = mc.font.lineHeight + 1;
+    int rightX = x + QR_SIZE_PX;
+    int textY = y - 4 - lineHeight * (ips.size() + 1);
+    drawRightAligned(poseStack, mc, "MonkeyCraft - scan for password", rightX, textY);
+    textY += lineHeight;
+    for (String ip : ips) {
+      drawRightAligned(poseStack, mc, ip, rightX, textY);
+      textY += lineHeight;
+    }
+
+    RenderSystem.setShader(GameRenderer::getPositionTexShader);
+    RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+    RenderSystem.setShaderTexture(0, TEXTURE_ID);
+    GuiComponent.blit(poseStack, x, y, 0, 0, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX, QR_SIZE_PX);
+  }
+
+  private static void drawRightAligned(
+      PoseStack poseStack, Minecraft mc, String text, int rightX, int y) {
+    int width = mc.font.width(text);
+    mc.font.drawShadow(poseStack, text, rightX - width, y, 0xFFFFFFFF);
   }
 
   private static boolean ensureTexture(String password) {

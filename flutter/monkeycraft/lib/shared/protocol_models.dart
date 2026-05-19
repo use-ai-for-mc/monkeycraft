@@ -97,3 +97,77 @@ class MapData {
     required this.entities,
   });
 }
+
+/// The Minecraft client's session phase, as reported by the mod's WORLD_STATE.
+enum WorldPhase { menu, connecting, inWorld }
+
+WorldPhase worldPhaseFromString(String? value) {
+  switch (value) {
+    case 'IN_WORLD':
+      return WorldPhase.inWorld;
+    case 'CONNECTING':
+      return WorldPhase.connecting;
+    default:
+      return WorldPhase.menu;
+  }
+}
+
+class WorldState {
+  final WorldPhase phase;
+  final String? serverName;
+  final String? serverAddress;
+  final bool singleplayer;
+
+  const WorldState({
+    required this.phase,
+    this.serverName,
+    this.serverAddress,
+    this.singleplayer = false,
+  });
+
+  factory WorldState.fromJson(Map<String, dynamic> json) {
+    return WorldState(
+      phase: worldPhaseFromString(json['phase'] as String?),
+      serverName: json['serverName'] as String?,
+      serverAddress: json['serverAddress'] as String?,
+      singleplayer: json['singleplayer'] == true,
+    );
+  }
+
+  bool get isMenu => phase == WorldPhase.menu;
+  bool get isConnecting => phase == WorldPhase.connecting;
+  bool get isInWorld => phase == WorldPhase.inWorld;
+}
+
+/// An entry from the Minecraft client's saved multiplayer server list.
+class ServerListEntry {
+  final int index;
+  final String name;
+  final String address;
+
+  const ServerListEntry({
+    required this.index,
+    required this.name,
+    required this.address,
+  });
+
+  factory ServerListEntry.fromJson(Map<String, dynamic> json) {
+    return ServerListEntry(
+      index: (json['index'] as num?)?.toInt() ?? -1,
+      name: (json['name'] as String?) ?? '',
+      address: (json['address'] as String?) ?? '',
+    );
+  }
+}
+
+/// The mod's reply to a JOIN_SERVER request.
+class JoinResult {
+  final bool ok;
+  final String? error;
+
+  const JoinResult({required this.ok, this.error});
+
+  factory JoinResult.fromJson(Map<String, dynamic> json) {
+    return JoinResult(ok: json['ok'] == true, error: json['error'] as String?);
+  }
+}

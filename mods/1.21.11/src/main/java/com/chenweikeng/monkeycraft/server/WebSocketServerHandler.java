@@ -7,6 +7,7 @@ import com.chenweikeng.monkeycraft.server.handler.AuthenticationHandler;
 import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
 import com.chenweikeng.monkeycraft.server.handler.InputHandler;
 import com.chenweikeng.monkeycraft.server.handler.ScreenInteractionHandler;
+import com.chenweikeng.monkeycraft.server.handler.WorldJoinHandler;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -36,6 +37,7 @@ public class WebSocketServerHandler {
   private MonkeycraftWebSocketServer server;
   private int currentPort = -1;
   private final AtomicBoolean running = new AtomicBoolean(false);
+  private volatile boolean persistent = false;
   private final AtomicBoolean hasEverConnected = new AtomicBoolean(false);
   private volatile long qrDisplayStartTime = 0;
   private static final Gson GSON = new Gson();
@@ -65,6 +67,9 @@ public class WebSocketServerHandler {
   private final ScreenInteractionHandler screenHandler;
   private final ChatCommandHandler chatCommandHandler;
   private final AuthenticationHandler authHandler;
+  private final WorldJoinHandler worldJoinHandler;
+
+  private String lastWorldPhase = null;
 
   public boolean isTurningLeft() {
     return turnLeft;
@@ -151,6 +156,48 @@ public class WebSocketServerHandler {
     conn.send(GSON.toJson(msg));
   }
 
+  /** Returns the current session phase: MENU, CONNECTING, or IN_WORLD. */
+  private String currentWorldPhase() {
+    net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+    if (mc.level != null) {
+      return "IN_WORLD";
+    }
+    if (mc.screen instanceof net.minecraft.client.gui.screens.ConnectScreen) {
+      return "CONNECTING";
+    }
+    return "MENU";
+  }
+
+  private JsonObject buildWorldState(String phase) {
+    net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+    JsonObject msg = new JsonObject();
+    msg.addProperty("type", "WORLD_STATE");
+    msg.addProperty("phase", phase);
+    net.minecraft.client.multiplayer.ServerData current = mc.getCurrentServer();
+    if (current != null) {
+      msg.addProperty("serverName", current.name);
+      msg.addProperty("serverAddress", current.ip);
+    }
+    msg.addProperty("singleplayer", mc.hasSingleplayerServer());
+    return msg;
+  }
+
+  /**
+   * Derives the current session phase and pushes a WORLD_STATE message to the connected app
+   * whenever it changes. Must be called on the client thread (e.g. from the client tick).
+   */
+  public void updateWorldState() {
+    String phase = currentWorldPhase();
+    if (phase.equals(lastWorldPhase)) {
+      return;
+    }
+    lastWorldPhase = phase;
+    if (server == null) return;
+    WebSocket conn = server.authenticatedSession;
+    if (conn == null || !conn.isOpen()) return;
+    conn.send(GSON.toJson(buildWorldState(phase)));
+  }
+
   public static class StreamConfig {
     public int width = 360;
     public int height = 640;
@@ -163,6 +210,7 @@ public class WebSocketServerHandler {
     screenHandler = new ScreenInteractionHandler(this);
     chatCommandHandler = new ChatCommandHandler(this);
     authHandler = new AuthenticationHandler(this);
+    worldJoinHandler = new WorldJoinHandler(this);
   }
 
   public static WebSocketServerHandler getInstance() {
@@ -174,8 +222,15 @@ public class WebSocketServerHandler {
   }
 
   public boolean startServer(int port, boolean isAutoLaunch) {
+    return startServer(port, isAutoLaunch, false);
+  }
+
+  public boolean startServer(int port, boolean isAutoLaunch, boolean persistent) {
     if (running.get()) {
       if (currentPort == port) {
+        if (persistent) {
+          this.persistent = true;
+        }
         return true;
       }
       stopServer();
@@ -192,6 +247,7 @@ public class WebSocketServerHandler {
       server.start();
       currentPort = port;
       running.set(true);
+      this.persistent = persistent;
 
       if (isAutoLaunch && !ModConfig.getInstance().isShowQrCodeWhenAutoLaunch()) {
         hasEverConnected.set(true);
@@ -225,12 +281,17 @@ public class WebSocketServerHandler {
         server = null;
         currentPort = -1;
         running.set(false);
+        persistent = false;
       }
     }
   }
 
   public boolean isRunning() {
     return running.get();
+  }
+
+  public boolean isPersistent() {
+    return persistent;
   }
 
   public boolean hasEverConnected() {
@@ -503,6 +564,14 @@ public class WebSocketServerHandler {
     screenStatus.addProperty("type", "SCREEN_STATE");
     screenStatus.addProperty("isOpen", isScreenOpen);
     conn.send(GSON.toJson(screenStatus));
+
+    net.minecraft.client.Minecraft.getInstance()
+        .execute(
+            () -> {
+              if (conn.isOpen()) {
+                conn.send(GSON.toJson(buildWorldState(currentWorldPhase())));
+              }
+            });
   }
 
   private void handleMapInteract(JsonObject json) {
@@ -530,14 +599,18 @@ public class WebSocketServerHandler {
   }
 
   public int startServerWithPortRange(int preferredPort, boolean isAutoLaunch) {
+    return startServerWithPortRange(preferredPort, isAutoLaunch, false);
+  }
+
+  public int startServerWithPortRange(int preferredPort, boolean isAutoLaunch, boolean persistent) {
     int startPort = Math.max(9600, Math.min(9700, preferredPort));
     for (int port = startPort; port <= 9700; port++) {
-      if (startServer(port, isAutoLaunch)) {
+      if (startServer(port, isAutoLaunch, persistent)) {
         return port;
       }
     }
     for (int port = 9600; port < startPort; port++) {
-      if (startServer(port, isAutoLaunch)) {
+      if (startServer(port, isAutoLaunch, persistent)) {
         return port;
       }
     }
@@ -643,6 +716,9 @@ public class WebSocketServerHandler {
               case "SCREEN_HOVER" -> screenHandler.handleScreenHover(json);
               case "SCREEN_MODIFIER" -> screenHandler.handleScreenModifier(json);
               case "MAP_INTERACT" -> handleMapInteract(json);
+              case "LIST_SERVERS" -> worldJoinHandler.handleListServers(conn);
+              case "JOIN_SERVER" -> worldJoinHandler.handleJoinServer(conn, json);
+              case "LEAVE_WORLD" -> worldJoinHandler.handleLeaveWorld(conn);
               case "INFO" -> {}
               default ->
                   MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);

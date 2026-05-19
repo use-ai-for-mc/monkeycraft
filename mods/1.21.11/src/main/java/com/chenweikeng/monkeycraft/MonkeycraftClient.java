@@ -13,6 +13,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
@@ -52,6 +53,7 @@ public class MonkeycraftClient implements ClientModInitializer {
     MonkeycraftApiRegistration.register(new WebSocketApiProvider());
 
     ClientCommandRegistrationCallback.EVENT.register(this::registerCommands);
+    registerLifecycleEvents();
     registerConnectionEvents();
     registerTickEvents();
     PasswordQrOverlay.register();
@@ -61,6 +63,7 @@ public class MonkeycraftClient implements ClientModInitializer {
     ClientTickEvents.END_CLIENT_TICK.register(
         client -> {
           boolean connectedNow = WebSocketServerHandler.getInstance().isClientConnected();
+          WebSocketServerHandler.getInstance().updateWorldState();
 
           if (pendingMouseReleaseTicks > 0) {
             pendingMouseReleaseTicks -= 1;
@@ -128,6 +131,24 @@ public class MonkeycraftClient implements ClientModInitializer {
         });
   }
 
+  private void registerLifecycleEvents() {
+    ClientLifecycleEvents.CLIENT_STARTED.register(
+        client -> {
+          ModConfig config = ModConfig.getInstance();
+          if (config.isEnabled() && config.isStartServerAtLaunch()) {
+            LOGGER.info("Starting Monkeycraft server at launch...");
+            int actualPort =
+                WebSocketServerHandler.getInstance()
+                    .startServerWithPortRange(config.getPort(), true, true);
+            if (actualPort > 0) {
+              LOGGER.info("Monkeycraft server started at launch on port {}", actualPort);
+            } else {
+              LOGGER.warn("Failed to start server at launch (no available port 9600-9700)");
+            }
+          }
+        });
+  }
+
   private void registerConnectionEvents() {
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {
@@ -147,7 +168,8 @@ public class MonkeycraftClient implements ClientModInitializer {
 
     ClientPlayConnectionEvents.DISCONNECT.register(
         (handler, client) -> {
-          if (WebSocketServerHandler.getInstance().isRunning()) {
+          WebSocketServerHandler ws = WebSocketServerHandler.getInstance();
+          if (ws.isRunning() && !ws.isPersistent()) {
             LOGGER.info("Stopping Monkeycraft server due to disconnection...");
             stopServer();
           }
