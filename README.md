@@ -97,6 +97,14 @@ Need to step away but stay connected?
 - 💬 **Chat Available** — Still send and receive messages
 - 📱 **Live Activity (iOS)** — See countdown on your lock screen
 
+### 🧭 Remote Server Join
+
+Connect from your phone while Minecraft is still at the title screen:
+
+- 📋 **Saved server list** — browse the multiplayer servers saved on your client
+- ⌨️ **Direct connect** — type any server address to join
+- 🚪 **Hands-free** — with *Start Server at Launch* enabled, pick and join a server entirely from the app
+
 ### 🔐 Secure Connection
 
 - 🛡️ **Password Protected** — Only those with your password can connect
@@ -141,6 +149,8 @@ Access settings via `/monkey config` or through ModMenu:
 | ✅ **Command Allowlist** | All allowed | Which commands can be run remotely |
 | ❌ **Command Denylist** | op, deop | Blocked commands |
 | 🚀 **Auto-Launch** | Off | Start server automatically when joining a world |
+| 🟢 **Start Server at Launch** | Off | Start the server when Minecraft finishes loading, so the app can connect from the title screen |
+| 🔗 **Allow Remote Server Join** | On | Let the connected app make this client join a multiplayer server |
 
 ---
 
@@ -160,6 +170,7 @@ Access settings via `/monkey config` or through ModMenu:
 | Screen | Purpose |
 |--------|---------|
 | 🔐 **Login** | Enter server details and password |
+| 🧭 **Server Picker** | Choose a multiplayer server to join when the client is at the title screen |
 | 📹 **Stream** | Main gameplay with video and controls |
 | 💬 **Chat** | Dedicated chat interface |
 | ⚙️ **Settings** | Adjust video quality and preferences |

@@ -26,6 +26,7 @@ import 'package:monkeycraft_client/stream/widgets/screen_controls.dart';
 import 'package:monkeycraft_client/stream/widgets/stream_overlays.dart';
 import 'package:monkeycraft_client/stream/widgets/command_palette.dart';
 import 'package:monkeycraft_client/map/map_screen.dart';
+import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
 
 class StreamScreen extends StatefulWidget {
   final StreamProxy proxy;
@@ -73,11 +74,13 @@ class _StreamScreenState extends State<StreamScreen>
   StreamSubscription<void>? _connectionLostSub;
   StreamSubscription<void>? _connectionRestoredSub;
   StreamSubscription<bool>? _screenStateSub;
+  StreamSubscription<WorldState>? _worldStateSub;
 
   Timer? _notificationCheckTimer;
   bool? _lastIsPortrait;
   Size? _lastScreenSize;
   bool _closing = false;
+  bool _handingOff = false;
   bool? _forcedOrientation;
 
   AppLifecycleState? _lastLifecycleState;
@@ -197,6 +200,8 @@ class _StreamScreenState extends State<StreamScreen>
       if (mounted) setState(() => _isScreenOpen = isOpen);
     });
     _isScreenOpen = widget.proxy.screenOpen;
+    _worldStateSub?.cancel();
+    _worldStateSub = widget.proxy.worldStateEvents.listen(_handleWorldState);
   }
 
   void _attachSessionState() {
@@ -380,6 +385,30 @@ class _StreamScreenState extends State<StreamScreen>
       ),
     );
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _handleWorldState(WorldState worldState) {
+    if (_closing || _handingOff) return;
+    // The player left the world (back to a menu) on the Minecraft client side;
+    // hand the still-open connection back to the server picker.
+    if (worldState.phase == WorldPhase.menu) {
+      _goToServerPicker();
+    }
+  }
+
+  void _goToServerPicker() {
+    if (_closing || _handingOff || !mounted) return;
+    _handingOff = true;
+    _input.releaseAll();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ServerPickerScreen(
+          proxy: widget.proxy,
+          server: widget.server,
+          password: widget.password,
+        ),
+      ),
+    );
   }
 
   Future<void> _pauseVideoPipeline() async {
@@ -583,11 +612,13 @@ class _StreamScreenState extends State<StreamScreen>
     _connectionLostSub?.cancel();
     _connectionRestoredSub?.cancel();
     _screenStateSub?.cancel();
+    _worldStateSub?.cancel();
     _notificationCheckTimer?.cancel();
     _session.disposeDecoder();
     _session.dispose();
     _liveActivityService.dispose();
-    widget.proxy.stop();
+    // Keep the connection alive when handing off to the server picker.
+    if (!_handingOff) widget.proxy.stop();
     SystemChrome.setPreferredOrientations([]);
     super.dispose();
   }

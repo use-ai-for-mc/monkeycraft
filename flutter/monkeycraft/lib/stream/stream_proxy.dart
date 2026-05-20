@@ -46,6 +46,10 @@ class StreamProxy {
   StreamController<DateTime>? _heartbeatAckController;
   StreamController<bool>? _screenStateController;
   StreamController<MapData>? _mapDataController;
+  StreamController<WorldState>? _worldStateController;
+  StreamController<List<ServerListEntry>>? _serverListController;
+  StreamController<JoinResult>? _joinResultController;
+  WorldState? _worldState;
   bool _screenOpen = false;
   bool get screenOpen => _screenOpen;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
@@ -106,6 +110,13 @@ class StreamProxy {
       _screenStateController?.stream ?? const Stream.empty();
   Stream<MapData> get mapDataEvents =>
       _mapDataController?.stream ?? const Stream.empty();
+  Stream<WorldState> get worldStateEvents =>
+      _worldStateController?.stream ?? const Stream.empty();
+  Stream<List<ServerListEntry>> get serverListEvents =>
+      _serverListController?.stream ?? const Stream.empty();
+  Stream<JoinResult> get joinResultEvents =>
+      _joinResultController?.stream ?? const Stream.empty();
+  WorldState? get worldState => _worldState;
   Stream<void> get connectionLostEvents => _connectionLostController.stream;
   Stream<void> get connectionRestoredEvents =>
       _connectionRestoredController.stream;
@@ -152,6 +163,30 @@ class StreamProxy {
   void exitChatMode() => _commandSender.exitChatMode();
   void sendMapInteract(int entityId) =>
       _commandSender.sendMapInteract(entityId);
+  void requestServerList() =>
+      _commandSender.trySendCommand({'type': 'LIST_SERVERS'});
+  void joinServer(String address, {String? name}) {
+    final cmd = <String, dynamic>{'type': 'JOIN_SERVER', 'address': address};
+    if (name != null && name.isNotEmpty) cmd['name'] = name;
+    _commandSender.trySendCommand(cmd);
+  }
+
+  void leaveWorld() => _commandSender.trySendCommand({'type': 'LEAVE_WORLD'});
+
+  /// Returns the latest world phase, waiting briefly for the first WORLD_STATE
+  /// after authentication. Returns null if the mod never reports one.
+  Future<WorldState?> awaitWorldState({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
+    if (_worldState != null) return _worldState;
+    final controller = _worldStateController;
+    if (controller == null) return null;
+    try {
+      return await controller.stream.first.timeout(timeout);
+    } catch (_) {
+      return _worldState;
+    }
+  }
 
   bool _isIdrFrame(List<int> data) {
     if (data.length < 5) return false;
@@ -311,6 +346,10 @@ class StreamProxy {
     _heartbeatAckController = StreamController<DateTime>.broadcast();
     _screenStateController = StreamController<bool>.broadcast();
     _mapDataController = StreamController<MapData>.broadcast();
+    _worldStateController = StreamController<WorldState>.broadcast();
+    _serverListController =
+        StreamController<List<ServerListEntry>>.broadcast();
+    _joinResultController = StreamController<JoinResult>.broadcast();
   }
 
   void _handleBinaryMessage(List<int> message) {
@@ -424,7 +463,7 @@ class StreamProxy {
             'type': 'AUTH',
             'salt': clientSalt,
             'signature': signature,
-            'protocolVersion': 1,
+            'protocolVersion': 2,
           });
           _wsChannel!.sink.add(authMsg);
         } else {
@@ -530,6 +569,22 @@ class StreamProxy {
       _screenOpen = isOpen;
       _screenStateController?.add(isOpen);
     }
+    if (data['type'] == 'WORLD_STATE') {
+      final worldState = WorldState.fromJson(data);
+      _worldState = worldState;
+      _worldStateController?.add(worldState);
+    }
+    if (data['type'] == 'SERVER_LIST') {
+      final servers =
+          (data['servers'] as List<dynamic>?)
+              ?.map((e) => ServerListEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          <ServerListEntry>[];
+      _serverListController?.add(servers);
+    }
+    if (data['type'] == 'JOIN_RESULT') {
+      _joinResultController?.add(JoinResult.fromJson(data));
+    }
   }
 
   void _handleConnectionLoss() {
@@ -633,6 +688,7 @@ class StreamProxy {
     _authenticated = false;
     await _closeStreamControllers();
     _screenOpen = false;
+    _worldState = null;
     await _videoRelay.stop();
   }
 
@@ -680,5 +736,11 @@ class StreamProxy {
     _screenStateController = null;
     await _mapDataController?.close();
     _mapDataController = null;
+    await _worldStateController?.close();
+    _worldStateController = null;
+    await _serverListController?.close();
+    _serverListController = null;
+    await _joinResultController?.close();
+    _joinResultController = null;
   }
 }

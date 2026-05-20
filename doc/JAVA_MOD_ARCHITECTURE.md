@@ -103,6 +103,14 @@ Singleton managing the WebSocket server lifecycle and protocol.
 | `EXIT_CHAT` | `handleExitChat` | Exit chat mode |
 | `REQUEST_KEYFRAME` | `handleRequestKeyframe` | Request I-frame reset |
 | `HIBERNATION_PING` | `handleHibernationPing` | Keep-alive during hibernation |
+| `LIST_SERVERS` | `WorldJoinHandler` | Request the saved multiplayer server list |
+| `JOIN_SERVER` | `WorldJoinHandler` | Make the client connect to a multiplayer server |
+| `LEAVE_WORLD` | `WorldJoinHandler` | Disconnect from the current world to the title screen |
+
+**Pre-join control (`WorldJoinHandler`):** when `startServerAtLaunch` is enabled the WebSocket
+server runs from game launch, so the app can connect at the title screen. The mod pushes a
+`WORLD_STATE` message (`MENU` / `CONNECTING` / `IN_WORLD`) on every phase change, replies to
+`LIST_SERVERS` with `SERVER_LIST`, and answers `JOIN_SERVER` with `JOIN_RESULT`.
 
 **Public Methods (via API):**
 - `sendTimedNotification()` / `cancelTimedNotification()`
@@ -184,6 +192,8 @@ Singleton config persisted to `config/monkeycraft.json`.
 | `commandAllowlist` | List | `["*"]` | Allowed command patterns |
 | `commandDenylist` | List | `["op *", "deop *"]` | Denied command patterns |
 | `defaultBehavior` | String | `"ALLOW"` | Default if not in list |
+| `startServerAtLaunch` | boolean | `false` | Start the server at game launch (before joining a world) |
+| `allowRemoteServerJoin` | boolean | `true` | Allow the app to make the client join a multiplayer server |
 
 **Command Pattern Matching:**
 - `"*"` matches all commands

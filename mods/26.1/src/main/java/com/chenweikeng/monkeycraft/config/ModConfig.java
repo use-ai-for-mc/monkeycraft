@@ -51,6 +51,8 @@ public class ModConfig {
   private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
   private String defaultBehavior = "ALLOW";
   private boolean alwaysAutoJump = true;
+  private boolean startServerAtLaunch = false;
+  private boolean allowRemoteServerJoin = true;
 
   public static ModConfig getInstance() {
     if (INSTANCE == null) {
@@ -196,6 +198,22 @@ public class ModConfig {
 
   public void setAlwaysAutoJump(boolean alwaysAutoJump) {
     this.alwaysAutoJump = alwaysAutoJump;
+  }
+
+  public boolean isStartServerAtLaunch() {
+    return startServerAtLaunch;
+  }
+
+  public void setStartServerAtLaunch(boolean startServerAtLaunch) {
+    this.startServerAtLaunch = startServerAtLaunch;
+  }
+
+  public boolean isAllowRemoteServerJoin() {
+    return allowRemoteServerJoin;
+  }
+
+  public void setAllowRemoteServerJoin(boolean allowRemoteServerJoin) {
+    this.allowRemoteServerJoin = allowRemoteServerJoin;
   }
 
   public void save() {

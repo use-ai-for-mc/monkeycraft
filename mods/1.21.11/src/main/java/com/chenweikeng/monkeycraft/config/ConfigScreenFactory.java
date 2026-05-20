@@ -55,6 +55,18 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(showQrCodeWhenAutoLaunchEntry);
 
+    AbstractConfigListEntry<Boolean> startServerAtLaunchEntry =
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.monkeycraft.option.startServerAtLaunch"),
+                config.isStartServerAtLaunch())
+            .setDefaultValue(false)
+            .setTooltip(
+                Component.translatable("config.monkeycraft.option.startServerAtLaunch.tooltip"))
+            .setSaveConsumer(config::setStartServerAtLaunch)
+            .build();
+    general.addEntry(startServerAtLaunchEntry);
+
     AbstractConfigListEntry<Integer> portEntry =
         entryBuilder
             .startIntField(
@@ -140,6 +152,18 @@ public class ConfigScreenFactory {
             .setSaveConsumer(config::setAlwaysAutoJump)
             .build();
     general.addEntry(alwaysAutoJumpEntry);
+
+    AbstractConfigListEntry<Boolean> allowRemoteServerJoinEntry =
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.monkeycraft.option.allowRemoteServerJoin"),
+                config.isAllowRemoteServerJoin())
+            .setDefaultValue(true)
+            .setTooltip(
+                Component.translatable("config.monkeycraft.option.allowRemoteServerJoin.tooltip"))
+            .setSaveConsumer(config::setAllowRemoteServerJoin)
+            .build();
+    general.addEntry(allowRemoteServerJoinEntry);
 
     builder.setSavingRunnable(config::save);
     return builder.build();

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:monkeycraft_client/auth/qr_scan_screen.dart';
+import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
 import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 
@@ -114,14 +115,31 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // The mod reports whether the client is already in a world. If it is at
+      // a menu, show the server picker instead of the stream screen.
+      final worldState = await proxy.awaitWorldState(
+        timeout: const Duration(seconds: 2),
+      );
+      if (attempt != _connectAttempt) {
+        await proxy.stop();
+        return;
+      }
+
       if (mounted) {
+        final inWorld = worldState == null || worldState.isInWorld;
         await Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => StreamScreen(
-              proxy: proxy,
-              server: _serverController.text,
-              password: _passController.text,
-            ),
+            builder: (context) => inWorld
+                ? StreamScreen(
+                    proxy: proxy,
+                    server: _serverController.text,
+                    password: _passController.text,
+                  )
+                : ServerPickerScreen(
+                    proxy: proxy,
+                    server: _serverController.text,
+                    password: _passController.text,
+                  ),
           ),
         );
       }
