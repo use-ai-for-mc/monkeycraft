@@ -43,8 +43,27 @@ public class NetworkUtils {
     List<String> ips = getLocalIpAddresses();
     List<String> result = new ArrayList<>();
     for (String ip : ips) {
-      result.add(ip + ":" + port);
+      String entry = ip + ":" + port;
+      if (isTailscaleLikeIpv4(ip)) {
+        entry += " (tailscale like)";
+      }
+      result.add(entry);
     }
     return result;
+  }
+
+  // IPv4 in 100.64.0.0/10 (RFC 6598 shared address space, the range Tailscale
+  // assigns to tailnet nodes). Not Tailscale-exclusive — ISP CGNAT uses the
+  // same range — so the label is a hint, not an assertion.
+  private static boolean isTailscaleLikeIpv4(String ip) {
+    String[] parts = ip.split("\\.");
+    if (parts.length != 4) return false;
+    try {
+      int first = Integer.parseInt(parts[0]);
+      int second = Integer.parseInt(parts[1]);
+      return first == 100 && second >= 64 && second <= 127;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 }

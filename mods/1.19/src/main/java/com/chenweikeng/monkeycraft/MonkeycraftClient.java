@@ -263,7 +263,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                             .withClickEvent(
                                 new ClickEvent(
                                     ClickEvent.Action.OPEN_URL,
-                                    "https://github.com/weikengchen/monkeycraft/wiki/Solutions-for-remote-connections")))));
+                                    "https://github.com/use-ai-for-mc/monkeycraft/wiki/Solutions-for-remote-connections")))));
   }
 
   public static void stopServer() {

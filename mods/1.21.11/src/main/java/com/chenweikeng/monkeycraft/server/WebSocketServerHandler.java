@@ -346,6 +346,10 @@ public class WebSocketServerHandler {
       if ((bytes[0] & 0xFF) == 192 && (bytes[1] & 0xFF) == 168) {
         return true;
       }
+      // 100.64.0.0/10 — RFC 6598 CGNAT range; Tailscale assigns from here.
+      if ((bytes[0] & 0xFF) == 100 && (bytes[1] & 0xFF) >= 64 && (bytes[1] & 0xFF) <= 127) {
+        return true;
+      }
     }
 
     return false;
