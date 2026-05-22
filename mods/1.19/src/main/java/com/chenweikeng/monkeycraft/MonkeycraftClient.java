@@ -1,5 +1,6 @@
 package com.chenweikeng.monkeycraft;
 
+import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.mixin.MouseHandlerAccessor;
@@ -264,6 +265,14 @@ public class MonkeycraftClient implements ClientModInitializer {
                                 new ClickEvent(
                                     ClickEvent.Action.OPEN_URL,
                                     "https://github.com/use-ai-for-mc/monkeycraft/wiki/Solutions-for-remote-connections")))));
+    if (ModConfig.getInstance().getAllowConnectionsFrom() == AllowConnectionsFrom.ANYWHERE) {
+      sendSystemMessage(
+          Component.literal("MONKEY: ")
+              .withStyle(ChatFormatting.RED, ChatFormatting.BOLD)
+              .append(
+                  Component.translatable("monkeycraft.server.allow_anywhere_warning")
+                      .withStyle(Style.EMPTY.withColor(ChatFormatting.RED).withBold(false))));
+    }
   }
 
   public static void stopServer() {

@@ -40,6 +40,7 @@ public class WebSocketServerHandler {
   private volatile boolean persistent = false;
   private final AtomicBoolean hasEverConnected = new AtomicBoolean(false);
   private volatile long qrDisplayStartTime = 0;
+  private volatile long lastTailscaleHintAt = 0;
   private static final Gson GSON = new Gson();
   private H264Streamer streamer;
   private final com.chenweikeng.monkeycraft.MapDataHandler mapDataHandler =
@@ -347,12 +348,44 @@ public class WebSocketServerHandler {
         return true;
       }
       // 100.64.0.0/10 — RFC 6598 CGNAT range; Tailscale assigns from here.
+      // "Local + 100.64/10" always accepts; "Only Local Network" accepts only
+      // when a Tailscale daemon is locally detected (otherwise the range alone
+      // is ambiguous with ISP CGNAT).
       if ((bytes[0] & 0xFF) == 100 && (bytes[1] & 0xFF) >= 64 && (bytes[1] & 0xFF) <= 127) {
-        return true;
+        if (setting == AllowConnectionsFrom.LOCAL_NETWORK_AND_TAILSCALE_RANGE) {
+          return true;
+        }
+        return com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning();
       }
     }
 
     return false;
+  }
+
+  private void maybeNotifyPossiblyTailscaleRejected(java.net.InetAddress clientAddr) {
+    if (clientAddr == null) return;
+    byte[] bytes = clientAddr.getAddress();
+    if (bytes.length != 4) return;
+    int first = bytes[0] & 0xFF;
+    int second = bytes[1] & 0xFF;
+    if (first != 100 || second < 64 || second > 127) return;
+
+    AllowConnectionsFrom setting = ModConfig.getInstance().getAllowConnectionsFrom();
+    if (setting != AllowConnectionsFrom.ONLY_LOCAL_NETWORK) return;
+
+    if (com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning()) return;
+
+    long now = System.currentTimeMillis();
+    if (now - lastTailscaleHintAt < 60_000L) return;
+    lastTailscaleHintAt = now;
+
+    String ipStr = clientAddr.getHostAddress();
+    net.minecraft.client.Minecraft.getInstance()
+        .execute(
+            () ->
+                MonkeycraftClient.sendMonkeyMessage(
+                    net.minecraft.network.chat.Component.translatable(
+                        "monkeycraft.connection.rejected_possibly_tailscale", ipStr)));
   }
 
   public int getCurrentPort() {
@@ -644,6 +677,7 @@ public class WebSocketServerHandler {
           error.addProperty("message", "Connection not allowed from this address");
           conn.send(GSON.toJson(error));
           conn.close();
+          maybeNotifyPossiblyTailscaleRejected(clientAddr);
           return;
         }
       }

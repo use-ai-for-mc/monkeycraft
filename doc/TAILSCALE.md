@@ -8,11 +8,12 @@ phone, so the phone can reach the mod from anywhere as if it were on the
 same LAN — without port-forwarding and without exposing the WebSocket
 publicly.
 
-This guide walks through pairing today, with the existing mod build.
-There is no Tailscale-specific code in the mod yet; the trick is that
-Tailscale gives every device a stable `100.x.y.z` address in the
-[CGNAT range](https://tailscale.com/kb/1015/100.x-addresses) that the
-mod's existing `Allow Connections From = Anywhere` setting will accept.
+The mod ships with native Tailscale awareness: it detects a local
+Tailscale daemon and treats Tailscale's `100.x.y.z`
+[CGNAT-range addresses](https://tailscale.com/kb/1015/100.x-addresses)
+as part of your local network. In practice that means you install
+Tailscale, type the `100.x.y.z` address into the app, and connect —
+no special `/monkey config` changes required.
 
 ---
 
@@ -33,37 +34,41 @@ tier covers up to 100 devices.
 
 ### 1. Install Tailscale on the PC
 
-Install from the link above, sign in, and confirm the daemon is running.
-You should see a `100.x.y.z` address listed:
+Install from the link above, sign in, and look up your PC's tailnet
+address from the Tailscale menubar icon (macOS) or system tray icon
+(Windows / Linux GUI). It's a `100.x.y.z` number — call it `<PC_TS_IP>`.
+The address is stable across reboots and network changes.
 
-```bash
-# macOS / Linux
-tailscale ip -4
-
-# Windows (PowerShell)
-& "C:\Program Files\Tailscale\tailscale.exe" ip -4
-```
-
-Note this address — call it `<PC_TS_IP>`. It is stable across reboots and
-network changes.
+MonkeyCraft labels addresses in this range as `(Tailscale)` — or
+`(possibly Tailscale)` if local detection couldn't confirm Tailscale is
+running — in the `/monkey` IP listing and on the title-screen overlay,
+so you can pick the right one.
 
 ### 2. Install Tailscale on the phone
 
-Install the app, sign in to the same account, and toggle the VPN on. Once
-the phone shows it is connected to the tailnet, it can reach
+Install the app, sign in to the same account, and toggle the VPN on.
+Once the phone shows it is connected to the tailnet, it can reach
 `<PC_TS_IP>`.
 
-### 3. (No special configuration needed)
+### 3. Connection allowlist
 
-MonkeyCraft treats Tailscale's `100.64.0.0/10` range as part of your
-local network. The default `Allow Connections From` value
-(`Only Local Network`) accepts these addresses alongside the standard
-RFC1918 ranges (`10/8`, `172.16/12`, `192.168/16`), so no config change
-is required.
+MonkeyCraft's `Allow Connections From` setting understands Tailscale:
 
-If you previously flipped `Allow Connections From` to `Anywhere` solely
-to enable Tailscale, you can move it back to `Only Local Network` to
-tighten things up.
+- **`Only Local Network`** (default) accepts Tailscale addresses
+  (`100.64.0.0/10`) when the mod can detect a running Tailscale daemon
+  locally. For most users this just works, no config change required.
+- **`Local + 100.64/10`** accepts any `100.64.0.0/10` source regardless
+  of detection. Use this if auto-detection misses your Tailscale install
+  (e.g. unusual macOS App Store sandboxing), or you're connecting from a
+  host you're confident is on the tailnet.
+- **`Anywhere`** accepts any source. Avoid unless you understand the
+  exposure.
+
+The config screen (`/monkey config`) shows whether Tailscale was
+detected, so you don't have to guess. When the mod rejects a `100.64/10`
+connection because detection failed and the setting is `Only Local
+Network`, it sends an in-game chat message suggesting the `Local +
+100.64/10` switch.
 
 ### 4. Start the WebSocket server
 
@@ -94,17 +99,8 @@ Tailscale's [MagicDNS](https://tailscale.com/kb/1081/magicdns) lets you
 address devices by name rather than by IP — e.g. `my-pc.tail1234.ts.net`.
 Enable it once in the Tailscale admin console (DNS → Enable MagicDNS),
 and you can type `my-pc:9600` into the app instead of
-`100.x.y.z:9600`. The name survives Tailscale IP changes (rare, but
-possible if you re-install).
-
-Check your device's name with:
-
-```bash
-tailscale status
-```
-
-The first column is the device name; the FQDN is the device name plus
-your tailnet's DNS suffix.
+`100.x.y.z:9600`. The name survives the rare case where you reinstall
+Tailscale and get a different IP.
 
 ---
 
@@ -127,7 +123,8 @@ phone to reach the port. Example policy fragment:
 }
 ```
 
-This is overkill for a personal tailnet but worth knowing if you share it.
+This is overkill for a personal tailnet but worth knowing if you share
+it.
 
 ---
 
@@ -141,11 +138,10 @@ This is overkill for a personal tailnet but worth knowing if you share it.
   still gates who can pair, regardless of how they reached the port.
 - **`Anywhere` is broader than Tailscale.** With that setting selected,
   *any* source the mod's socket can reach will be accepted at the IP
-  layer. As long as you have not also forwarded port 9600 on your home
-  router, the only path to the WS port from outside your LAN is through
-  the tailnet — which is the point. **Do not combine `Anywhere` with a
-  router port-forward**; that re-introduces the public-internet exposure
-  Tailscale was supposed to remove.
+  layer. **Do not combine `Anywhere` with a router port-forward**; that
+  re-introduces the public-internet exposure Tailscale was supposed to
+  remove. For Tailscale-only access, `Only Local Network` (with
+  detection) or `Local + 100.64/10` is preferred.
 - **Password strength.** Treat the QR-code password as a long-lived
   secret. Rotate it via `/monkey config` if you ever share a screenshot
   of your title screen.
@@ -157,16 +153,14 @@ This is overkill for a personal tailnet but worth knowing if you share it.
 | Symptom | Likely cause | Fix |
 | ------- | ------------ | --- |
 | App says "Connection refused" | Mod's WS server isn't running | `/monkey start`, or enable Start Server at Launch |
-| App says "Connection not allowed from this address" | You're on an older mod version that doesn't yet treat `100.64/10` as local | Update the mod, or set `Allow Connections From` to `Anywhere` as a workaround |
+| App says "Connection not allowed from this address" | Mod couldn't auto-detect Tailscale locally (rare; e.g. macOS App Store sandboxing) | Set `Allow Connections From` to `Local + 100.64/10` in `/monkey config`. You'll also see an in-game chat message suggesting this. |
 | App times out | Phone's Tailscale VPN is off | Toggle Tailscale on in the phone app |
 | App times out only on cellular | macOS / Windows firewall blocking inbound on the Tailscale interface | Allow Java / Minecraft inbound; on macOS, accept the firewall prompt the first time the WS server starts |
 | Tailscale IP works on LAN, not on cellular | Your tailnet relays may be slow / Tailscale not yet connected on phone | Open the Tailscale app on the phone, confirm "Connected" before opening MonkeyCraft |
-| `100.x.y.z` differs from what `tailscale ip -4` shows | You're looking at the wrong device | Run `tailscale status` to confirm device name → IP mapping |
 
-To sanity-check the path independently of MonkeyCraft, from the phone's
-Tailscale app or a ping tool, ping `<PC_TS_IP>` while the phone's
-Tailscale VPN is on. Then try a generic TCP probe to `9600` from any
-machine on the tailnet:
+To sanity-check the path independently of MonkeyCraft, ping
+`<PC_TS_IP>` from another tailnet device while the phone's Tailscale VPN
+is on, then try a TCP probe to `9600`:
 
 ```bash
 # from another tailnet device
@@ -178,14 +172,25 @@ allowlist or the password, not the network.
 
 ---
 
-## Heuristic, not assertion
+## How the detection works
 
-The `100.64.0.0/10` range is RFC 6598 *Shared Address Space* — reserved
-for Carrier-Grade NAT (CGNAT). Tailscale uses it for tailnet addresses,
-but it's also used by some ISPs for CGNAT. The mod treats the whole
-range as local-equivalent on the assumption that nothing on a typical
-home LAN sits in `100.64/10` except Tailscale. If you're behind ISP
-CGNAT *and* you port-forward 9600 on your router, CGNAT peers could in
-principle reach the WS port — your HMAC handshake remains the actual
-gate. Don't combine port-forwarding with `Anywhere` if you can avoid
-it.
+The mod checks for a running Tailscale daemon by enumerating local
+network interfaces:
+
+- **Linux** — interface literally named `tailscale0`.
+- **Windows** — Wintun adapter whose display name contains "Tailscale".
+- **macOS** — any `utun*` interface holding an IPv4 address in
+  `100.64.0.0/10`. (The interface number varies per boot, so the IP is
+  the only reliable signal on macOS.)
+
+It's not a definitive check — on a personal device a `100.64/10` address
+almost always comes from Tailscale (the range is RFC 6598 CGNAT shared
+space, also used by some ISPs for carrier NAT). Under the default
+`Only Local Network` setting, the mod accepts `100.64/10` traffic only
+when the local detection passes, so a host behind ISP CGNAT without
+Tailscale won't accidentally allow CGNAT-internet traffic.
+
+For a stricter check (resolving the exact Tailscale-assigned IPs by
+querying `tailscaled`), see Tailscale's CLI: `tailscale status --json`.
+The mod intentionally avoids the CLI dependency in favor of the
+interface-enumeration heuristic.

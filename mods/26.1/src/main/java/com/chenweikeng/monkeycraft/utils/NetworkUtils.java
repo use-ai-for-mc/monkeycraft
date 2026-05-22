@@ -41,11 +41,12 @@ public class NetworkUtils {
 
   public static List<String> getLocalIpAddressesWithPort(int port) {
     List<String> ips = getLocalIpAddresses();
+    boolean tailscaleRunning = isTailscaleRunning();
     List<String> result = new ArrayList<>();
     for (String ip : ips) {
       String entry = ip + ":" + port;
       if (isTailscaleLikeIpv4(ip)) {
-        entry += " (tailscale like)";
+        entry += tailscaleRunning ? " (Tailscale)" : " (possibly Tailscale)";
       }
       result.add(entry);
     }
@@ -54,7 +55,7 @@ public class NetworkUtils {
 
   // IPv4 in 100.64.0.0/10 (RFC 6598 shared address space, the range Tailscale
   // assigns to tailnet nodes). Not Tailscale-exclusive — ISP CGNAT uses the
-  // same range — so the label is a hint, not an assertion.
+  // same range — so the label alone is a hint, not an assertion.
   private static boolean isTailscaleLikeIpv4(String ip) {
     String[] parts = ip.split("\\.");
     if (parts.length != 4) return false;
@@ -65,5 +66,46 @@ public class NetworkUtils {
     } catch (NumberFormatException e) {
       return false;
     }
+  }
+
+  // Best-effort check for whether a local Tailscale daemon is running.
+  // Linux:   literal "tailscale0" interface name.
+  // Windows: Wintun adapter whose display name contains "Tailscale".
+  // macOS:   any utun* interface holding an IPv4 address in 100.64.0.0/10
+  //          (the utun name varies per boot, so the IP is the signal).
+  public static boolean isTailscaleRunning() {
+    try {
+      Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+      if (interfaces == null) return false;
+      while (interfaces.hasMoreElements()) {
+        NetworkInterface iface = interfaces.nextElement();
+        if (!iface.isUp()) continue;
+
+        String name = iface.getName();
+        String displayName = iface.getDisplayName();
+
+        if ("tailscale0".equals(name)) return true;
+
+        if (displayName != null && displayName.toLowerCase().contains("tailscale")) {
+          return true;
+        }
+
+        if (name != null && name.startsWith("utun")) {
+          Enumeration<InetAddress> addrs = iface.getInetAddresses();
+          while (addrs.hasMoreElements()) {
+            InetAddress addr = addrs.nextElement();
+            if (addr instanceof Inet4Address) {
+              byte[] b = addr.getAddress();
+              if ((b[0] & 0xFF) == 100 && (b[1] & 0xFF) >= 64 && (b[1] & 0xFF) <= 127) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    } catch (Exception e) {
+      // fail closed
+    }
+    return false;
   }
 }

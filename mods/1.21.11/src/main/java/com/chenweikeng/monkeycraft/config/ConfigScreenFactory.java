@@ -1,11 +1,14 @@
 package com.chenweikeng.monkeycraft.config;
 
+import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -79,6 +82,11 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(portEntry);
 
+    Component allowConnectionsFromTooltip =
+        Component.translatable("config.monkeycraft.option.allowConnectionsFrom.tooltip");
+    Component allowConnectionsFromAnywhereWarning =
+        Component.translatable("config.monkeycraft.option.allowConnectionsFrom.anywhere.warning")
+            .withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
     AbstractConfigListEntry<AllowConnectionsFrom> allowConnectionsFromEntry =
         entryBuilder
             .startEnumSelector(
@@ -86,8 +94,14 @@ public class ConfigScreenFactory {
                 AllowConnectionsFrom.class,
                 config.getAllowConnectionsFrom())
             .setDefaultValue(AllowConnectionsFrom.ONLY_LOCAL_NETWORK)
-            .setTooltip(
-                Component.translatable("config.monkeycraft.option.allowConnectionsFrom.tooltip"))
+            .setTooltipSupplier(
+                (AllowConnectionsFrom mode) ->
+                    mode == AllowConnectionsFrom.ANYWHERE
+                        ? Optional.of(
+                            new Component[] {
+                              allowConnectionsFromTooltip, allowConnectionsFromAnywhereWarning
+                            })
+                        : Optional.of(new Component[] {allowConnectionsFromTooltip}))
             .setSaveConsumer(config::setAllowConnectionsFrom)
             .setEnumNameProvider(
                 mode ->
@@ -96,6 +110,16 @@ public class ConfigScreenFactory {
                             + mode.name().toLowerCase()))
             .build();
     general.addEntry(allowConnectionsFromEntry);
+
+    AbstractConfigListEntry<?> tailscaleStatusEntry =
+        entryBuilder
+            .startTextDescription(
+                Component.translatable(
+                    NetworkUtils.isTailscaleRunning()
+                        ? "config.monkeycraft.status.tailscale.detected"
+                        : "config.monkeycraft.status.tailscale.not_detected"))
+            .build();
+    general.addEntry(tailscaleStatusEntry);
 
     String randomPassword = ModConfig.generateRandomPassword();
     AbstractConfigListEntry<String> passwordEntry =
