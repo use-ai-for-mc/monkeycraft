@@ -43,5 +43,5 @@
 	"monkeycraft.server.port_unavailable": "Port %s is unavailable. Server not started.",
 	"monkeycraft.server.disabled": "Mod is disabled in config",
 	"monkeycraft.server.autolaunch": "Auto-launching server...",
-	"monkeycraft.command.help": "/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open settings\n/monkey ip - Show local IPs"
+	"monkeycraft.command.help": "/monkey - Show help and local IPs\n/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open settings"
 }

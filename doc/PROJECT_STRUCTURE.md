@@ -45,7 +45,7 @@ with its own `build.gradle`, `gradle.properties`, wrapper, and
 ### Java Source (`mods/<mc>/src/main/java/com/chenweikeng/monkeycraft/`)
 | Package | Purpose |
 |---------|---------|
-| `config/` | ModConfig, Cloth-Config screen, AllowConnectionsFrom enum |
+| `config/` | ModConfig, Cloth-Config screen, NetworkScope + TailscaleAccess enums (AllowConnectionsFrom is legacy/migration) |
 | `server/` | WebSocket server, H.264 streaming, chat / command / input / screen handlers, API provider |
 | `mixin/` | Mixin classes and `@Invoker` accessors |
 | `ui/` | In-game overlays (e.g. password QR) |

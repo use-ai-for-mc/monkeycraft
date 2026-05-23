@@ -4,7 +4,7 @@ This repo exposes a small public API for other **client-side Fabric mods** to in
 
 API package (versioned):
 
-- `com.chenweikeng.monkeycraft.api.v1`
+- `com.chenweikeng.monkeycraft_api.v1`
 
 ## What the API Provides
 
@@ -19,7 +19,7 @@ API package (versioned):
 
 ## Files / Entry Points (Monkeycraft side)
 
-- API: `src/main/java/com/chenweikeng/monkeycraft/api/v1/MonkeycraftApi.java`
+- API entry point: `MonkeycraftApi` in the external `monkeycraft-api` artifact (package `com.chenweikeng.monkeycraft_api.v1`) — not in this repo's source tree
 - Events: `MonkeycraftApi.CONNECTION` and `MonkeycraftApi.DISCONNECTION`
 - Command interception: `MonkeycraftApi.COMMAND_EXECUTION`
 - Chat filtering:
@@ -52,7 +52,8 @@ repositories {
 }
 
 dependencies {
-  compileOnly('com.github.weikengchen:monkeycraft:1.0.0') {
+  // Use the artifact matching your Minecraft version: -mc1.19 / -mc1.21.11 / -mc26.1
+  compileOnly('com.github.weikengchen:monkeycraft-api:1.0.0-mc1.21.11') {
     transitive = false
   }
 }
@@ -79,7 +80,7 @@ Java will throw `ClassNotFoundException`/`NoClassDefFoundError` if your classes 
 Use a two-class “compat gate” pattern:
 
 - `MonkeycraftCompat`:
-  - must not import any `com.chenweikeng.monkeycraft.api.v1.*`
+  - must not import any `com.chenweikeng.monkeycraft_api.v1.*`
   - checks `FabricLoader.isModLoaded("monkeycraft")`
   - only then delegates to `MonkeycraftCompatImpl`
 - `MonkeycraftCompatImpl`:
@@ -155,10 +156,10 @@ public final class MonkeycraftCompat {
 ### MonkeycraftCompatImpl (only loaded when Monkeycraft is present)
 
 ```java
-import com.chenweikeng.monkeycraft.api.v1.ChatMessageContext;
-import com.chenweikeng.monkeycraft.api.v1.ChatMessageResult;
-import com.chenweikeng.monkeycraft.api.v1.CommandExecutionResult;
-import com.chenweikeng.monkeycraft.api.v1.MonkeycraftApi;
+import com.chenweikeng.monkeycraft_api.v1.ChatMessageContext;
+import com.chenweikeng.monkeycraft_api.v1.ChatMessageResult;
+import com.chenweikeng.monkeycraft_api.v1.CommandExecutionResult;
+import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 
 final class MonkeycraftCompatImpl {
   static void init() {

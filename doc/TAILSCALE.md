@@ -166,6 +166,7 @@ it.
 | App says "Connection not allowed from this address" | Mod couldn't auto-detect Tailscale locally (rare; e.g. macOS App Store sandboxing) | Set **Tailscale Access** to *Always allow* in `/monkey config`. You'll also see an in-game chat message suggesting this. |
 | App times out | Phone's Tailscale VPN is off | Toggle Tailscale on in the phone app |
 | App times out only on cellular | macOS / Windows firewall blocking inbound on the Tailscale interface | Allow Java / Minecraft inbound; on macOS, accept the firewall prompt the first time the WS server starts |
+| Can't connect at all, even on the same LAN, and `/monkey` shows no rejection | Third-party security software (e.g. ESET, Norton, Little Snitch) is blocking inbound on the port | Allow Minecraft / Java (or the MonkeyCraft port) in the security suite's firewall. The tell is a "can't connect" with no rejection message in-game and the server clearly running. |
 | Tailscale IP works on LAN, not on cellular | Your tailnet relays may be slow / Tailscale not yet connected on phone | Open the Tailscale app on the phone, confirm "Connected" before opening MonkeyCraft |
 
 To sanity-check the path independently of MonkeyCraft, ping

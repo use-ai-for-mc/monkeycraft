@@ -16,7 +16,9 @@ src/main/java/com/chenweikeng/monkeycraft/
 ├── config/                      # Configuration
 │   ├── ModConfig.java           # Config model & persistence
 │   ├── ConfigScreenFactory.java # Cloth Config UI
-│   └── AllowConnectionsFrom.java # Connection restriction enum
+│   ├── NetworkScope.java        # Base access scope ("Who Can Connect")
+│   ├── TailscaleAccess.java     # Tailscale 100.64/10 access policy
+│   └── AllowConnectionsFrom.java # Legacy enum (config migration only)
 ├── ui/                          # User interface
 │   └── PasswordQrOverlay.java   # In-game QR code display
 ├── integration/                 # Third-party integrations
@@ -188,7 +190,8 @@ Singleton config persisted to `config/monkeycraft.json`.
 | `autoLaunch` | boolean | `false` | Auto-start server on world join |
 | `port` | int | `9600` | WebSocket server port |
 | `password` | String | random | Authentication password (Base58) |
-| `allowConnectionsFrom` | enum | `ONLY_LOCAL_NETWORK` | Connection restriction |
+| `networkScope` | enum | `LOCAL_NETWORK` | Base access scope (Who Can Connect) |
+| `tailscaleAccess` | enum | `IF_DETECTED` | Tailscale 100.64/10 access policy |
 | `commandAllowlist` | List | `["*"]` | Allowed command patterns |
 | `commandDenylist` | List | `["op *", "deop *"]` | Denied command patterns |
 | `defaultBehavior` | String | `"ALLOW"` | Default if not in list |
@@ -200,14 +203,26 @@ Singleton config persisted to `config/monkeycraft.json`.
 - `"gamemode *"` matches commands starting with `gamemode`
 - `"home"` matches exact command
 
-### AllowConnectionsFrom.java
-Enum controlling which clients can connect:
+### NetworkScope.java
+Base access scope ("Who Can Connect"):
 
 | Value | Description |
 |-------|-------------|
-| `ONLY_LOCALHOST` | Only 127.0.0.1 |
-| `ONLY_LOCAL_NETWORK` | Only LAN IPs (default) |
-| `ANYWHERE` | No restrictions |
+| `THIS_COMPUTER` | Only 127.0.0.1 |
+| `LOCAL_NETWORK` | LAN / RFC1918 IPs (default) |
+| `ANYONE` | No restriction (any source IP) |
+
+### TailscaleAccess.java
+Governs the Tailscale `100.64.0.0/10` range, independently of (and additively to) the scope:
+
+| Value | Description |
+|-------|-------------|
+| `IF_DETECTED` | Accept Tailscale IPs when a local Tailscale daemon is detected (default) |
+| `ALWAYS` | Always accept the Tailscale range |
+| `NEVER` | Never accept the Tailscale range |
+
+### AllowConnectionsFrom.java
+Legacy enum, retained only to migrate old configs to `networkScope` + `tailscaleAccess`.
 
 ### ConfigScreenFactory.java
 Creates Cloth Config UI for in-game configuration.

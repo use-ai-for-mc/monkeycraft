@@ -145,7 +145,8 @@ Access settings via `/monkey config` or through ModMenu:
 |--------|---------|--------------|
 | 🚪 **Port** | 9600 | The port number for connections |
 | 🔑 **Password** | Random | Your connection password |
-| 🌍 **Allow Connections From** | Local Network | Who can connect |
+| 🌍 **Who Can Connect** | My local network | Base scope: This computer only / My local network / Anyone |
+| 🔐 **Tailscale Access** | If detected | Accept Tailscale (`100.64.0.0/10`): If detected / Always / Never |
 | ✅ **Command Allowlist** | All allowed | Which commands can be run remotely |
 | ❌ **Command Denylist** | op, deop | Blocked commands |
 | 🚀 **Auto-Launch** | Off | Start server automatically when joining a world |
