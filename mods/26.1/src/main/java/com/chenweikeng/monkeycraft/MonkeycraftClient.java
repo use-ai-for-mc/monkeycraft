@@ -1,8 +1,8 @@
 package com.chenweikeng.monkeycraft;
 
-import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;

@@ -46,8 +46,7 @@ public class ModConfig {
                   })
           .registerTypeAdapter(
               NetworkScope.class,
-              (JsonSerializer<NetworkScope>)
-                  (src, type, context) -> context.serialize(src.name()))
+              (JsonSerializer<NetworkScope>) (src, type, context) -> context.serialize(src.name()))
           .registerTypeAdapter(
               TailscaleAccess.class,
               (JsonDeserializer<TailscaleAccess>)
@@ -133,8 +132,7 @@ public class ModConfig {
   }
 
   public void setTailscaleAccess(TailscaleAccess tailscaleAccess) {
-    this.tailscaleAccess =
-        tailscaleAccess != null ? tailscaleAccess : TailscaleAccess.IF_DETECTED;
+    this.tailscaleAccess = tailscaleAccess != null ? tailscaleAccess : TailscaleAccess.IF_DETECTED;
   }
 
   // One-time migration from the old single allowConnectionsFrom enum to the
