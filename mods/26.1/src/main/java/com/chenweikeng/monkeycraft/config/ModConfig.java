@@ -23,6 +23,7 @@ public class ModConfig {
   private static final Gson GSON =
       new GsonBuilder()
           .setPrettyPrinting()
+          // Legacy field, read only for one-time migration to the split model.
           .registerTypeAdapter(
               AllowConnectionsFrom.class,
               (JsonDeserializer<AllowConnectionsFrom>)
@@ -30,12 +31,36 @@ public class ModConfig {
                     try {
                       return AllowConnectionsFrom.valueOf(json.getAsString());
                     } catch (Exception e) {
-                      return AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
+                      return null;
                     }
                   })
           .registerTypeAdapter(
-              AllowConnectionsFrom.class,
-              (JsonSerializer<AllowConnectionsFrom>)
+              NetworkScope.class,
+              (JsonDeserializer<NetworkScope>)
+                  (json, type, context) -> {
+                    try {
+                      return NetworkScope.valueOf(json.getAsString());
+                    } catch (Exception e) {
+                      return NetworkScope.LOCAL_NETWORK;
+                    }
+                  })
+          .registerTypeAdapter(
+              NetworkScope.class,
+              (JsonSerializer<NetworkScope>)
+                  (src, type, context) -> context.serialize(src.name()))
+          .registerTypeAdapter(
+              TailscaleAccess.class,
+              (JsonDeserializer<TailscaleAccess>)
+                  (json, type, context) -> {
+                    try {
+                      return TailscaleAccess.valueOf(json.getAsString());
+                    } catch (Exception e) {
+                      return TailscaleAccess.IF_DETECTED;
+                    }
+                  })
+          .registerTypeAdapter(
+              TailscaleAccess.class,
+              (JsonSerializer<TailscaleAccess>)
                   (src, type, context) -> context.serialize(src.name()))
           .create();
 
@@ -46,7 +71,9 @@ public class ModConfig {
   private boolean showQrCodeWhenAutoLaunch = false;
   private int port = 9600;
   private String password;
-  private AllowConnectionsFrom allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
+  private AllowConnectionsFrom allowConnectionsFrom = null; // legacy; migrated on load
+  private NetworkScope networkScope = NetworkScope.LOCAL_NETWORK;
+  private TailscaleAccess tailscaleAccess = TailscaleAccess.IF_DETECTED;
   private List<String> commandAllowlist = new ArrayList<>(List.of("*"));
   private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
   private String defaultBehavior = "ALLOW";
@@ -93,18 +120,49 @@ public class ModConfig {
     this.port = Math.max(MIN_PORT, Math.min(MAX_PORT, port));
   }
 
-  public AllowConnectionsFrom getAllowConnectionsFrom() {
-    if (allowConnectionsFrom == null) {
-      allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
-    }
-    return allowConnectionsFrom;
+  public NetworkScope getNetworkScope() {
+    return networkScope != null ? networkScope : NetworkScope.LOCAL_NETWORK;
   }
 
-  public void setAllowConnectionsFrom(AllowConnectionsFrom allowConnectionsFrom) {
-    this.allowConnectionsFrom =
-        allowConnectionsFrom != null
-            ? allowConnectionsFrom
-            : AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
+  public void setNetworkScope(NetworkScope networkScope) {
+    this.networkScope = networkScope != null ? networkScope : NetworkScope.LOCAL_NETWORK;
+  }
+
+  public TailscaleAccess getTailscaleAccess() {
+    return tailscaleAccess != null ? tailscaleAccess : TailscaleAccess.IF_DETECTED;
+  }
+
+  public void setTailscaleAccess(TailscaleAccess tailscaleAccess) {
+    this.tailscaleAccess =
+        tailscaleAccess != null ? tailscaleAccess : TailscaleAccess.IF_DETECTED;
+  }
+
+  // One-time migration from the old single allowConnectionsFrom enum to the
+  // split networkScope + tailscaleAccess model. Returns true if it migrated.
+  private boolean migrateLegacyConnectionSetting() {
+    if (allowConnectionsFrom == null) {
+      return false;
+    }
+    switch (allowConnectionsFrom) {
+      case ONLY_LOCALHOST -> {
+        networkScope = NetworkScope.THIS_COMPUTER;
+        tailscaleAccess = TailscaleAccess.NEVER;
+      }
+      case LOCAL_NETWORK_AND_TAILSCALE_RANGE -> {
+        networkScope = NetworkScope.LOCAL_NETWORK;
+        tailscaleAccess = TailscaleAccess.ALWAYS;
+      }
+      case ANYWHERE -> {
+        networkScope = NetworkScope.ANYONE;
+        tailscaleAccess = TailscaleAccess.IF_DETECTED;
+      }
+      default -> {
+        networkScope = NetworkScope.LOCAL_NETWORK;
+        tailscaleAccess = TailscaleAccess.IF_DETECTED;
+      }
+    }
+    allowConnectionsFrom = null;
+    return true;
   }
 
   public String getPassword() {
@@ -242,8 +300,8 @@ public class ModConfig {
         if (config.defaultBehavior == null || config.defaultBehavior.isEmpty()) {
           config.defaultBehavior = "ALLOW";
         }
-        if (config.allowConnectionsFrom == null) {
-          config.allowConnectionsFrom = AllowConnectionsFrom.ONLY_LOCAL_NETWORK;
+        if (config.migrateLegacyConnectionSetting()) {
+          config.save();
         }
         return config;
       } catch (IOException e) {

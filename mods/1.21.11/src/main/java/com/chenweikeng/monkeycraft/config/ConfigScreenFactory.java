@@ -82,44 +82,58 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(portEntry);
 
-    Component allowConnectionsFromTooltip =
-        Component.translatable("config.monkeycraft.option.allowConnectionsFrom.tooltip");
-    Component allowConnectionsFromAnywhereWarning =
-        Component.translatable("config.monkeycraft.option.allowConnectionsFrom.anywhere.warning")
+    Component networkScopeTooltip =
+        Component.translatable("config.monkeycraft.option.networkScope.tooltip");
+    Component networkScopeAnyoneWarning =
+        Component.translatable("config.monkeycraft.option.networkScope.anyone.warning")
             .withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
-    AbstractConfigListEntry<AllowConnectionsFrom> allowConnectionsFromEntry =
+    AbstractConfigListEntry<NetworkScope> networkScopeEntry =
         entryBuilder
             .startEnumSelector(
-                Component.translatable("config.monkeycraft.option.allowConnectionsFrom"),
-                AllowConnectionsFrom.class,
-                config.getAllowConnectionsFrom())
-            .setDefaultValue(AllowConnectionsFrom.ONLY_LOCAL_NETWORK)
+                Component.translatable("config.monkeycraft.option.networkScope"),
+                NetworkScope.class,
+                config.getNetworkScope())
+            .setDefaultValue(NetworkScope.LOCAL_NETWORK)
             .setTooltipSupplier(
-                (AllowConnectionsFrom mode) ->
-                    mode == AllowConnectionsFrom.ANYWHERE
+                (NetworkScope mode) ->
+                    mode == NetworkScope.ANYONE
                         ? Optional.of(
-                            new Component[] {
-                              allowConnectionsFromTooltip, allowConnectionsFromAnywhereWarning
-                            })
-                        : Optional.of(new Component[] {allowConnectionsFromTooltip}))
-            .setSaveConsumer(config::setAllowConnectionsFrom)
+                            new Component[] {networkScopeTooltip, networkScopeAnyoneWarning})
+                        : Optional.of(new Component[] {networkScopeTooltip}))
+            .setSaveConsumer(config::setNetworkScope)
             .setEnumNameProvider(
                 mode ->
                     Component.translatable(
-                        "config.monkeycraft.option.allowConnectionsFrom."
-                            + mode.name().toLowerCase()))
+                        "config.monkeycraft.option.networkScope." + mode.name().toLowerCase()))
             .build();
-    general.addEntry(allowConnectionsFromEntry);
+    general.addEntry(networkScopeEntry);
 
-    AbstractConfigListEntry<?> tailscaleStatusEntry =
+    boolean tailscaleDetected = NetworkUtils.isTailscaleRunning();
+    Component tailscaleAccessTooltip =
+        Component.translatable("config.monkeycraft.option.tailscaleAccess.tooltip");
+    Component tailscaleDetectionStatus =
+        Component.translatable(
+                tailscaleDetected
+                    ? "config.monkeycraft.option.tailscaleAccess.status.detected"
+                    : "config.monkeycraft.option.tailscaleAccess.status.not_detected")
+            .withStyle(tailscaleDetected ? ChatFormatting.GREEN : ChatFormatting.GRAY);
+    AbstractConfigListEntry<TailscaleAccess> tailscaleAccessEntry =
         entryBuilder
-            .startTextDescription(
-                Component.translatable(
-                    NetworkUtils.isTailscaleRunning()
-                        ? "config.monkeycraft.status.tailscale.detected"
-                        : "config.monkeycraft.status.tailscale.not_detected"))
+            .startEnumSelector(
+                Component.translatable("config.monkeycraft.option.tailscaleAccess"),
+                TailscaleAccess.class,
+                config.getTailscaleAccess())
+            .setDefaultValue(TailscaleAccess.IF_DETECTED)
+            .setTooltipSupplier(
+                (TailscaleAccess mode) ->
+                    Optional.of(new Component[] {tailscaleAccessTooltip, tailscaleDetectionStatus}))
+            .setSaveConsumer(config::setTailscaleAccess)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.monkeycraft.option.tailscaleAccess." + mode.name().toLowerCase()))
             .build();
-    general.addEntry(tailscaleStatusEntry);
+    general.addEntry(tailscaleAccessEntry);
 
     String randomPassword = ModConfig.generateRandomPassword();
     AbstractConfigListEntry<String> passwordEntry =

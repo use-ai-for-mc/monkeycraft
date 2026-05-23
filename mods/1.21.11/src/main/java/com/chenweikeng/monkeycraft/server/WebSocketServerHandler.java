@@ -1,8 +1,9 @@
 package com.chenweikeng.monkeycraft.server;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
-import com.chenweikeng.monkeycraft.config.AllowConnectionsFrom;
 import com.chenweikeng.monkeycraft.config.ModConfig;
+import com.chenweikeng.monkeycraft.config.NetworkScope;
+import com.chenweikeng.monkeycraft.config.TailscaleAccess;
 import com.chenweikeng.monkeycraft.server.handler.AuthenticationHandler;
 import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
 import com.chenweikeng.monkeycraft.server.handler.InputHandler;
@@ -317,26 +318,40 @@ public class WebSocketServerHandler {
   }
 
   private boolean isIpAddressAllowed(InetAddress addr) {
-    AllowConnectionsFrom setting = ModConfig.getInstance().getAllowConnectionsFrom();
+    NetworkScope scope = ModConfig.getInstance().getNetworkScope();
+    TailscaleAccess tailscale = ModConfig.getInstance().getTailscaleAccess();
 
-    if (setting == AllowConnectionsFrom.ANYWHERE) {
-      return true;
+    // The Tailscale 100.64.0.0/10 range is governed independently of the scope
+    // (additive). If accepted here, allow regardless of scope; otherwise fall
+    // through so the scope can still decide (e.g. ANYONE allows it anyway).
+    if (isTailscaleRange(addr)) {
+      if (tailscale == TailscaleAccess.ALWAYS) {
+        return true;
+      }
+      if (tailscale == TailscaleAccess.IF_DETECTED
+          && com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning()) {
+        return true;
+      }
     }
 
-    byte[] bytes = addr.getAddress();
+    if (scope == NetworkScope.ANYONE) {
+      return true;
+    }
 
     if (addr.isLoopbackAddress()) {
       return true;
     }
 
-    if (setting == AllowConnectionsFrom.ONLY_LOCALHOST) {
+    if (scope == NetworkScope.THIS_COMPUTER) {
       return false;
     }
 
+    // scope == LOCAL_NETWORK
     if (addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
       return true;
     }
 
+    byte[] bytes = addr.getAddress();
     if (bytes.length == 4) {
       if (bytes[0] == 10) {
         return true;
@@ -347,32 +362,28 @@ public class WebSocketServerHandler {
       if ((bytes[0] & 0xFF) == 192 && (bytes[1] & 0xFF) == 168) {
         return true;
       }
-      // 100.64.0.0/10 — RFC 6598 CGNAT range; Tailscale assigns from here.
-      // "Local + 100.64/10" always accepts; "Only Local Network" accepts only
-      // when a Tailscale daemon is locally detected (otherwise the range alone
-      // is ambiguous with ISP CGNAT).
-      if ((bytes[0] & 0xFF) == 100 && (bytes[1] & 0xFF) >= 64 && (bytes[1] & 0xFF) <= 127) {
-        if (setting == AllowConnectionsFrom.LOCAL_NETWORK_AND_TAILSCALE_RANGE) {
-          return true;
-        }
-        return com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning();
-      }
     }
 
     return false;
   }
 
+  // True for IPv4 in 100.64.0.0/10 (RFC 6598 CGNAT; the range Tailscale uses).
+  private static boolean isTailscaleRange(InetAddress addr) {
+    byte[] bytes = addr.getAddress();
+    return bytes.length == 4
+        && (bytes[0] & 0xFF) == 100
+        && (bytes[1] & 0xFF) >= 64
+        && (bytes[1] & 0xFF) <= 127;
+  }
+
   private void maybeNotifyPossiblyTailscaleRejected(java.net.InetAddress clientAddr) {
-    if (clientAddr == null) return;
-    byte[] bytes = clientAddr.getAddress();
-    if (bytes.length != 4) return;
-    int first = bytes[0] & 0xFF;
-    int second = bytes[1] & 0xFF;
-    if (first != 100 || second < 64 || second > 127) return;
+    if (clientAddr == null || !isTailscaleRange(clientAddr)) return;
 
-    AllowConnectionsFrom setting = ModConfig.getInstance().getAllowConnectionsFrom();
-    if (setting != AllowConnectionsFrom.ONLY_LOCAL_NETWORK) return;
-
+    // Only worth a hint when the user could fix it: Tailscale access is on the
+    // auto-detect default but no daemon was found. (ALWAYS wouldn't reject;
+    // NEVER and ANYONE are deliberate choices.)
+    if (ModConfig.getInstance().getTailscaleAccess() != TailscaleAccess.IF_DETECTED) return;
+    if (ModConfig.getInstance().getNetworkScope() == NetworkScope.ANYONE) return;
     if (com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning()) return;
 
     long now = System.currentTimeMillis();

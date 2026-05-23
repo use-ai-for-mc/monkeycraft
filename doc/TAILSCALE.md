@@ -50,25 +50,35 @@ Install the app, sign in to the same account, and toggle the VPN on.
 Once the phone shows it is connected to the tailnet, it can reach
 `<PC_TS_IP>`.
 
-### 3. Connection allowlist
+### 3. Connection settings
 
-MonkeyCraft's `Allow Connections From` setting understands Tailscale:
+`/monkey config` exposes two controls that together decide who may
+connect:
 
-- **`Only Local Network`** (default) accepts Tailscale addresses
-  (`100.64.0.0/10`) when the mod can detect a running Tailscale daemon
-  locally. For most users this just works, no config change required.
-- **`Local + 100.64/10`** accepts any `100.64.0.0/10` source regardless
-  of detection. Use this if auto-detection misses your Tailscale install
-  (e.g. unusual macOS App Store sandboxing), or you're connecting from a
-  host you're confident is on the tailnet.
-- **`Anywhere`** accepts any source. Avoid unless you understand the
+**Who Can Connect** — the base scope:
+
+- **This computer only** — just `127.0.0.1`.
+- **My local network** *(default)* — your LAN (RFC1918 + link-local).
+- **Anyone (advanced)** — any source IP. Avoid unless you understand the
   exposure.
 
-The config screen (`/monkey config`) shows whether Tailscale was
-detected, so you don't have to guess. When the mod rejects a `100.64/10`
-connection because detection failed and the setting is `Only Local
-Network`, it sends an in-game chat message suggesting the `Local +
-100.64/10` switch.
+**Tailscale Access** — governs the Tailscale `100.64.0.0/10` range
+independently of (and in addition to) the scope above:
+
+- **If Tailscale is detected** *(default)* — accept Tailscale addresses
+  when the mod sees Tailscale running on this PC. For most users this
+  just works.
+- **Always allow** — accept the Tailscale range regardless of detection.
+  Use this if auto-detection misses your install (e.g. unusual macOS App
+  Store sandboxing).
+- **Never allow** — block the Tailscale range outright.
+
+Because the two are additive, you can e.g. set **This computer only** +
+**Always allow** to accept your phone over Tailscale while blocking the
+rest of the LAN. The Tailscale Access tooltip shows live whether
+Tailscale was detected. If a Tailscale connection is rejected because
+detection failed (Tailscale Access left on the default with no daemon
+found), the mod sends an in-game chat hint suggesting **Always allow**.
 
 ### 4. Start the WebSocket server
 
@@ -136,12 +146,12 @@ it.
   authorization. The mod's HMAC challenge-response (per
   [WebSocketServerHandler.java](../mods/26.1/src/main/java/com/chenweikeng/monkeycraft/server/WebSocketServerHandler.java))
   still gates who can pair, regardless of how they reached the port.
-- **`Anywhere` is broader than Tailscale.** With that setting selected,
-  *any* source the mod's socket can reach will be accepted at the IP
-  layer. **Do not combine `Anywhere` with a router port-forward**; that
+- **`Anyone` is broader than Tailscale.** With **Who Can Connect** set to
+  *Anyone*, any source the mod's socket can reach is accepted at the IP
+  layer. **Do not combine `Anyone` with a router port-forward**; that
   re-introduces the public-internet exposure Tailscale was supposed to
-  remove. For Tailscale-only access, `Only Local Network` (with
-  detection) or `Local + 100.64/10` is preferred.
+  remove. For Tailscale-only access, keep **Who Can Connect** at *My local
+  network* (or *This computer only*) and rely on **Tailscale Access**.
 - **Password strength.** Treat the QR-code password as a long-lived
   secret. Rotate it via `/monkey config` if you ever share a screenshot
   of your title screen.
@@ -153,7 +163,7 @@ it.
 | Symptom | Likely cause | Fix |
 | ------- | ------------ | --- |
 | App says "Connection refused" | Mod's WS server isn't running | `/monkey start`, or enable Start Server at Launch |
-| App says "Connection not allowed from this address" | Mod couldn't auto-detect Tailscale locally (rare; e.g. macOS App Store sandboxing) | Set `Allow Connections From` to `Local + 100.64/10` in `/monkey config`. You'll also see an in-game chat message suggesting this. |
+| App says "Connection not allowed from this address" | Mod couldn't auto-detect Tailscale locally (rare; e.g. macOS App Store sandboxing) | Set **Tailscale Access** to *Always allow* in `/monkey config`. You'll also see an in-game chat message suggesting this. |
 | App times out | Phone's Tailscale VPN is off | Toggle Tailscale on in the phone app |
 | App times out only on cellular | macOS / Windows firewall blocking inbound on the Tailscale interface | Allow Java / Minecraft inbound; on macOS, accept the firewall prompt the first time the WS server starts |
 | Tailscale IP works on LAN, not on cellular | Your tailnet relays may be slow / Tailscale not yet connected on phone | Open the Tailscale app on the phone, confirm "Connected" before opening MonkeyCraft |
@@ -186,8 +196,8 @@ network interfaces:
 It's not a definitive check — on a personal device a `100.64/10` address
 almost always comes from Tailscale (the range is RFC 6598 CGNAT shared
 space, also used by some ISPs for carrier NAT). Under the default
-`Only Local Network` setting, the mod accepts `100.64/10` traffic only
-when the local detection passes, so a host behind ISP CGNAT without
+**Tailscale Access = If detected**, the mod accepts `100.64/10` traffic
+only when the local detection passes, so a host behind ISP CGNAT without
 Tailscale won't accidentally allow CGNAT-internet traffic.
 
 For a stricter check (resolving the exact Tailscale-assigned IPs by
