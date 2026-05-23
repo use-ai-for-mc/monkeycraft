@@ -318,53 +318,11 @@ public class WebSocketServerHandler {
   }
 
   private boolean isIpAddressAllowed(InetAddress addr) {
-    NetworkScope scope = ModConfig.getInstance().getNetworkScope();
-    TailscaleAccess tailscale = ModConfig.getInstance().getTailscaleAccess();
-
-    // The Tailscale 100.64.0.0/10 range is governed independently of the scope
-    // (additive). If accepted here, allow regardless of scope; otherwise fall
-    // through so the scope can still decide (e.g. ANYONE allows it anyway).
-    if (isTailscaleRange(addr)) {
-      if (tailscale == TailscaleAccess.ALWAYS) {
-        return true;
-      }
-      if (tailscale == TailscaleAccess.IF_DETECTED
-          && com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning()) {
-        return true;
-      }
-    }
-
-    if (scope == NetworkScope.ANYONE) {
-      return true;
-    }
-
-    if (addr.isLoopbackAddress()) {
-      return true;
-    }
-
-    if (scope == NetworkScope.THIS_COMPUTER) {
-      return false;
-    }
-
-    // scope == LOCAL_NETWORK
-    if (addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
-      return true;
-    }
-
-    byte[] bytes = addr.getAddress();
-    if (bytes.length == 4) {
-      if (bytes[0] == 10) {
-        return true;
-      }
-      if ((bytes[0] & 0xFF) == 172 && (bytes[1] & 0xFF) >= 16 && (bytes[1] & 0xFF) <= 31) {
-        return true;
-      }
-      if ((bytes[0] & 0xFF) == 192 && (bytes[1] & 0xFF) == 168) {
-        return true;
-      }
-    }
-
-    return false;
+    return com.chenweikeng.monkeycraft.utils.NetworkUtils.isConnectionAllowed(
+        ModConfig.getInstance().getNetworkScope(),
+        ModConfig.getInstance().getTailscaleAccess(),
+        com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning(),
+        addr);
   }
 
   // True for IPv4 in 100.64.0.0/10 (RFC 6598 CGNAT; the range Tailscale uses).

@@ -1,5 +1,7 @@
 package com.chenweikeng.monkeycraft.utils;
 
+import com.chenweikeng.monkeycraft.config.NetworkScope;
+import com.chenweikeng.monkeycraft.config.TailscaleAccess;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -107,5 +109,56 @@ public class NetworkUtils {
       // fail closed
     }
     return false;
+  }
+
+  /**
+   * Pure access decision shared by the live server and tests. The Tailscale {@code 100.64.0.0/10}
+   * range is governed by {@code tailscale} independently of (and additively to) {@code scope};
+   * everything else is governed by {@code scope}.
+   */
+  public static boolean isConnectionAllowed(
+      NetworkScope scope, TailscaleAccess tailscale, boolean tailscaleRunning, InetAddress addr) {
+    if (addr == null) {
+      return false;
+    }
+    if (isTailscaleRangeAddr(addr)) {
+      if (tailscale == TailscaleAccess.ALWAYS) {
+        return true;
+      }
+      if (tailscale == TailscaleAccess.IF_DETECTED && tailscaleRunning) {
+        return true;
+      }
+    }
+    if (scope == NetworkScope.ANYONE) {
+      return true;
+    }
+    if (addr.isLoopbackAddress()) {
+      return true;
+    }
+    if (scope == NetworkScope.THIS_COMPUTER) {
+      return false;
+    }
+    // scope == LOCAL_NETWORK
+    if (addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
+      return true;
+    }
+    byte[] bytes = addr.getAddress();
+    if (bytes.length == 4) {
+      if (bytes[0] == 10) {
+        return true;
+      }
+      if ((bytes[0] & 0xFF) == 172 && (bytes[1] & 0xFF) >= 16 && (bytes[1] & 0xFF) <= 31) {
+        return true;
+      }
+      if ((bytes[0] & 0xFF) == 192 && (bytes[1] & 0xFF) == 168) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isTailscaleRangeAddr(InetAddress addr) {
+    byte[] b = addr.getAddress();
+    return b.length == 4 && (b[0] & 0xFF) == 100 && (b[1] & 0xFF) >= 64 && (b[1] & 0xFF) <= 127;
   }
 }

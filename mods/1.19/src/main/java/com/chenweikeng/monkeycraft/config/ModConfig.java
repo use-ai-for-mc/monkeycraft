@@ -141,24 +141,8 @@ public class ModConfig {
     if (allowConnectionsFrom == null) {
       return false;
     }
-    switch (allowConnectionsFrom) {
-      case ONLY_LOCALHOST -> {
-        networkScope = NetworkScope.THIS_COMPUTER;
-        tailscaleAccess = TailscaleAccess.NEVER;
-      }
-      case LOCAL_NETWORK_AND_TAILSCALE_RANGE -> {
-        networkScope = NetworkScope.LOCAL_NETWORK;
-        tailscaleAccess = TailscaleAccess.ALWAYS;
-      }
-      case ANYWHERE -> {
-        networkScope = NetworkScope.ANYONE;
-        tailscaleAccess = TailscaleAccess.IF_DETECTED;
-      }
-      default -> {
-        networkScope = NetworkScope.LOCAL_NETWORK;
-        tailscaleAccess = TailscaleAccess.IF_DETECTED;
-      }
-    }
+    networkScope = allowConnectionsFrom.toNetworkScope();
+    tailscaleAccess = allowConnectionsFrom.toTailscaleAccess();
     allowConnectionsFrom = null;
     return true;
   }
@@ -313,6 +297,7 @@ public class ModConfig {
     }
   }
 
+  /** Generates a random 12-character Base58 password (URL / QR / shell-safe). */
   public static String generateRandomPassword() {
     SecureRandom random = new SecureRandom();
     StringBuilder sb = new StringBuilder(DEFAULT_PASSWORD_LENGTH);

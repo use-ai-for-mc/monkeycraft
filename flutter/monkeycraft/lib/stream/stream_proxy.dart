@@ -380,7 +380,9 @@ class StreamProxy {
     }
 
     _accessUnitsController?.add(Uint8List.fromList(h264Data));
-    _wsChannel!.sink.add(jsonEncode({'type': 'ACK'}));
+    // Null-safe: a binary frame can be handled after the channel is torn down
+    // by a connection-loss callback; a missed ACK is harmless.
+    _wsChannel?.sink.add(jsonEncode({'type': 'ACK'}));
 
     final isIdr = _isIdrFrame(h264Data);
     _videoRelay.onVideoFrame(h264Data, isIdr);
@@ -470,6 +472,10 @@ class StreamProxy {
           completeAuthError(Exception('Server did not provide salt'));
         }
       } else if (data['type'] == 'AUTH_OK') {
+        final versionWarning = data['versionWarning'];
+        if (versionWarning is String && versionWarning.isNotEmpty) {
+          debugPrint('StreamProxy: server protocol version warning: $versionWarning');
+        }
         _authenticated = true;
         _commandSender.setAuthenticated(true);
         _startHeartbeatTimer();
