@@ -24,6 +24,7 @@ class StreamProxy {
   WebSocketChannel? _wsChannel;
   StreamSubscription? _wsSubscription;
   bool _authenticated = false;
+  Set<String> _serverCapabilities = {};
   bool _starting = false;
   Completer<void>? _startCompleter;
 
@@ -49,6 +50,10 @@ class StreamProxy {
   StreamController<WorldState>? _worldStateController;
   StreamController<List<ServerListEntry>>? _serverListController;
   StreamController<JoinResult>? _joinResultController;
+  StreamController<List<String>>? _playerListController;
+  List<String> _playerList = const [];
+  StreamController<int>? _playerCountController;
+  int _playerCount = 0;
   WorldState? _worldState;
   bool _screenOpen = false;
   bool get screenOpen => _screenOpen;
@@ -116,11 +121,20 @@ class StreamProxy {
       _serverListController?.stream ?? const Stream.empty();
   Stream<JoinResult> get joinResultEvents =>
       _joinResultController?.stream ?? const Stream.empty();
+  Stream<List<String>> get playerListEvents =>
+      _playerListController?.stream ?? const Stream.empty();
+  List<String> get playerList => _playerList;
+  Stream<int> get playerCountEvents =>
+      _playerCountController?.stream ?? const Stream.empty();
+  int get playerCount => _playerCount;
   WorldState? get worldState => _worldState;
   Stream<void> get connectionLostEvents => _connectionLostController.stream;
   Stream<void> get connectionRestoredEvents =>
       _connectionRestoredController.stream;
   bool get isConnected => _authenticated && _wsChannel != null;
+  Set<String> get serverCapabilities => _serverCapabilities;
+  bool serverSupports(String capability) =>
+      _serverCapabilities.contains(capability);
 
   // Delegate command methods to CommandSender
   bool trySendCommand(Map<String, dynamic> command) =>
@@ -172,6 +186,12 @@ class StreamProxy {
   }
 
   void leaveWorld() => _commandSender.trySendCommand({'type': 'LEAVE_WORLD'});
+
+  void requestPlayerList() =>
+      _commandSender.trySendCommand({'type': 'GET_PLAYER_LIST'});
+
+  void requestPlayerCount() =>
+      _commandSender.trySendCommand({'type': 'GET_PLAYER_COUNT'});
 
   /// Returns the latest world phase, waiting briefly for the first WORLD_STATE
   /// after authentication. Returns null if the mod never reports one.
@@ -350,6 +370,8 @@ class StreamProxy {
     _serverListController =
         StreamController<List<ServerListEntry>>.broadcast();
     _joinResultController = StreamController<JoinResult>.broadcast();
+    _playerListController = StreamController<List<String>>.broadcast();
+    _playerCountController = StreamController<int>.broadcast();
   }
 
   void _handleBinaryMessage(List<int> message) {
@@ -476,6 +498,10 @@ class StreamProxy {
         if (versionWarning is String && versionWarning.isNotEmpty) {
           debugPrint('StreamProxy: server protocol version warning: $versionWarning');
         }
+        final caps = data['capabilities'];
+        _serverCapabilities = caps is List
+            ? caps.map((e) => e.toString()).toSet()
+            : <String>{};
         _authenticated = true;
         _commandSender.setAuthenticated(true);
         _startHeartbeatTimer();
@@ -591,6 +617,22 @@ class StreamProxy {
     if (data['type'] == 'JOIN_RESULT') {
       _joinResultController?.add(JoinResult.fromJson(data));
     }
+    if (data['type'] == 'PLAYER_LIST') {
+      final names =
+          (data['players'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          <String>[];
+      _playerList = names;
+      _playerListController?.add(names);
+    }
+    if (data['type'] == 'PLAYER_COUNT') {
+      final count = data['count'];
+      if (count is num) {
+        _playerCount = count.toInt();
+        _playerCountController?.add(_playerCount);
+      }
+    }
   }
 
   void _handleConnectionLoss() {
@@ -598,6 +640,7 @@ class StreamProxy {
     _wsSubscription = null;
     _wsChannel = null;
     _authenticated = false;
+    _serverCapabilities = {};
     _commandSender.detach();
     if (_timedNotificationController != null &&
         !_timedNotificationController!.isClosed) {
@@ -748,5 +791,12 @@ class StreamProxy {
     _serverListController = null;
     await _joinResultController?.close();
     _joinResultController = null;
+    await _playerListController?.close();
+    _playerListController = null;
+    _playerList = const [];
+    await _playerCountController?.close();
+    _playerCountController = null;
+    _playerCount = 0;
+    _serverCapabilities = {};
   }
 }

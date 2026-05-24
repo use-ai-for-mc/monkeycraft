@@ -728,6 +728,8 @@ public class WebSocketServerHandler {
               case "LIST_SERVERS" -> worldJoinHandler.handleListServers(conn);
               case "JOIN_SERVER" -> worldJoinHandler.handleJoinServer(conn, json);
               case "LEAVE_WORLD" -> worldJoinHandler.handleLeaveWorld(conn);
+              case "GET_PLAYER_LIST" -> worldJoinHandler.handleGetPlayerList(conn);
+              case "GET_PLAYER_COUNT" -> worldJoinHandler.handleGetPlayerCount(conn);
               case "INFO" -> {}
               default ->
                   MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);

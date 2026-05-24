@@ -71,6 +71,8 @@ flutter build apk            # Build Android
 | `HOTBAR_SELECT` | Select hotbar slot 0-8 |
 | `RUN_COMMAND` | Execute Minecraft command |
 | `SEND_CHAT` | Send chat message |
+| `GET_PLAYER_COUNT` | Request online player count only (polled for the indicator) |
+| `GET_PLAYER_LIST` | Request online player account names (on tap-to-view) |
 
 ### Server → Client
 | Type | Purpose |
@@ -80,6 +82,8 @@ flutter build apk            # Build Android
 | `CHAT_MESSAGE` | Incoming chat |
 | `NUDGE` | Immediate notification |
 | `DISCONNECT` | Server-initiated disconnect |
+| `PLAYER_COUNT` | Online player count only (`count`) |
+| `PLAYER_LIST` | Online player account names (`count` + `players[]`) |
 
 ## Current Input Modes
 
@@ -98,6 +102,7 @@ When adding new protocol messages:
 1. Add handler in `WebSocketServerHandler.java:onMessage()`
 2. Add sender in Flutter `stream_proxy.dart`
 3. Update protocol documentation in `doc/FLUTTER_CLIENT.md`
+4. If the message is an optional/feature-gated capability, add a token to `AuthenticationHandler.CAPABILITIES` (advertised in `AUTH_OK`) and gate the client with `proxy.serverSupports("TOKEN")` so older mods degrade gracefully
 
 ## Testing
 

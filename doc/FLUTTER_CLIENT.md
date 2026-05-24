@@ -107,7 +107,7 @@ Central communication hub between Flutter app and Minecraft mod.
 |-----------|------|-------------|
 | Server→Client | `HELLO` | Authentication challenge with salt |
 | Client→Server | `AUTH` | HMAC-SHA256 authentication response |
-| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result |
+| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; `AUTH_OK` carries `protocolVersion` + `capabilities[]` (feature tokens like `PLAYER_LIST`) the client gates optional features on |
 | Server→Client | Binary | H.264 video access unit (with optional 6-byte resolution header) |
 | Client→Server | `ACK` | Video frame acknowledgment |
 | Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps/autoFaceMovement |
@@ -120,6 +120,8 @@ Central communication hub between Flutter app and Minecraft mod.
 | Client→Server | `HOTBAR_SELECT` | Select hotbar slot |
 | Client→Server | `SEND_CHAT` | Send chat message |
 | Client→Server | `ENTER_CHAT` / `EXIT_CHAT` | Chat mode toggle |
+| Client→Server | `GET_PLAYER_COUNT` | Request online player count only (polled for the indicator) |
+| Client→Server | `GET_PLAYER_LIST` | Request online player account names (on tap-to-view) |
 | Client→Server | `HIBERNATION_PING` | Keep-alive during hibernation |
 | Client→Server | `REQUEST_KEYFRAME` | Request I-frame |
 | Server→Client | `TIMED` | Scheduled notification |
@@ -129,6 +131,8 @@ Central communication hub between Flutter app and Minecraft mod.
 | Server→Client | `DISCONNECT` | Server-initiated disconnect |
 | Server→Client | `CHAT_MESSAGE` | Incoming chat |
 | Server→Client | `CHAT_DENIED` | Outgoing chat blocked |
+| Server→Client | `PLAYER_COUNT` | Online player count only (`count`) |
+| Server→Client | `PLAYER_LIST` | Online player account names (`count` + `players[]`) |
 | Server→Client | `SERVER_STATUS` | Server state broadcast |
 | Server→Client | `HEARTBEAT` | Server heartbeat |
 | Client→Server | `HEARTBEAT_ACK` | Heartbeat acknowledgment |

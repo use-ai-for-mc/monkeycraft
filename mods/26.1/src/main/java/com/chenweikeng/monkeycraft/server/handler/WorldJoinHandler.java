@@ -11,6 +11,8 @@ import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
@@ -53,6 +55,47 @@ public class WorldJoinHandler {
           JsonObject msg = new JsonObject();
           msg.addProperty("type", "SERVER_LIST");
           msg.add("servers", servers);
+          conn.send(GSON.toJson(msg));
+        });
+  }
+
+  /** Replies with the account names of players currently shown in the tab list. */
+  public void handleGetPlayerList(WebSocket conn) {
+    Minecraft mc = Minecraft.getInstance();
+    mc.execute(
+        () -> {
+          if (!conn.isOpen()) return;
+          java.util.List<String> names = new java.util.ArrayList<>();
+          ClientPacketListener connection = mc.getConnection();
+          if (connection != null) {
+            for (PlayerInfo info : connection.getListedOnlinePlayers()) {
+              if (info == null) continue;
+              String name = info.getProfile().name();
+              if (name != null && !name.isEmpty()) names.add(name);
+            }
+          }
+          names.sort(String.CASE_INSENSITIVE_ORDER);
+          JsonArray players = new JsonArray();
+          for (String name : names) players.add(name);
+          JsonObject msg = new JsonObject();
+          msg.addProperty("type", "PLAYER_LIST");
+          msg.addProperty("count", players.size());
+          msg.add("players", players);
+          conn.send(GSON.toJson(msg));
+        });
+  }
+
+  /** Replies with just the number of players shown in the tab list. */
+  public void handleGetPlayerCount(WebSocket conn) {
+    Minecraft mc = Minecraft.getInstance();
+    mc.execute(
+        () -> {
+          if (!conn.isOpen()) return;
+          ClientPacketListener connection = mc.getConnection();
+          int count = connection == null ? 0 : connection.getListedOnlinePlayers().size();
+          JsonObject msg = new JsonObject();
+          msg.addProperty("type", "PLAYER_COUNT");
+          msg.addProperty("count", count);
           conn.send(GSON.toJson(msg));
         });
   }

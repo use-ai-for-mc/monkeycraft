@@ -54,6 +54,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   ImmediateNotification? _currentImmediate;
   bool _nudgeBannerDismissed = false;
 
+  StreamSubscription<List<String>>? _playerListSubscription;
+  StreamSubscription<int>? _playerCountSubscription;
+  List<String> _onlinePlayers = [];
+  int _onlineCount = 0;
+  bool _playerListSupported = false;
+  Timer? _playerCountTimer;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +82,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
     _connectionRestoredSubscription = widget.proxy.connectionRestoredEvents
         .listen((_) => _onConnectionRestored());
+
+    _playerCountSubscription = widget.proxy.playerCountEvents.listen(
+      _onPlayerCountUpdate,
+    );
+    _playerListSubscription = widget.proxy.playerListEvents.listen(
+      _onPlayerListUpdate,
+    );
+    _playerListSupported = widget.proxy.serverSupports('PLAYER_LIST');
+    _onlineCount = widget.proxy.playerCount;
+    _onlinePlayers = widget.proxy.playerList;
+    _refreshPlayerCount();
+    _playerCountTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _refreshPlayerCount(),
+    );
 
     if (widget.session != null) {
       _sessionStateSubscription = widget.session!.stateStream.listen(
@@ -202,6 +224,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
+  void _onPlayerCountUpdate(int count) {
+    if (!mounted) return;
+    setState(() {
+      _onlineCount = count;
+    });
+  }
+
+  void _onPlayerListUpdate(List<String> players) {
+    if (!mounted) return;
+    setState(() {
+      _onlinePlayers = players;
+      _onlineCount = players.length;
+    });
+  }
+
+  void _refreshPlayerCount() {
+    if (!mounted || !_playerListSupported) return;
+    widget.proxy.requestPlayerCount();
+  }
+
   void _onServerDisconnect(ServerDisconnectEvent event) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -230,6 +272,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _onConnectionRestored() {
     if (!mounted) return;
     widget.session?.resetReconnectionState();
+    setState(() {
+      _playerListSupported = widget.proxy.serverSupports('PLAYER_LIST');
+    });
     _reattachChatStreams();
     _loadCachedMessages();
   }
@@ -274,6 +319,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _serverDisconnectSubscription?.cancel();
     _connectionLostSubscription?.cancel();
     _connectionRestoredSubscription?.cancel();
+    _playerListSubscription?.cancel();
+    _playerCountSubscription?.cancel();
+    _playerCountTimer?.cancel();
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
@@ -356,6 +404,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
     _connectionRestoredSubscription = widget.proxy.connectionRestoredEvents
         .listen((_) => _onConnectionRestored());
+    _playerListSubscription?.cancel();
+    _playerListSubscription = widget.proxy.playerListEvents.listen(
+      _onPlayerListUpdate,
+    );
+    _playerCountSubscription?.cancel();
+    _playerCountSubscription = widget.proxy.playerCountEvents.listen(
+      _onPlayerCountUpdate,
+    );
+    _refreshPlayerCount();
   }
 
   void _sendMessage() {
@@ -389,6 +446,104 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       offset: command.length,
     );
     _messageFocusNode.requestFocus();
+  }
+
+  Widget _buildOnlineIndicator() {
+    if (!_playerListSupported) return const SizedBox.shrink();
+    final count = _onlineCount;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _showPlayerListSheet,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.people, size: 18, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPlayerListSheet() {
+    widget.proxy.requestPlayerList();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.black.withValues(alpha: 0.92),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: StreamBuilder<List<String>>(
+            stream: widget.proxy.playerListEvents,
+            initialData: _onlinePlayers,
+            builder: (context, snapshot) {
+              final players = snapshot.data ?? const <String>[];
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.people,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          players.isEmpty
+                              ? 'No players online'
+                              : '${players.length} player${players.length == 1 ? '' : 's'} online',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: players.length,
+                      itemBuilder: (context, i) => ListTile(
+                        dense: true,
+                        leading: const Icon(
+                          Icons.person,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                        title: Text(
+                          players[i],
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildDynamicIsland() {
@@ -476,6 +631,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [_buildOnlineIndicator()],
       ),
       body: ListenableBuilder(
         listenable: appSettings,

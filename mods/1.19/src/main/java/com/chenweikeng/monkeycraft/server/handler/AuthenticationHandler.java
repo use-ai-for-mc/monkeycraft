@@ -5,12 +5,14 @@ import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.java_websocket.WebSocket;
 
 public class AuthenticationHandler {
   private static final Gson GSON = new Gson();
   private static final int PROTOCOL_VERSION = 2;
+  private static final String[] CAPABILITIES = {"PLAYER_LIST"};
   private final WebSocketServerHandler handler;
 
   public AuthenticationHandler(WebSocketServerHandler handler) {
@@ -54,6 +56,11 @@ public class AuthenticationHandler {
       response.addProperty("type", "AUTH_OK");
       response.addProperty("signature", serverSignature);
       response.addProperty("protocolVersion", PROTOCOL_VERSION);
+      JsonArray capabilities = new JsonArray();
+      for (String capability : CAPABILITIES) {
+        capabilities.add(capability);
+      }
+      response.add("capabilities", capabilities);
       if (clientProtocolVersion != PROTOCOL_VERSION) {
         response.addProperty(
             "versionWarning",
