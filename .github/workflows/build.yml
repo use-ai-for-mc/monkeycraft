@@ -30,7 +30,7 @@ jobs:
       - name: test
         run: ./gradlew test
       - name: capture build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Artifacts-26.1
           path: mods/26.1/build/libs/
@@ -58,7 +58,7 @@ jobs:
       - name: test
         run: ./gradlew test
       - name: capture build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Artifacts-1.21.11
           path: mods/1.21.11/build/libs/
@@ -90,7 +90,7 @@ jobs:
       - name: test
         run: ./gradlew test
       - name: capture build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Artifacts-1.19
           path: mods/1.19/build/libs/
