@@ -67,7 +67,8 @@ public class WorldJoinHandler {
           java.util.List<String> names = new java.util.ArrayList<>();
           ClientPacketListener connection = mc.getConnection();
           if (connection != null) {
-            // 1.19 predates getListedOnlinePlayers(); every online player shows in the tab list.
+            // 1.19 predates getListedOnlinePlayers() and the tabListOrder field, so the server
+            // can't pin players (e.g. staff) to the top here; fall back to an alphabetical roster.
             for (PlayerInfo info : connection.getOnlinePlayers()) {
               if (info == null) continue;
               String name = info.getProfile().getName();

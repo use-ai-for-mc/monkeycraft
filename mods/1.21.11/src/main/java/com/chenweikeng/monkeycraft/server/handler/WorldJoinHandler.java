@@ -65,18 +65,24 @@ public class WorldJoinHandler {
     mc.execute(
         () -> {
           if (!conn.isOpen()) return;
-          java.util.List<String> names = new java.util.ArrayList<>();
+          JsonArray players = new JsonArray();
           ClientPacketListener connection = mc.getConnection();
           if (connection != null) {
-            for (PlayerInfo info : connection.getListedOnlinePlayers()) {
-              if (info == null) continue;
+            // Mirror the vanilla tab-list order so server-pinned players (e.g. staff with a
+            // higher tabListOrder) stay on top instead of being re-sorted alphabetically.
+            java.util.List<PlayerInfo> infos =
+                new java.util.ArrayList<>(connection.getListedOnlinePlayers());
+            infos.sort(
+                java.util.Comparator.<PlayerInfo>comparingInt(p -> -p.getTabListOrder())
+                    .thenComparingInt(
+                        p ->
+                            p.getGameMode() == net.minecraft.world.level.GameType.SPECTATOR ? 1 : 0)
+                    .thenComparing(p -> p.getProfile().name(), String.CASE_INSENSITIVE_ORDER));
+            for (PlayerInfo info : infos) {
               String name = info.getProfile().name();
-              if (name != null && !name.isEmpty()) names.add(name);
+              if (name != null && !name.isEmpty()) players.add(name);
             }
           }
-          names.sort(String.CASE_INSENSITIVE_ORDER);
-          JsonArray players = new JsonArray();
-          for (String name : names) players.add(name);
           JsonObject msg = new JsonObject();
           msg.addProperty("type", "PLAYER_LIST");
           msg.addProperty("count", players.size());

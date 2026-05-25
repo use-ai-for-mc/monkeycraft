@@ -83,7 +83,7 @@ flutter build apk            # Build Android
 | `NUDGE` | Immediate notification |
 | `DISCONNECT` | Server-initiated disconnect |
 | `PLAYER_COUNT` | Online player count only (`count`) |
-| `PLAYER_LIST` | Online player account names (`count` + `players[]`) |
+| `PLAYER_LIST` | Online player account names in tab-list order (`count` + `players[]`) |
 
 ## Current Input Modes
 
