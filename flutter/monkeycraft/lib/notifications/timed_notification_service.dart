@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:monkeycraft_client/notifications/notification_models.dart';
 
 class TimedNotificationService {
   static const MethodChannel _channel = MethodChannel('monkeycraft/notifications');
@@ -50,5 +51,18 @@ class TimedNotificationService {
   Future<void> playNotificationSound() async {
     if (!Platform.isIOS && !Platform.isAndroid) return;
     await _channel.invokeMethod<void>('playNotificationSound');
+  }
+
+  Future<NotificationSettingsInfo> getSettings() async {
+    if (!Platform.isIOS) return NotificationSettingsInfo.unknown;
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'getNotificationSettings',
+    );
+    return NotificationSettingsInfo.fromMap(map);
+  }
+
+  Future<void> openSettings() async {
+    if (!Platform.isIOS) return;
+    await _channel.invokeMethod<void>('openNotificationSettings');
   }
 }

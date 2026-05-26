@@ -4,10 +4,17 @@ import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
 import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:monkeycraft_client/shared/keyboard_prewarmer.dart';
+import 'package:monkeycraft_client/notifications/timed_notification_service.dart';
+import 'package:monkeycraft_client/notifications/banner_style_nudge.dart';
 
 final AppSettings appSettings = AppSettings();
 final OpenAudioMcService openAudioMcService = OpenAudioMcService();
 final McParksV1Service mcParksV1Service = McParksV1Service();
+final TimedNotificationService notificationService = TimedNotificationService();
+final BannerStyleNudge bannerStyleNudge = BannerStyleNudge(
+  service: notificationService,
+  settings: appSettings,
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +37,12 @@ class MyApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
             useMaterial3: true,
           ),
-          home: const KeyboardPrewarmerWidget(child: LoginScreen()),
+          home: KeyboardPrewarmerWidget(
+            child: BannerStyleNudgeGate(
+              nudge: bannerStyleNudge,
+              child: const LoginScreen(),
+            ),
+          ),
         );
       },
     );

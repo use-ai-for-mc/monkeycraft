@@ -152,6 +152,38 @@ final class NotificationsPlugin: NSObject, FlutterPlugin {
     case "playNotificationSound":
       AudioServicesPlaySystemSound(1007)
       result(nil)
+    case "getNotificationSettings":
+      UNUserNotificationCenter.current().getNotificationSettings { settings in
+        let authStatus: String
+        switch settings.authorizationStatus {
+        case .authorized: authStatus = "authorized"
+        case .denied: authStatus = "denied"
+        case .notDetermined: authStatus = "notDetermined"
+        case .provisional: authStatus = "provisional"
+        case .ephemeral: authStatus = "ephemeral"
+        @unknown default: authStatus = "unknown"
+        }
+        // .banner == "Temporary" (auto-dismiss), .alert == "Persistent" in
+        // Settings -> Notifications -> MonkeyCraft -> Banner Style.
+        let alertStyle: String
+        switch settings.alertStyle {
+        case .none: alertStyle = "none"
+        case .banner: alertStyle = "banner"
+        case .alert: alertStyle = "alert"
+        @unknown default: alertStyle = "unknown"
+        }
+        DispatchQueue.main.async {
+          result(["authorizationStatus": authStatus, "alertStyle": alertStyle])
+        }
+      }
+    case "openNotificationSettings":
+      if #available(iOS 16.0, *),
+        let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+        UIApplication.shared.open(url)
+      } else if let url = URL(string: UIApplication.openSettingsURLString) {
+        UIApplication.shared.open(url)
+      }
+      result(nil)
     default:
       result(FlutterMethodNotImplemented)
     }

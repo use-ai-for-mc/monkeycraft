@@ -34,6 +34,7 @@ class AppSettings extends ChangeNotifier {
   static const _kFont = 'app_font';
   static const _kChatBackground = 'app_chat_background';
   static const _kMcParksVolume = 'mcparks_volume';
+  static const _kKeepTemporaryBanner = 'notif_keep_temporary_banner';
   static const AppFont defaultFont = AppFont.mulish;
   static const double defaultMcParksVolume = 0.5;
 
@@ -45,6 +46,9 @@ class AppSettings extends ChangeNotifier {
 
   double _mcParksVolume = defaultMcParksVolume;
   double get mcParksVolume => _mcParksVolume;
+
+  bool _keepTemporaryBanner = false;
+  bool get keepTemporaryBanner => _keepTemporaryBanner;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -58,6 +62,8 @@ class AppSettings extends ChangeNotifier {
 
     _mcParksVolume = (prefs.getDouble(_kMcParksVolume) ?? defaultMcParksVolume)
         .clamp(0.0, 1.0);
+
+    _keepTemporaryBanner = prefs.getBool(_kKeepTemporaryBanner) ?? false;
 
     notifyListeners();
   }
@@ -99,6 +105,14 @@ class AppSettings extends ChangeNotifier {
     _mcParksVolume = clamped;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kMcParksVolume, clamped);
+    notifyListeners();
+  }
+
+  Future<void> setKeepTemporaryBanner(bool value) async {
+    if (_keepTemporaryBanner == value) return;
+    _keepTemporaryBanner = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kKeepTemporaryBanner, value);
     notifyListeners();
   }
 
