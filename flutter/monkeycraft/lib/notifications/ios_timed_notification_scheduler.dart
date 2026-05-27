@@ -11,7 +11,9 @@ class IosTimedNotificationScheduler implements TimedNotificationScheduler {
 
   @override
   Future<bool> ensurePermission() async {
-    if (!Platform.isIOS) return false;
+    // Despite the class name, this also drives Android notifications via the
+    // same `monkeycraft/notifications` channel.
+    if (!Platform.isIOS && !Platform.isAndroid) return false;
     final granted = _granted;
     if (granted != null) return granted;
     final next = await _service.requestPermission();

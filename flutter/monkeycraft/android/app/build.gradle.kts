@@ -55,3 +55,9 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // NotificationCompat / NotificationManagerCompat / ActivityCompat for the
+    // cross-API notification + runtime-permission handling in NotificationsPlugin.
+    implementation("androidx.core:core-ktx:1.13.1")
+}

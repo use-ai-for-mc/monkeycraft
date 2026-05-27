@@ -9,7 +9,7 @@ class TimedNotificationService {
   static const int timedId = 1;
 
   Future<bool> requestPermission() async {
-    if (!Platform.isIOS) return false;
+    if (!Platform.isIOS && !Platform.isAndroid) return false;
     final result = await _channel.invokeMethod<bool>('requestPermission');
     return result ?? false;
   }
@@ -20,7 +20,7 @@ class TimedNotificationService {
     required String body,
     required bool sound,
   }) async {
-    if (!Platform.isIOS) return;
+    if (!Platform.isIOS && !Platform.isAndroid) return;
     await _channel.invokeMethod<void>('scheduleTimed', {
       'id': timedId,
       'fireAtEpochMs': fireAtEpochMs,
@@ -31,7 +31,7 @@ class TimedNotificationService {
   }
 
   Future<void> cancelTimed() async {
-    if (!Platform.isIOS) return;
+    if (!Platform.isIOS && !Platform.isAndroid) return;
     await _channel.invokeMethod<void>('cancelTimed', {'id': timedId});
   }
 
@@ -40,7 +40,7 @@ class TimedNotificationService {
     required String body,
     required bool sound,
   }) async {
-    if (!Platform.isIOS) return;
+    if (!Platform.isIOS && !Platform.isAndroid) return;
     await _channel.invokeMethod<void>('showImmediate', {
       'title': title,
       'body': body,
