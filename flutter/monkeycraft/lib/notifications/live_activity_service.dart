@@ -16,6 +16,18 @@ class LiveActivityService {
     if (!enabled) return;
 
     await _liveActivities.init(appGroupId: _appGroupId);
+
+    // A countdown from a previous app/screen instance can survive (Live
+    // Activities outlive a backgrounded app), and after re-init the plugin no
+    // longer tracks it by id — so createOrUpdateActivity would spawn a *second*
+    // countdown for the same ride. Clear any leftovers before we start fresh;
+    // the next TIMED/TIMED_STATUS update recreates a single countdown.
+    try {
+      await _liveActivities.endAllActivities();
+    } catch (e) {
+      debugPrint('Live activity cleanup on init failed: $e');
+    }
+
     _initialized = true;
   }
 
