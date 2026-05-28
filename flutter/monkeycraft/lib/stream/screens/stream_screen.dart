@@ -330,7 +330,9 @@ class _StreamScreenState extends State<StreamScreen>
     final now = DateTime.now().millisecondsSinceEpoch;
     if (fireAtMs <= now) {
       _lastFiredTimedNotificationMs = fireAtMs;
-      _showNotificationNow(notification);
+      // The scheduled OS notification fires at this time (in the foreground too,
+      // via the willPresent handler), so it is the single alert surface — no
+      // extra in-app banner or ringtone here. Just stop the countdown and ping.
       widget.proxy.sendPing();
       _liveActivityService.cancel();
     }
@@ -347,23 +349,6 @@ class _StreamScreenState extends State<StreamScreen>
     if (age != null && age.inSeconds >= 5) {
       widget.proxy.sendPing();
     }
-  }
-
-  void _showNotificationNow(TimedNotification notification) {
-    final title = notification.title ?? 'MonkeyCraft';
-    final body = notification.body ?? '';
-    final text = body.isEmpty ? title : '$title\n$body';
-    if (notification.sound) {
-      _timedScheduler.playNotificationSound();
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, style: const TextStyle(fontSize: 12)),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _handleCommandDenied(CommandDeniedEvent event) {
@@ -567,18 +552,9 @@ class _StreamScreenState extends State<StreamScreen>
     if (!_session.state.foreground) return;
     final title = nudge.title ?? 'MonkeyCraft';
     final body = nudge.body ?? '';
+    // OS notification is the single surface (shown in the foreground via the
+    // willPresent handler); no extra in-app SnackBar or ringtone.
     _timedScheduler.showImmediate(title, body, nudge.sound);
-    if (nudge.sound) {
-      _timedScheduler.playNotificationSound();
-    }
-    if (!mounted || _session.state.isInChat) return;
-    final text = body.isEmpty ? title : '$title\n$body';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, style: const TextStyle(fontSize: 12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   Future<void> _initHardwareDecoder() async {
