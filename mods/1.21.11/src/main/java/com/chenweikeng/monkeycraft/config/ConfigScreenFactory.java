@@ -34,16 +34,21 @@ public class ConfigScreenFactory {
             .build();
     general.addEntry(enabledEntry);
 
-    AbstractConfigListEntry<Boolean> autoLaunchEntry =
+    AbstractConfigListEntry<ServerAutoStart> serverAutoStartEntry =
         entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.monkeycraft.option.autoLaunch"),
-                config.isAutoLaunch())
-            .setDefaultValue(false)
-            .setTooltip(Component.translatable("config.monkeycraft.option.autoLaunch.tooltip"))
-            .setSaveConsumer(config::setAutoLaunch)
+            .startEnumSelector(
+                Component.translatable("config.monkeycraft.option.serverAutoStart"),
+                ServerAutoStart.class,
+                config.getServerAutoStart())
+            .setDefaultValue(ServerAutoStart.OFF)
+            .setTooltip(Component.translatable("config.monkeycraft.option.serverAutoStart.tooltip"))
+            .setSaveConsumer(config::setServerAutoStart)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.monkeycraft.option.serverAutoStart." + mode.name().toLowerCase()))
             .build();
-    general.addEntry(autoLaunchEntry);
+    general.addEntry(serverAutoStartEntry);
 
     AbstractConfigListEntry<Boolean> showQrCodeWhenAutoLaunchEntry =
         entryBuilder
@@ -57,18 +62,6 @@ public class ConfigScreenFactory {
             .setSaveConsumer(config::setShowQrCodeWhenAutoLaunch)
             .build();
     general.addEntry(showQrCodeWhenAutoLaunchEntry);
-
-    AbstractConfigListEntry<Boolean> startServerAtLaunchEntry =
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.monkeycraft.option.startServerAtLaunch"),
-                config.isStartServerAtLaunch())
-            .setDefaultValue(false)
-            .setTooltip(
-                Component.translatable("config.monkeycraft.option.startServerAtLaunch.tooltip"))
-            .setSaveConsumer(config::setStartServerAtLaunch)
-            .build();
-    general.addEntry(startServerAtLaunchEntry);
 
     AbstractConfigListEntry<Integer> portEntry =
         entryBuilder
