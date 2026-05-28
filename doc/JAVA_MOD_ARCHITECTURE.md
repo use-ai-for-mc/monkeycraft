@@ -109,10 +109,13 @@ Singleton managing the WebSocket server lifecycle and protocol.
 | `JOIN_SERVER` | `WorldJoinHandler` | Make the client connect to a multiplayer server |
 | `LEAVE_WORLD` | `WorldJoinHandler` | Disconnect from the current world to the title screen |
 
-**Pre-join control (`WorldJoinHandler`):** when `startServerAtLaunch` is enabled the WebSocket
-server runs from game launch, so the app can connect at the title screen. The mod pushes a
-`WORLD_STATE` message (`MENU` / `CONNECTING` / `IN_WORLD`) on every phase change, replies to
-`LIST_SERVERS` with `SERVER_LIST`, and answers `JOIN_SERVER` with `JOIN_RESULT`.
+**Pre-join control (`WorldJoinHandler`):** when `serverAutoStart` is `AT_TITLE_SCREEN` the
+WebSocket server runs from game launch (persistently across worlds), so the app can connect at
+the title screen. The mod pushes a `WORLD_STATE` message (`MENU` / `CONNECTING` / `IN_WORLD`) on
+every phase change, replies to `LIST_SERVERS` with `SERVER_LIST`, and answers `JOIN_SERVER` with
+`JOIN_RESULT`. `JOIN_SERVER` accepts an optional `acceptResourcePack` boolean — when true, the
+mod calls `ServerData.setResourcePackStatus(ENABLED)` so MC skips the in-game resource-pack
+prompt for picker-driven joins.
 
 **Public Methods (via API):**
 - `sendTimedNotification()` / `cancelTimedNotification()`
@@ -187,7 +190,7 @@ Singleton config persisted to `config/monkeycraft.json`.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Enable mod functionality |
-| `autoLaunch` | boolean | `false` | Auto-start server on world join |
+| `serverAutoStart` | enum | `OFF` | When the WS server auto-starts: `OFF` (manual via `/monkey start`) / `AT_TITLE_SCREEN` (at MC launch, persistent — required for the remote server picker) / `ON_WORLD_JOIN` (on world join, stops on disconnect). Legacy `autoLaunch` / `startServerAtLaunch` keys are read once and migrated transparently on load. |
 | `port` | int | `9600` | WebSocket server port |
 | `password` | String | random | Authentication password (Base58) |
 | `networkScope` | enum | `LOCAL_NETWORK` | Base access scope (Who Can Connect) |
@@ -195,7 +198,6 @@ Singleton config persisted to `config/monkeycraft.json`.
 | `commandAllowlist` | List | `["*"]` | Allowed command patterns |
 | `commandDenylist` | List | `["op *", "deop *"]` | Denied command patterns |
 | `defaultBehavior` | String | `"ALLOW"` | Default if not in list |
-| `startServerAtLaunch` | boolean | `false` | Start the server at game launch (before joining a world) |
 | `allowRemoteServerJoin` | boolean | `true` | Allow the app to make the client join a multiplayer server |
 
 **Command Pattern Matching:**
