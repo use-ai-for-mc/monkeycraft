@@ -61,12 +61,26 @@ public class ModConfig {
               TailscaleAccess.class,
               (JsonSerializer<TailscaleAccess>)
                   (src, type, context) -> context.serialize(src.name()))
+          .registerTypeAdapter(
+              ServerAutoStart.class,
+              (JsonDeserializer<ServerAutoStart>)
+                  (json, type, context) -> {
+                    try {
+                      return ServerAutoStart.valueOf(json.getAsString());
+                    } catch (Exception e) {
+                      return ServerAutoStart.OFF;
+                    }
+                  })
+          .registerTypeAdapter(
+              ServerAutoStart.class,
+              (JsonSerializer<ServerAutoStart>)
+                  (src, type, context) -> context.serialize(src.name()))
           .create();
 
   private static ModConfig INSTANCE;
 
   private boolean enabled = true;
-  private boolean autoLaunch = false;
+  private Boolean autoLaunch; // legacy; migrated to serverAutoStart on load
   private boolean showQrCodeWhenAutoLaunch = false;
   private int port = 9600;
   private String password;
@@ -77,7 +91,8 @@ public class ModConfig {
   private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
   private String defaultBehavior = "ALLOW";
   private boolean alwaysAutoJump = true;
-  private boolean startServerAtLaunch = false;
+  private Boolean startServerAtLaunch; // legacy; migrated to serverAutoStart on load
+  private ServerAutoStart serverAutoStart; // null until set or migrated; getter falls back to OFF
   private boolean allowRemoteServerJoin = true;
 
   public static ModConfig getInstance() {
@@ -93,14 +108,6 @@ public class ModConfig {
 
   public void setEnabled(boolean enabled) {
     this.enabled = enabled;
-  }
-
-  public boolean isAutoLaunch() {
-    return autoLaunch;
-  }
-
-  public void setAutoLaunch(boolean autoLaunch) {
-    this.autoLaunch = autoLaunch;
   }
 
   public boolean isShowQrCodeWhenAutoLaunch() {
@@ -144,6 +151,30 @@ public class ModConfig {
     networkScope = allowConnectionsFrom.toNetworkScope();
     tailscaleAccess = allowConnectionsFrom.toTailscaleAccess();
     allowConnectionsFrom = null;
+    return true;
+  }
+
+  // One-time migration from the legacy autoLaunch + startServerAtLaunch boolean pair
+  // to the unified serverAutoStart enum. Returns true if it migrated.
+  // Precedence: an explicit new-style serverAutoStart wins; otherwise
+  //   startServerAtLaunch=true  -> AT_TITLE_SCREEN  (it was the persistent one)
+  //   autoLaunch=true           -> ON_WORLD_JOIN
+  //   both false / absent       -> OFF
+  private boolean migrateLegacyAutoStartFlags() {
+    if (autoLaunch == null && startServerAtLaunch == null) {
+      return false;
+    }
+    if (serverAutoStart == null) {
+      if (Boolean.TRUE.equals(startServerAtLaunch)) {
+        serverAutoStart = ServerAutoStart.AT_TITLE_SCREEN;
+      } else if (Boolean.TRUE.equals(autoLaunch)) {
+        serverAutoStart = ServerAutoStart.ON_WORLD_JOIN;
+      } else {
+        serverAutoStart = ServerAutoStart.OFF;
+      }
+    }
+    autoLaunch = null;
+    startServerAtLaunch = null;
     return true;
   }
 
@@ -240,12 +271,12 @@ public class ModConfig {
     this.alwaysAutoJump = alwaysAutoJump;
   }
 
-  public boolean isStartServerAtLaunch() {
-    return startServerAtLaunch;
+  public ServerAutoStart getServerAutoStart() {
+    return serverAutoStart != null ? serverAutoStart : ServerAutoStart.OFF;
   }
 
-  public void setStartServerAtLaunch(boolean startServerAtLaunch) {
-    this.startServerAtLaunch = startServerAtLaunch;
+  public void setServerAutoStart(ServerAutoStart serverAutoStart) {
+    this.serverAutoStart = serverAutoStart != null ? serverAutoStart : ServerAutoStart.OFF;
   }
 
   public boolean isAllowRemoteServerJoin() {
@@ -282,7 +313,14 @@ public class ModConfig {
         if (config.defaultBehavior == null || config.defaultBehavior.isEmpty()) {
           config.defaultBehavior = "ALLOW";
         }
+        boolean migrated = false;
         if (config.migrateLegacyConnectionSetting()) {
+          migrated = true;
+        }
+        if (config.migrateLegacyAutoStartFlags()) {
+          migrated = true;
+        }
+        if (migrated) {
           config.save();
         }
         return config;

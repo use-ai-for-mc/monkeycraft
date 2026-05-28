@@ -3,6 +3,7 @@ package com.chenweikeng.monkeycraft;
 import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.config.NetworkScope;
+import com.chenweikeng.monkeycraft.config.ServerAutoStart;
 import com.chenweikeng.monkeycraft.mixin.MouseHandlerAccessor;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
@@ -144,8 +145,9 @@ public class MonkeycraftClient implements ClientModInitializer {
     ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
           ModConfig config = ModConfig.getInstance();
-          if (config.isEnabled() && config.isStartServerAtLaunch()) {
-            LOGGER.info("Starting Monkeycraft server at launch...");
+          if (config.isEnabled()
+              && config.getServerAutoStart() == ServerAutoStart.AT_TITLE_SCREEN) {
+            LOGGER.info("Starting Monkeycraft server at title screen...");
             int actualPort =
                 WebSocketServerHandler.getInstance()
                     .startServerWithPortRange(config.getPort(), true, true);
@@ -162,8 +164,8 @@ public class MonkeycraftClient implements ClientModInitializer {
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {
           ModConfig config = ModConfig.getInstance();
-          if (config.isEnabled() && config.isAutoLaunch()) {
-            LOGGER.info("Auto-launching Monkeycraft server...");
+          if (config.isEnabled() && config.getServerAutoStart() == ServerAutoStart.ON_WORLD_JOIN) {
+            LOGGER.info("Starting Monkeycraft server on world join...");
             int actualPort = startServerWithPortRange(config.getPort(), true);
             if (actualPort > 0) {
               sendMonkeyMessage(Component.translatable("monkeycraft.server.autolaunch"));
