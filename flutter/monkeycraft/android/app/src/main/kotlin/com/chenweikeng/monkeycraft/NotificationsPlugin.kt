@@ -75,7 +75,6 @@ class NotificationsPlugin(
                 NotificationSupport.postCountdown(
                     context,
                     fireAt,
-                    call.argument<String>("title") ?: "MonkeyCraft",
                     call.argument<String>("countDownText") ?: "",
                 )
                 result.success(null)

@@ -59,17 +59,18 @@ object NotificationSupport {
     }
 
     /** An ongoing notification with a live countdown to [fireAtEpochMs] (the Live Activity analog). */
-    fun postCountdown(context: Context, fireAtEpochMs: Long, title: String, label: String) {
+    fun postCountdown(context: Context, fireAtEpochMs: Long, label: String) {
         ensureChannel(context)
-        // Show the countdown label (e.g. the ride name), NOT the timed body — the
-        // "... has finished" body belongs only on the alert that fires at fireAt.
-        val text = if (label.isBlank() || label == "TBA") "Counting down…" else label
-        // Post to the LOW-importance countdown channel so creating/updating
+        // Mirror iOS Live Activity: countDownText is the headline (the ride
+        // name), and the chronometer carries the time. We deliberately drop the
+        // server's `title` ("Ride finished") — it belongs only on the alert
+        // that fires at fireAt, not on a notification that's still counting down.
+        val display = if (label.isBlank() || label == "TBA") "Ride countdown" else label
+        // Posted to the LOW-importance countdown channel so creating/updating
         // never rings — only the alert that fires at fireAt should make sound.
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_COUNTDOWN)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle(title)
-            .setContentText(text)
+            .setContentTitle(display)
             .setContentIntent(launchIntent(context))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
