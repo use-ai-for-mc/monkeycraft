@@ -76,7 +76,7 @@ class NotificationsPlugin(
                     context,
                     fireAt,
                     call.argument<String>("title") ?: "MonkeyCraft",
-                    call.argument<String>("body") ?: "",
+                    call.argument<String>("countDownText") ?: "",
                 )
                 result.success(null)
             }

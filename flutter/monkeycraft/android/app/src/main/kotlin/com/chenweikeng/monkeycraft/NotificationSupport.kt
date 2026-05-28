@@ -46,9 +46,12 @@ object NotificationSupport {
     }
 
     /** An ongoing notification with a live countdown to [fireAtEpochMs] (the Live Activity analog). */
-    fun postCountdown(context: Context, fireAtEpochMs: Long, title: String, body: String) {
+    fun postCountdown(context: Context, fireAtEpochMs: Long, title: String, label: String) {
         ensureChannel(context)
-        val builder = baseBuilder(context, title, body)
+        // Show the countdown label (e.g. the ride name), NOT the timed body — the
+        // "... has finished" body belongs only on the alert that fires at fireAt.
+        val text = if (label.isBlank() || label == "TBA") "Counting down…" else label
+        val builder = baseBuilder(context, title, text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
