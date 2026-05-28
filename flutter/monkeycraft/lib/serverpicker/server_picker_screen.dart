@@ -32,6 +32,9 @@ class _ServerPickerScreenState extends State<ServerPickerScreen> {
   bool _joining = false;
   String? _joiningLabel;
   bool _navigated = false;
+  // Default ON: skip MC's "Accept server resource pack?" prompt for picker-driven
+  // joins. The user can flip this off if they want the prompt for a given session.
+  bool _acceptResourcePack = true;
 
   StreamSubscription<List<ServerListEntry>>? _serverListSub;
   StreamSubscription<WorldState>? _worldStateSub;
@@ -100,7 +103,11 @@ class _ServerPickerScreenState extends State<ServerPickerScreen> {
       _joining = true;
       _joiningLabel = name;
     });
-    widget.proxy.joinServer(trimmed, name: name);
+    widget.proxy.joinServer(
+      trimmed,
+      name: name,
+      acceptResourcePack: _acceptResourcePack,
+    );
   }
 
   void _refresh() {
@@ -202,6 +209,18 @@ class _ServerPickerScreenState extends State<ServerPickerScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Accept server resource pack'),
+          subtitle: const Text(
+            'Skip the in-game prompt when joining a server.',
+          ),
+          value: _acceptResourcePack,
+          onChanged: _joining
+              ? null
+              : (v) => setState(() => _acceptResourcePack = v),
+        ),
+        const Divider(height: 24),
         const Text(
           'Saved servers',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

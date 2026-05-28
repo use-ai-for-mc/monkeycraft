@@ -127,6 +127,14 @@ public class WorldJoinHandler {
     }
     final String name = nameTmp;
 
+    // Optional: when true, the mod marks the ServerData as already accepting the
+    // server's resource pack, so MC skips the "Accept Resource Pack?" prompt.
+    // Absent / false -> default PROMPT behaviour (no change vs. pre-feature).
+    final boolean acceptResourcePack =
+        json.has("acceptResourcePack")
+            && json.get("acceptResourcePack").isJsonPrimitive()
+            && json.get("acceptResourcePack").getAsBoolean();
+
     Minecraft mc = Minecraft.getInstance();
     mc.execute(
         () -> {
@@ -145,6 +153,9 @@ public class WorldJoinHandler {
           try {
             ServerAddress parsed = ServerAddress.parseString(address);
             ServerData data = new ServerData(name, address, false);
+            if (acceptResourcePack) {
+              data.setResourcePackStatus(ServerData.ServerPackStatus.ENABLED);
+            }
             Screen parent = mc.screen != null ? mc.screen : new TitleScreen();
             ConnectScreen.startConnecting(parent, mc, parsed, data);
             sendJoinResult(conn, true, null);
