@@ -179,8 +179,16 @@ class StreamProxy {
       _commandSender.sendMapInteract(entityId);
   void requestServerList() =>
       _commandSender.trySendCommand({'type': 'LIST_SERVERS'});
-  void joinServer(String address, {String? name}) {
-    final cmd = <String, dynamic>{'type': 'JOIN_SERVER', 'address': address};
+  void joinServer(
+    String address, {
+    String? name,
+    bool acceptResourcePack = true,
+  }) {
+    final cmd = <String, dynamic>{
+      'type': 'JOIN_SERVER',
+      'address': address,
+      'acceptResourcePack': acceptResourcePack,
+    };
     if (name != null && name.isNotEmpty) cmd['name'] = name;
     _commandSender.trySendCommand(cmd);
   }
