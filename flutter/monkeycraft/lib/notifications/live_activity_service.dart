@@ -60,6 +60,14 @@ class LiveActivityService {
     String countDownText = 'TBA',
   }) async {
     if (!_initialized) return;
+    if (fireAtEpochMs <= DateTime.now().millisecondsSinceEpoch) {
+      // The target time has already passed — never post (or re-post) a
+      // chronometer that would tick into negative values. The server can
+      // keep sending TIMED_STATUS updates with the same past fireAt; just
+      // ensure any stale countdown is cleared.
+      await cancel();
+      return;
+    }
     if (_currentFireAtEpochMs == fireAtEpochMs) return;
     _currentFireAtEpochMs = fireAtEpochMs;
 
@@ -86,6 +94,10 @@ class LiveActivityService {
     String countDownText = 'TBA',
   }) async {
     if (!_initialized) return;
+    if (fireAtEpochMs <= DateTime.now().millisecondsSinceEpoch) {
+      await cancel();
+      return;
+    }
 
     final payload = _payload(fireAtEpochMs, title, body, countDownText);
     try {
