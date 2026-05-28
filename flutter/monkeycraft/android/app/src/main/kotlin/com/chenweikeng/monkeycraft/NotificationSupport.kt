@@ -16,21 +16,34 @@ import androidx.core.app.NotificationManagerCompat
  * an immediate/timed alert and an ongoing countdown.
  */
 object NotificationSupport {
+    // Two channels so the silent ongoing countdown never rings while the
+    // "ride ready" alert still does. User-configurable separately in Settings.
     const val CHANNEL_ID = "monkeycraft_timed"
-    private const val CHANNEL_NAME = "Ride reminders"
+    const val CHANNEL_ID_COUNTDOWN = "monkeycraft_countdown"
     const val COUNTDOWN_NOTIFICATION_ID = 990001
 
     fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = context.getSystemService(NotificationManager::class.java) ?: return
-            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_HIGH,
-                ).apply { description = "Ride countdowns and ready alerts" }
-                manager.createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+            val alerts = NotificationChannel(
+                CHANNEL_ID,
+                "Ride reminders",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply { description = "Ride-ready alerts" }
+            manager.createNotificationChannel(alerts)
+        }
+        if (manager.getNotificationChannel(CHANNEL_ID_COUNTDOWN) == null) {
+            val countdown = NotificationChannel(
+                CHANNEL_ID_COUNTDOWN,
+                "Ride countdown",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Silent ongoing countdown to the next ride event"
+                setSound(null, null)
+                enableVibration(false)
             }
+            manager.createNotificationChannel(countdown)
         }
     }
 
@@ -51,10 +64,16 @@ object NotificationSupport {
         // Show the countdown label (e.g. the ride name), NOT the timed body — the
         // "... has finished" body belongs only on the alert that fires at fireAt.
         val text = if (label.isBlank() || label == "TBA") "Counting down…" else label
-        val builder = baseBuilder(context, title, text)
+        // Post to the LOW-importance countdown channel so creating/updating
+        // never rings — only the alert that fires at fireAt should make sound.
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID_COUNTDOWN)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(launchIntent(context))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setWhen(fireAtEpochMs)
             .setUsesChronometer(true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
