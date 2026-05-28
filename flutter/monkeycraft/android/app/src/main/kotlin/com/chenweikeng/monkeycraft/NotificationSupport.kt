@@ -61,6 +61,12 @@ object NotificationSupport {
     /** An ongoing notification with a live countdown to [fireAtEpochMs] (the Live Activity analog). */
     fun postCountdown(context: Context, fireAtEpochMs: Long, label: String) {
         ensureChannel(context)
+        val timeUntilFire = fireAtEpochMs - System.currentTimeMillis()
+        if (timeUntilFire <= 0L) {
+            // Past time — never post a chronometer that would tick negative.
+            cancelCountdown(context)
+            return
+        }
         // Mirror iOS Live Activity: countDownText is the headline (the ride
         // name), and the chronometer carries the time. We deliberately drop the
         // server's `title` ("Ride finished") — it belongs only on the alert
@@ -77,6 +83,10 @@ object NotificationSupport {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setWhen(fireAtEpochMs)
             .setUsesChronometer(true)
+            // Self-cancel at fireAt regardless of foreground state, alarm
+            // delivery delays, or Huawei battery management — the chronometer
+            // is autonomous once posted, so we let the system end it.
+            .setTimeoutAfter(timeUntilFire)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             builder.setChronometerCountDown(true)
         }
