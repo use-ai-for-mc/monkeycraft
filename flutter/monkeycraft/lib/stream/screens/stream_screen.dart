@@ -89,6 +89,7 @@ class _StreamScreenState extends State<StreamScreen>
   ClientMode? _lastHandledMode;
   VideoState? _lastHandledVideoState;
   int? _lastFiredTimedNotificationMs;
+  int? _lastHandledTimedFireAtMs;
 
   bool get _supportedPlatform => Platform.isIOS || Platform.isAndroid;
 
@@ -227,8 +228,22 @@ class _StreamScreenState extends State<StreamScreen>
         );
       }
 
+      final timedFireAt = state.timedFireAtEpochMs;
       if (state.hasTimedNotification) {
-        _handleTimedNotification(state.timedNotification!);
+        if (timedFireAt != _lastHandledTimedFireAtMs) {
+          _lastHandledTimedFireAtMs = timedFireAt;
+          _handleTimedNotification(state.timedNotification!);
+        }
+      } else if (_lastHandledTimedFireAtMs != null) {
+        _lastHandledTimedFireAtMs = null;
+        _handleTimedNotification(
+          const TimedNotification(
+            fireAtEpochMs: null,
+            title: null,
+            body: null,
+            sound: false,
+          ),
+        );
       }
 
       _lastHandledMode = state.mode;

@@ -22,6 +22,17 @@ class McParksV1Service {
   static const _monitorIntervalMs = 3000;
   static const _connectionTimeoutMs = 30000;
 
+  /// Only https URLs on the MCParks domain are loaded into the headless
+  /// WebView — a session URL arrives from server chat, so the host/scheme
+  /// must be pinned to keep an untrusted server from running arbitrary
+  /// pages (with JS) in our hidden, mixed-content-allowed WebView.
+  static bool isMcParksUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') return false;
+    final host = uri.host.toLowerCase();
+    return host == 'mcparks.us' || host.endsWith('.mcparks.us');
+  }
+
   // Document-start user script that monkey-patches window.WebSocket
   // before the MCParks bundle runs, so every inbound audio protocol
   // message is counted against a per-name stats object. The underlying

@@ -39,7 +39,7 @@ public class AuthenticationHandler {
 
     String expectedSignature = CryptoUtils.computeHmac(password, serverSalt + clientSalt);
 
-    if (expectedSignature.equals(clientSignature)) {
+    if (CryptoUtils.constantTimeEquals(expectedSignature, clientSignature)) {
       if (authenticatedSession != null && authenticatedSession != conn) {
         if (authenticatedSession.isOpen()) {
           sendAuthResponse(authenticatedSession, false, "Logged in from another location");

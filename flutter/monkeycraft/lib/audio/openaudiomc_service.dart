@@ -60,7 +60,9 @@ class OpenAudioMcService {
   }
 
   Future<void> connect(String sessionUrl) async {
-    if (_isActive) return;
+    if (_isActive) {
+      await disconnect();
+    }
     _isActive = true;
 
     if (_headlessWebView == null) {

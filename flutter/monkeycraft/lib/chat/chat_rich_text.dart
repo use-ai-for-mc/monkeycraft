@@ -172,6 +172,7 @@ class _ChatRichTextState extends State<ChatRichText> {
       if (url == null || url.isEmpty) return;
       switch (type) {
         case 'mcparks-v1':
+          if (!McParksV1Service.isMcParksUrl(url)) break;
           final svc = widget.mcParksV1;
           if (svc != null) {
             // Apply saved volume before/after connect so the user's
