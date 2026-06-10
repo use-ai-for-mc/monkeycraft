@@ -43,10 +43,10 @@ public class WebSocketServerHandler {
   private volatile long qrDisplayStartTime = 0;
   private volatile long lastTailscaleHintAt = 0;
   private static final Gson GSON = new Gson();
-  private H264Streamer streamer;
+  private volatile H264Streamer streamer;
   private final com.chenweikeng.monkeycraft.MapDataHandler mapDataHandler =
       new com.chenweikeng.monkeycraft.MapDataHandler();
-  private boolean isStreaming = false;
+  private volatile boolean isStreaming = false;
   private StreamConfig streamConfig = new StreamConfig();
   private boolean isHibernating = false;
   private String hibernationMessage = "";
@@ -57,13 +57,13 @@ public class WebSocketServerHandler {
   private String pendingTimedNotificationCountDownText = null;
 
   private boolean turnLeft, turnRight, lookUp, lookDown;
-  private boolean isChatSubscribed = false;
+  private volatile boolean isChatSubscribed = false;
   private boolean autoFaceMovement = false;
 
-  private ClientMode clientMode = ClientMode.STREAMING;
-  private boolean hasReceivedClientStatus = false;
+  private volatile ClientMode clientMode = ClientMode.STREAMING;
+  private volatile boolean hasReceivedClientStatus = false;
 
-  private boolean isScreenOpen = false;
+  private volatile boolean isScreenOpen = false;
 
   private final InputHandler inputHandler;
   private final ScreenInteractionHandler screenHandler;
@@ -372,7 +372,8 @@ public class WebSocketServerHandler {
   }
 
   public void broadcastFrame(NativeImage image) {
-    if (server == null || streamer == null || !hasReceivedClientStatus) {
+    H264Streamer localStreamer = streamer;
+    if (server == null || localStreamer == null || !hasReceivedClientStatus) {
       image.close();
       return;
     }
@@ -387,7 +388,7 @@ public class WebSocketServerHandler {
     if ((clientMode == ClientMode.STREAMING || clientMode == ClientMode.MAP)
         && !isHibernating
         && isStreaming) {
-      streamer.encodeAndSend(image, conn);
+      localStreamer.encodeAndSend(image, conn);
     } else {
       image.close();
     }
@@ -624,7 +625,7 @@ public class WebSocketServerHandler {
   }
 
   private class MonkeycraftWebSocketServer extends WebSocketServer {
-    private WebSocket authenticatedSession;
+    private volatile WebSocket authenticatedSession;
 
     public MonkeycraftWebSocketServer(int port) {
       super(new InetSocketAddress(port));
@@ -679,14 +680,16 @@ public class WebSocketServerHandler {
         String type = json.get("type").getAsString();
 
         if ("AUTH".equals(type)) {
-          authHandler.handleAuth(
-              conn,
-              json,
-              authenticatedSession,
-              authenticated -> {
-                authenticatedSession = authenticated;
-                hasEverConnected.set(true);
-              });
+          synchronized (this) {
+            authHandler.handleAuth(
+                conn,
+                json,
+                authenticatedSession,
+                authenticated -> {
+                  authenticatedSession = authenticated;
+                  hasEverConnected.set(true);
+                });
+          }
         } else {
           if (conn != authenticatedSession) {
             sendError(conn, "Unauthorized");

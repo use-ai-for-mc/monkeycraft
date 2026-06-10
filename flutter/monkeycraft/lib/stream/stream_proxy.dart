@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
@@ -253,12 +254,11 @@ class StreamProxy {
     }
   }
 
+  static final Random _saltRandom = Random.secure();
+
   String _generateSalt() {
-    final random = List.generate(
-      16,
-      (_) => DateTime.now().microsecondsSinceEpoch ^ (Object().hashCode),
-    );
-    return base64Encode(random.map((e) => e & 0xFF).toList());
+    final random = List<int>.generate(16, (_) => _saltRandom.nextInt(256));
+    return base64Encode(random);
   }
 
   String _computeHmac(String key, String data) {
@@ -644,6 +644,7 @@ class StreamProxy {
   }
 
   void _handleConnectionLoss() {
+    final wasAuthenticated = _authenticated;
     _stopHeartbeatTimer();
     _wsSubscription = null;
     _wsChannel = null;
@@ -660,6 +661,9 @@ class StreamProxy {
           sound: false,
         ),
       );
+    }
+    if (wasAuthenticated && !_connectionLostController.isClosed) {
+      _connectionLostController.add(null);
     }
   }
 
