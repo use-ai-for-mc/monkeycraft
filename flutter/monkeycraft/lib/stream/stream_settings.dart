@@ -9,6 +9,7 @@ class StreamSettings {
   final bool invertLookY;
   final bool autoSwitchRideChat;
   final bool autoFaceMovement;
+  final bool dataSaver;
 
   const StreamSettings({
     required this.fps,
@@ -17,6 +18,7 @@ class StreamSettings {
     required this.invertLookY,
     required this.autoSwitchRideChat,
     required this.autoFaceMovement,
+    required this.dataSaver,
   });
 
   static const StreamSettings defaults = StreamSettings(
@@ -26,6 +28,7 @@ class StreamSettings {
     invertLookY: true,
     autoSwitchRideChat: false,
     autoFaceMovement: false,
+    dataSaver: false,
   );
 
   double get resolutionScale {
@@ -57,6 +60,7 @@ class StreamSettings {
     bool? invertLookY,
     bool? autoSwitchRideChat,
     bool? autoFaceMovement,
+    bool? dataSaver,
   }) {
     return StreamSettings(
       fps: fps ?? this.fps,
@@ -65,6 +69,7 @@ class StreamSettings {
       invertLookY: invertLookY ?? this.invertLookY,
       autoSwitchRideChat: autoSwitchRideChat ?? this.autoSwitchRideChat,
       autoFaceMovement: autoFaceMovement ?? this.autoFaceMovement,
+      dataSaver: dataSaver ?? this.dataSaver,
     );
   }
 }
@@ -76,6 +81,7 @@ class StreamSettingsStore {
   static const _kInvertLookY = 'stream_invert_look_y';
   static const _kAutoSwitchRideChat = 'stream_auto_switch_ride_chat';
   static const _kAutoFaceMovement = 'stream_auto_face_movement';
+  static const _kDataSaver = 'stream_data_saver';
 
   Future<StreamSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -95,6 +101,8 @@ class StreamSettingsStore {
     final autoFaceMovement =
         prefs.getBool(_kAutoFaceMovement) ??
         StreamSettings.defaults.autoFaceMovement;
+    final dataSaver =
+        prefs.getBool(_kDataSaver) ?? StreamSettings.defaults.dataSaver;
     return StreamSettings(
       fps: fps,
       colorMode: colorMode,
@@ -102,6 +110,7 @@ class StreamSettingsStore {
       invertLookY: invertLookY,
       autoSwitchRideChat: autoSwitchRideChat,
       autoFaceMovement: autoFaceMovement,
+      dataSaver: dataSaver,
     );
   }
 
@@ -113,5 +122,6 @@ class StreamSettingsStore {
     await prefs.setBool(_kInvertLookY, settings.invertLookY);
     await prefs.setBool(_kAutoSwitchRideChat, settings.autoSwitchRideChat);
     await prefs.setBool(_kAutoFaceMovement, settings.autoFaceMovement);
+    await prefs.setBool(_kDataSaver, settings.dataSaver);
   }
 }

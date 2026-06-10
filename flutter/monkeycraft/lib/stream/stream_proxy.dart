@@ -149,6 +149,7 @@ class StreamProxy {
     int? colorMode,
     int? fps,
     bool? autoFaceMovement,
+    bool? dataSaver,
   }) => _commandSender.sendClientStatus(
     mode,
     width: width,
@@ -156,6 +157,7 @@ class StreamProxy {
     colorMode: colorMode,
     fps: fps,
     autoFaceMovement: autoFaceMovement,
+    dataSaver: dataSaver,
   );
   bool trySendRunCommand(String command) =>
       _commandSender.trySendRunCommand(command);

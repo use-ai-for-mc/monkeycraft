@@ -205,6 +205,7 @@ public class WebSocketServerHandler {
     public int height = 640;
     public int colorMode = 0;
     public int fps = 10;
+    public boolean dataSaver = false;
   }
 
   private WebSocketServerHandler() {
@@ -779,11 +780,14 @@ public class WebSocketServerHandler {
         targetWidth = (targetWidth / 2) * 2;
         targetHeight = (targetHeight / 2) * 2;
 
+        boolean dataSaver = json.has("dataSaver") && json.get("dataSaver").getAsBoolean();
+
         if (streamer == null
             || streamConfig.width != targetWidth
             || streamConfig.height != targetHeight
             || streamConfig.colorMode != colorMode
-            || streamConfig.fps != fps) {
+            || streamConfig.fps != fps
+            || streamConfig.dataSaver != dataSaver) {
 
           if (streamer != null) streamer.close();
 
@@ -791,8 +795,9 @@ public class WebSocketServerHandler {
           streamConfig.height = targetHeight;
           streamConfig.colorMode = colorMode;
           streamConfig.fps = fps;
+          streamConfig.dataSaver = dataSaver;
 
-          streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps);
+          streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps, dataSaver);
         }
 
         if (streamer != null) {
@@ -816,17 +821,20 @@ public class WebSocketServerHandler {
           targetWidth = (targetWidth / 2) * 2;
           targetHeight = (targetHeight / 2) * 2;
 
+          boolean dataSaver = json.has("dataSaver") && json.get("dataSaver").getAsBoolean();
           if (streamer == null
               || streamConfig.width != targetWidth
               || streamConfig.height != targetHeight
               || streamConfig.colorMode != colorMode
-              || streamConfig.fps != fps) {
+              || streamConfig.fps != fps
+              || streamConfig.dataSaver != dataSaver) {
             if (streamer != null) streamer.close();
             streamConfig.width = targetWidth;
             streamConfig.height = targetHeight;
             streamConfig.colorMode = colorMode;
             streamConfig.fps = fps;
-            streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps);
+            streamConfig.dataSaver = dataSaver;
+            streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps, dataSaver);
           }
           if (streamer != null) streamer.resetBackpressure();
         }

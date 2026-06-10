@@ -11,6 +11,7 @@ void main() {
         invertLookY: true,
         autoSwitchRideChat: false,
         autoFaceMovement: false,
+        dataSaver: false,
       ).resolutionScale,
       0.5,
     );
@@ -22,6 +23,7 @@ void main() {
         invertLookY: true,
         autoSwitchRideChat: false,
         autoFaceMovement: false,
+        dataSaver: false,
       ).resolutionScale,
       0.75,
     );
@@ -33,6 +35,7 @@ void main() {
         invertLookY: true,
         autoSwitchRideChat: false,
         autoFaceMovement: false,
+        dataSaver: false,
       ).resolutionScale,
       1.0,
     );

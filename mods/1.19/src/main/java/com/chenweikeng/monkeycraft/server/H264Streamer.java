@@ -23,6 +23,7 @@ public class H264Streamer {
   private static final int RETRO_MASK = 0xC0;
   private static final int MAX_PENDING_FRAMES = 1;
   private static final int NAL_TYPE_IDR = 5;
+  private static final int DATA_SAVER_GOP_SECONDS = 4;
 
   private final Picture picture;
   private volatile H264Encoder encoder;
@@ -34,14 +35,20 @@ public class H264Streamer {
   private final AtomicInteger pendingFrames = new AtomicInteger(0);
   private final int colorMode;
   private final int fps;
+  private final boolean dataSaver;
   private volatile boolean needsIdr = true;
   private volatile boolean sendResolutionHeader = true;
 
   public H264Streamer(int width, int height, int colorMode, int fps) {
+    this(width, height, colorMode, fps, false);
+  }
+
+  public H264Streamer(int width, int height, int colorMode, int fps, boolean dataSaver) {
     this.width = width;
     this.height = height;
     this.colorMode = colorMode;
     this.fps = fps;
+    this.dataSaver = dataSaver;
 
     this.picture = Picture.create(width, height, ColorSpace.YUV420J);
     this.buffer = ByteBuffer.allocate(Math.max(1024 * 1024, width * height * 6));
@@ -136,7 +143,7 @@ public class H264Streamer {
                 conn.send(dataToSend);
                 pendingFrames.incrementAndGet();
 
-                if (!isIdr) {
+                if (!isIdr && !dataSaver) {
                   needsIdr = true;
                 }
               }
@@ -174,7 +181,8 @@ public class H264Streamer {
 
   private H264Encoder createEncoder() {
     H264Encoder next = H264Encoder.createH264Encoder();
-    next.setKeyInterval(Math.max(1, fps));
+    int keyInterval = dataSaver ? Math.max(1, fps * DATA_SAVER_GOP_SECONDS) : Math.max(1, fps);
+    next.setKeyInterval(keyInterval);
     return next;
   }
 

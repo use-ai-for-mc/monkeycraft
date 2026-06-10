@@ -12,7 +12,7 @@ import org.java_websocket.WebSocket;
 public class AuthenticationHandler {
   private static final Gson GSON = new Gson();
   private static final int PROTOCOL_VERSION = 2;
-  private static final String[] CAPABILITIES = {"PLAYER_LIST"};
+  private static final String[] CAPABILITIES = {"PLAYER_LIST", "DATA_SAVER"};
   private final WebSocketServerHandler handler;
 
   public AuthenticationHandler(WebSocketServerHandler handler) {
