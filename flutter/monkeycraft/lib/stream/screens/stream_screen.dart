@@ -772,7 +772,10 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _openSettings() async {
     final next = await Navigator.of(context).push<StreamSettings>(
       MaterialPageRoute(
-        builder: (context) => StreamSettingsScreen(initial: _settings),
+        builder: (context) => StreamSettingsScreen(
+          initial: _settings,
+          dataSaverSupported: widget.proxy.serverSupports('DATA_SAVER'),
+        ),
       ),
     );
     if (next == null || next == _settings) return;

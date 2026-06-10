@@ -62,7 +62,7 @@ flutter build apk            # Build Android
 ### Client → Server
 | Type | Purpose |
 |------|---------|
-| `CLIENT_STATUS` | Sync mode (streaming/chat), resolution, fps, autoFaceMovement |
+| `CLIENT_STATUS` | Sync mode (streaming/chat), resolution, fps, autoFaceMovement, dataSaver |
 | `INPUT` | Key press/release (W, A, S, D, SPACE, SHIFT) |
 | `LOOK_DELTA` | Camera yaw/pitch delta |
 | `CLICK` | Mouse click (button: 0=left, 1=right) |

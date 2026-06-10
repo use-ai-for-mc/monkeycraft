@@ -53,6 +53,7 @@ class CommandSender {
     int? colorMode,
     int? fps,
     bool? autoFaceMovement,
+    bool? dataSaver,
   }) {
     final modeStr = switch (mode) {
       ClientMode.streaming => 'STREAMING',
@@ -68,6 +69,7 @@ class CommandSender {
       if (height != null) cmd['height'] = height;
       if (colorMode != null) cmd['colorMode'] = colorMode;
       if (fps != null) cmd['fps'] = fps;
+      if (dataSaver != null) cmd['dataSaver'] = dataSaver;
     }
     if (autoFaceMovement != null) {
       cmd['autoFaceMovement'] = autoFaceMovement;

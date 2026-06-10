@@ -189,5 +189,21 @@ void main() {
       final decoded = jsonDecode(mockChannel.sentMessages.first);
       expect(decoded['autoFaceMovement'], true);
     });
+
+    test('sendClientStatus includes dataSaver when streaming', () {
+      sender.attach(mockChannel);
+      sender.setAuthenticated(true);
+      sender.sendClientStatus(ClientMode.streaming, dataSaver: true);
+      final decoded = jsonDecode(mockChannel.sentMessages.first);
+      expect(decoded['dataSaver'], true);
+    });
+
+    test('sendClientStatus omits dataSaver in chat mode', () {
+      sender.attach(mockChannel);
+      sender.setAuthenticated(true);
+      sender.sendClientStatus(ClientMode.chat, dataSaver: true);
+      final decoded = jsonDecode(mockChannel.sentMessages.first);
+      expect(decoded.containsKey('dataSaver'), isFalse);
+    });
   });
 }

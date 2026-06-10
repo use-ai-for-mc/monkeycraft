@@ -107,10 +107,10 @@ Central communication hub between Flutter app and Minecraft mod.
 |-----------|------|-------------|
 | Server→Client | `HELLO` | Authentication challenge with salt |
 | Client→Server | `AUTH` | HMAC-SHA256 authentication response |
-| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; `AUTH_OK` carries `protocolVersion` + `capabilities[]` (feature tokens like `PLAYER_LIST`) the client gates optional features on |
+| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; `AUTH_OK` carries `protocolVersion` + `capabilities[]` (feature tokens like `PLAYER_LIST`, `DATA_SAVER`) the client gates optional features on |
 | Server→Client | Binary | H.264 video access unit (with optional 6-byte resolution header) |
 | Client→Server | `ACK` | Video frame acknowledgment |
-| Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps/autoFaceMovement |
+| Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps/autoFaceMovement/dataSaver (`dataSaver` lengthens the encoder GOP to cut bandwidth; gated on the `DATA_SAVER` capability) |
 | Client→Server | `INPUT` | Key press/release |
 | Client→Server | `LOOK_DELTA` | Camera movement |
 | Client→Server | `CLICK` | Mouse click (left/right) |
@@ -180,7 +180,7 @@ Platform channel bridge to native video decoder:
 Uses Flutter Texture widget to display decoded video.
 
 ### StreamSettings & StreamSettingsStore (`stream/stream_settings.dart`)
-- `StreamSettings`: Data class for fps, colorMode, resolutionPreset, autoSwitchRideChat, autoFaceMovement
+- `StreamSettings`: Data class for fps, colorMode, resolutionPreset, autoSwitchRideChat, autoFaceMovement, dataSaver
 - `StreamSettingsStore`: Persistence via SharedPreferences
 
 ### LookDeltaCoalescer (`stream/look_delta_coalescer.dart`)

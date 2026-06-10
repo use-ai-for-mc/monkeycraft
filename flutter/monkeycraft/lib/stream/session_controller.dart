@@ -188,6 +188,7 @@ class SessionController extends ChangeNotifier {
       colorMode: settings.colorMode,
       fps: settings.fps,
       autoFaceMovement: settings.autoFaceMovement,
+      dataSaver: settings.dataSaver,
     );
   }
 
@@ -222,6 +223,7 @@ class SessionController extends ChangeNotifier {
       colorMode: settings.colorMode,
       fps: settings.fps,
       autoFaceMovement: settings.autoFaceMovement,
+      dataSaver: settings.dataSaver,
     );
   }
 

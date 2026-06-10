@@ -10,8 +10,13 @@ import 'package:monkeycraft_client/stream/stream_settings.dart';
 
 class StreamSettingsScreen extends StatefulWidget {
   final StreamSettings initial;
+  final bool dataSaverSupported;
 
-  const StreamSettingsScreen({super.key, required this.initial});
+  const StreamSettingsScreen({
+    super.key,
+    required this.initial,
+    this.dataSaverSupported = true,
+  });
 
   @override
   State<StreamSettingsScreen> createState() => _StreamSettingsScreenState();
@@ -174,6 +179,21 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             onChanged: (v) => setState(
               () => _settings = _settings.copyWith(autoFaceMovement: v),
             ),
+          ),
+          SwitchListTile(
+            title: const Text('Data Saver'),
+            subtitle: Text(
+              widget.dataSaverSupported
+                  ? 'Send fewer keyframes to roughly halve cellular data. '
+                        'Trade-off: slower recovery if frames are dropped on a '
+                        'weak connection.'
+                  : 'Not supported by this server — update the mod to use it.',
+            ),
+            value: _settings.dataSaver,
+            onChanged: widget.dataSaverSupported
+                ? (v) =>
+                      setState(() => _settings = _settings.copyWith(dataSaver: v))
+                : null,
           ),
           const Divider(height: 32),
           ListTile(
