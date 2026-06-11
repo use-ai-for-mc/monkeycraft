@@ -543,6 +543,7 @@ public class WebSocketServerHandler {
   }
 
   public void sendPostAuthState(WebSocket conn) {
+    inputHandler.releaseAll();
     if (isHibernating) {
       JsonObject hibernationStatus = new JsonObject();
       hibernationStatus.addProperty("type", "HIBERNATION_STATUS");
@@ -668,6 +669,7 @@ public class WebSocketServerHandler {
         clientMode = ClientMode.STREAMING;
         hasReceivedClientStatus = false;
         mapDataHandler.reset();
+        inputHandler.releaseAll();
         com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi.DISCONNECTION.invoker().onDisconnected();
       }
     }

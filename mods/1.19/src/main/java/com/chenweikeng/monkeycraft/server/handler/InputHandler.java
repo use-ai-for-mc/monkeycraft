@@ -87,6 +87,32 @@ public class InputHandler {
         });
   }
 
+  public void releaseAll() {
+    Minecraft mc = Minecraft.getInstance();
+    mc.execute(
+        () -> {
+          KeyMapping[] bindings = {
+            mc.options.keyUp,
+            mc.options.keyLeft,
+            mc.options.keyDown,
+            mc.options.keyRight,
+            mc.options.keyJump,
+            mc.options.keyShift,
+            mc.options.keyDrop,
+            mc.options.keySwapOffhand,
+            mc.options.keyUse,
+            mc.options.keyAttack,
+          };
+          for (KeyMapping binding : bindings) {
+            binding.setDown(false);
+          }
+          handler.setTurnLeft(false);
+          handler.setTurnRight(false);
+          handler.setLookUp(false);
+          handler.setLookDown(false);
+        });
+  }
+
   public void handleClick(JsonObject json) {
     int button = json.has("button") ? json.get("button").getAsInt() : 0;
     Minecraft mc = Minecraft.getInstance();
