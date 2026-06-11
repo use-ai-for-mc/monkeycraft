@@ -25,7 +25,7 @@ class MpegTsMuxer {
 
   List<Uint8List> muxH264AccessUnit(Uint8List accessUnit, int pts90k) {
     final pes = _buildPes(accessUnit, pts90k);
-    return _packetizePes(_videoPid, pes);
+    return _packetizePes(_videoPid, pes, pts90k);
   }
 
   Uint8List _buildPatPacket() {
@@ -108,19 +108,23 @@ class MpegTsMuxer {
     return b.toBytes();
   }
 
-  List<Uint8List> _packetizePes(int pid, Uint8List pes) {
+  List<Uint8List> _packetizePes(int pid, Uint8List pes, int pcr90k) {
     final packets = <Uint8List>[];
     int offset = 0;
     bool first = true;
     while (offset < pes.length) {
       final remaining = pes.length - offset;
-      final payloadLen = remaining >= 184 ? 184 : remaining;
+      // The first packet carries the PCR in an adaptation field
+      // (1 length byte + 1 flags byte + 6 PCR bytes).
+      final capacity = first ? 184 - 8 : 184;
+      final payloadLen = remaining >= capacity ? capacity : remaining;
       final payload = pes.sublist(offset, offset + payloadLen);
       final packet = _tsPacket(
         pid: pid,
         payloadUnitStart: first,
         continuityCounter: _videoCc,
         payload: payload,
+        pcr90k: first ? pcr90k : null,
       );
       packets.add(packet);
       _videoCc = (_videoCc + 1) & 0x0F;
@@ -135,11 +139,33 @@ class MpegTsMuxer {
     required bool payloadUnitStart,
     required int continuityCounter,
     required List<int> payload,
+    int? pcr90k,
   }) {
     final packet = Uint8List(188);
     packet[0] = 0x47;
     packet[1] = ((payloadUnitStart ? 0x40 : 0x00) | ((pid >> 8) & 0x1F));
     packet[2] = pid & 0xFF;
+
+    if (pcr90k != null) {
+      // Adaptation field with PCR; the caller caps the payload at 176 bytes.
+      final adaptationLen = 183 - payload.length;
+      packet[3] = (3 << 4) | (continuityCounter & 0x0F);
+      packet[4] = adaptationLen & 0xFF;
+      packet[5] = 0x10;
+      final base = pcr90k & 0x1FFFFFFFF;
+      packet[6] = (base >> 25) & 0xFF;
+      packet[7] = (base >> 17) & 0xFF;
+      packet[8] = (base >> 9) & 0xFF;
+      packet[9] = (base >> 1) & 0xFF;
+      packet[10] = ((base & 1) << 7) | 0x7E;
+      packet[11] = 0x00;
+      for (int i = 12; i < 5 + adaptationLen; i++) {
+        packet[i] = 0xFF;
+      }
+      final headerIndex = 5 + adaptationLen;
+      packet.setRange(headerIndex, headerIndex + payload.length, payload);
+      return packet;
+    }
 
     int adaptationControl = 1;
     int headerIndex = 4;

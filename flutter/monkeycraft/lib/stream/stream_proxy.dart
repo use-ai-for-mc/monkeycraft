@@ -9,6 +9,7 @@ import 'package:web_socket_channel/status.dart' as status;
 import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/chat/chat_models.dart';
+import 'package:monkeycraft_client/stream/h264_nal.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/stream/proxy/video_relay.dart';
 import 'package:monkeycraft_client/stream/proxy/command_sender.dart';
@@ -219,21 +220,6 @@ class StreamProxy {
     }
   }
 
-  bool _isIdrFrame(List<int> data) {
-    if (data.length < 5) return false;
-    for (int i = 0; i < data.length - 4; i++) {
-      if (data[i] == 0 &&
-          data[i + 1] == 0 &&
-          data[i + 2] == 0 &&
-          data[i + 3] == 1) {
-        final type = data[i + 4] & 0x1F;
-        if (type == 5) return true;
-        i += 4;
-      }
-    }
-    return false;
-  }
-
   Uri _parseServerUrl(String server) {
     server = server.trim();
 
@@ -416,7 +402,7 @@ class StreamProxy {
     // by a connection-loss callback; a missed ACK is harmless.
     _wsChannel?.sink.add(jsonEncode({'type': 'ACK'}));
 
-    final isIdr = _isIdrFrame(h264Data);
+    final isIdr = containsIdrNal(h264Data);
     _videoRelay.onVideoFrame(h264Data, isIdr);
   }
 
