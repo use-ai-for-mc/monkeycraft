@@ -43,6 +43,7 @@ class SessionController extends ChangeNotifier {
   static const int _maxReconnectRetries = 3;
   String? _server;
   String? _password;
+  bool _disposed = false;
 
   bool get supportedPlatform => Platform.isIOS || Platform.isAndroid;
 
@@ -124,6 +125,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void _updateState(SessionState newState) {
+    if (_disposed) return;
     if (_state != newState) {
       _state = newState;
       notifyListeners();
@@ -344,6 +346,7 @@ class SessionController extends ChangeNotifier {
 
   void _scheduleReconnectRetry() {
     _reconnectRetryTimer?.cancel();
+    if (_disposed) return;
 
     if (_state.reconnectRetryCount >= _maxReconnectRetries ||
         _state.authFailed) {
@@ -358,10 +361,17 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _attemptReconnect() async {
+    if (_disposed) return;
     if (_server == null || _password == null) return;
 
     try {
       await proxy.start(_server!, _password!);
+      if (_disposed) {
+        // The screen went away while connecting; don't keep a ghost
+        // connection holding the mod's single client slot.
+        await proxy.stop();
+        return;
+      }
       proxy.sendPing();
 
       _updateState(
@@ -400,12 +410,17 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> resumeConnection() async {
+    if (_disposed) return;
     if (proxy.isConnected) return;
     if (_server == null || _password == null) return;
 
     _updateState(_state.copyWith(isReconnecting: true));
     try {
       await proxy.start(_server!, _password!);
+      if (_disposed) {
+        await proxy.stop();
+        return;
+      }
       proxy.sendPing();
       _updateState(
         _state.copyWith(
@@ -435,6 +450,7 @@ class SessionController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _reconnectRetryTimer?.cancel();
     _serverStatusSub?.cancel();
     _serverResolutionSub?.cancel();

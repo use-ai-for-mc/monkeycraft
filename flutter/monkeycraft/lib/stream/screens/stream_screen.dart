@@ -308,8 +308,8 @@ class _StreamScreenState extends State<StreamScreen>
     _connectionLostSub = null;
 
     await _session.disposeDecoder();
-    _session.dispose();
-    _liveActivityService.dispose();
+    // _session, _liveActivityService and the proxy are disposed exactly once,
+    // in State.dispose, which the pop below triggers.
     await widget.proxy.stop();
     await openAudioMcService.disconnect();
     await mcParksV1Service.disconnect();
