@@ -9,7 +9,7 @@ import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/stream/session_controller.dart';
 import 'package:monkeycraft_client/chat/chat_rich_text.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:monkeycraft_client/auth/credential_store.dart';
 
 class ChatScreen extends StatefulWidget {
   final StreamProxy proxy;
@@ -167,10 +167,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadCredentialsToSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final server = prefs.getString('server') ?? '127.0.0.1:9600';
-    final password = prefs.getString('password') ?? '';
-    widget.session?.setCredentials(server, password);
+    final credentials = await CredentialStore.load();
+    widget.session?.setCredentials(credentials.server, credentials.password);
   }
 
   Future<void> _loadCachedMessages() async {

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:monkeycraft_client/auth/credential_store.dart';
 import 'package:monkeycraft_client/auth/qr_scan_screen.dart';
 import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
 import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
@@ -44,17 +44,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
+    final credentials = await CredentialStore.load();
+    if (!mounted) return;
     setState(() {
-      _serverController.text = prefs.getString('server') ?? '127.0.0.1:9600';
-      _passController.text = prefs.getString('password') ?? '';
+      _serverController.text = credentials.server;
+      _passController.text = credentials.password;
     });
   }
 
   Future<void> _saveCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('server', _serverController.text);
-    await prefs.setString('password', _passController.text);
+    await CredentialStore.save(_serverController.text, _passController.text);
   }
 
   void _cancelConnect() {
