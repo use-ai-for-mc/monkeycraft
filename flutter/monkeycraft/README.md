@@ -4,7 +4,7 @@ Flutter mobile app for remote Minecraft control.
 
 ## Version
 
-1.2.2
+1.4.1+10
 
 ## Development
 
@@ -46,7 +46,7 @@ flutter run
 ### iOS (App Store Connect)
 
 1. Ensure you have a valid Apple Developer account and certificates configured in Xcode
-2. Update version in `pubspec.yaml` and `ios/Flutter/Generated.xcconfig`
+2. Update `version:` in `pubspec.yaml`
 3. Build the release archive:
    ```bash
    flutter build ipa --release
@@ -75,7 +75,6 @@ flutter run
 ## Release Checklist
 
 - [ ] Update `pubspec.yaml` version
-- [ ] Update `ios/Flutter/Generated.xcconfig` (FLUTTER_BUILD_NAME, FLUTTER_BUILD_NUMBER)
 - [ ] Test on both iOS and Android
 - [ ] Build release artifacts
 - [ ] Upload to respective stores

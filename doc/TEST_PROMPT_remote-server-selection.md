@@ -14,9 +14,9 @@ scripts target it directly — no manual copy needed):
 
 | Variant   | PrismLauncher instance | Mod jar in `<instance>/.minecraft/mods/` | ModMenu in profile |
 | --------- | ---------------------- | ----------------------------------------- | ------------------ |
-| `1.19`    | `Fabric 1.19`          | `monkeycraft-1.4.0-1.19.jar`              | enabled            |
-| `1.21.11` | `ImagineFun`           | `monkeycraft-1.4.0-1.21.11.jar`           | enabled            |
-| `26.1`    | `26.1`                 | `monkeycraft-1.4.0-26.1.jar`              | **disabled**       |
+| `1.19`    | `Fabric 1.19`          | `monkeycraft-1.4.1-1.19.jar`              | enabled            |
+| `1.21.11` | `ImagineFun`           | `monkeycraft-1.4.1-1.21.11.jar`           | enabled            |
+| `26.1`    | `26.1`                 | `monkeycraft-1.4.1-26.1.jar`              | **disabled**       |
 
 Passwords live in each instance's `config/monkeycraft.json` (`password`
 field) — read them from there at test time rather than copying them
@@ -34,7 +34,7 @@ transparently on first load to the new `serverAutoStart` enum.
 
 ```
 I'm regression-testing the remote-server-selection feature (picker +
-acceptResourcePack toggle, mod 1.4.0) on Minecraft <VERSION>.
+acceptResourcePack toggle, mod 1.4.1) on Minecraft <VERSION>.
 
 Working dir: /Users/cusgadmin/if-local/monkeycraft
 
@@ -50,13 +50,13 @@ What I want you to do:
    This deploys to the PrismLauncher instance listed in the doc's
    profile-state table and atomically replaces any existing monkeycraft
    jar there. Confirm the target mods/ folder now contains
-   monkeycraft-1.4.0-<VERSION>.jar and no stale monkeycraft-*.jar from
+   monkeycraft-1.4.1-<VERSION>.jar and no stale monkeycraft-*.jar from
    older versions — if any 1.3.x jars remain, rm them.
 
 3. Read the profile's config/monkeycraft.json. Confirm one of:
      - "serverAutoStart": "AT_TITLE_SCREEN"  (new key, already set), OR
      - legacy "startServerAtLaunch": true    (will be auto-migrated on
-       first launch of the 1.4.0 jar; you can leave it for the migration
+       first launch of the 1.4.1 jar; you can leave it for the migration
        to handle, or pre-edit to the new key).
    The path is:
      ~/Library/Application Support/PrismLauncher/instances/<INSTANCE>/.minecraft/config/monkeycraft.json
@@ -74,7 +74,7 @@ What I want you to do:
    If a stale MC from a previous variant is still holding 9600, ask me
    to quit it first.
 
-5. After first launch with 1.4.0, peek at the JSON again. If legacy
+5. After first launch with 1.4.1, peek at the JSON again. If legacy
    keys were present, confirm they've been removed and "serverAutoStart"
    was written. (One-time migration; harmless if not present.)
 
