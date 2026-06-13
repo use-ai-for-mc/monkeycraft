@@ -1,6 +1,4 @@
 PODS:
-  - connectivity_plus (0.0.1):
-    - Flutter
   - Flutter (1.0.0)
   - flutter_app_group_directory (0.0.1):
     - Flutter
@@ -11,6 +9,9 @@ PODS:
   - flutter_inappwebview_ios/Core (0.0.1):
     - Flutter
     - OrderedSet (~> 6.0.3)
+  - flutter_secure_storage_darwin (10.0.0):
+    - Flutter
+    - FlutterMacOS
   - image_picker_ios (0.0.1):
     - Flutter
   - live_activities (0.0.1):
@@ -28,10 +29,10 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
-  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - Flutter (from `Flutter`)
   - flutter_app_group_directory (from `.symlinks/plugins/flutter_app_group_directory/ios`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
+  - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - live_activities (from `.symlinks/plugins/live_activities/ios`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
@@ -44,14 +45,14 @@ SPEC REPOS:
     - OrderedSet
 
 EXTERNAL SOURCES:
-  connectivity_plus:
-    :path: ".symlinks/plugins/connectivity_plus/ios"
   Flutter:
     :path: Flutter
   flutter_app_group_directory:
     :path: ".symlinks/plugins/flutter_app_group_directory/ios"
   flutter_inappwebview_ios:
     :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
+  flutter_secure_storage_darwin:
+    :path: ".symlinks/plugins/flutter_secure_storage_darwin/darwin"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   live_activities:
@@ -66,18 +67,18 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
-  connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_app_group_directory: 55b5362007d1c0cb45dc1dd1e94f67d615f45a6b
-  flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
-  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
-  live_activities: 4dfa736d0736e1c77866a2f9c056a76513cc9e7b
-  mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
+  flutter_app_group_directory: d2c3337f424828558953172f9378d00df9b7756d
+  flutter_inappwebview_ios: 6f63631e2c62a7c350263b13fa5427aedefe81d4
+  flutter_secure_storage_darwin: 557817588b80e60213cbecb573c45c76b788018d
+  image_picker_ios: 4f2f91b01abdb52842a8e277617df877e40f905b
+  live_activities: 5a5313d5bf801bbbbe80d51eab80aed6d6df376b
+  mobile_scanner: 77265f3dc8d580810e91849d4a0811a90467ed5e
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
-  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
-  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
+  permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
+  shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
+  url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
 
 PODFILE CHECKSUM: 6535f08e8f87120e0bf3dd03a94573f78484a925
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.11.3
