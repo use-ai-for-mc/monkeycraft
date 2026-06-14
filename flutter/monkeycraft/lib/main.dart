@@ -32,6 +32,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         return MaterialApp(
           title: 'MonkeyCraft',
+          debugShowCheckedModeBanner: false,
           theme: ThemeData(
             fontFamily: appSettings.font.familyName,
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),

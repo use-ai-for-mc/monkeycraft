@@ -28,13 +28,16 @@ class KeyboardPrewarmer {
           child: SizedBox(
             width: 1,
             height: 1,
-            child: TextField(
-              focusNode: _focusNode,
-              autofocus: true,
-              style: const TextStyle(fontSize: 0, color: Colors.transparent),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+            child: Material(
+              type: MaterialType.transparency,
+              child: TextField(
+                focusNode: _focusNode,
+                autofocus: true,
+                style: const TextStyle(fontSize: 0, color: Colors.transparent),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
             ),
           ),
