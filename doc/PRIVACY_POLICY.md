@@ -2,8 +2,8 @@
 
 Effective date: June 14, 2026
 
-MonkeyCraft is a remote-control client for a user-provided Minecraft Java
-Edition client running the MonkeyCraft Fabric mod.
+MonkeyCraft is a remote-control client for a user-provided supported desktop
+game client running the MonkeyCraft companion mod.
 
 ## Data Collection
 
@@ -18,13 +18,15 @@ user-provided host and is not sent to MonkeyCraft developers.
 ## Network Connections
 
 The app connects only to endpoints entered or selected by the user, such as a
-local computer, a private network address, or a private network service such as
-Tailscale. Video, control input, and chat data are exchanged directly between
-the app and the user's selected host.
+local computer, local network address, or private network path configured by
+the user outside MonkeyCraft. MonkeyCraft does not provide VPN functionality,
+does not create or manage VPN profiles, and does not collect information using
+VPN. Video, control input, and chat data are exchanged directly between the app
+and the user's selected host.
 
-If the user connects their Minecraft client to a multiplayer server, or enables
-optional audio routing such as OpenAudioMc or MCParks, those third-party
-services may process data according to their own policies.
+If the user connects their desktop game client to a multiplayer server, or
+enables optional third-party web audio routing, those third-party services may
+process data according to their own policies.
 
 ## Analytics and Advertising
 
