@@ -9,6 +9,7 @@
 		"GameRendererAccessor",
 		"GuiRendererAccessor",
 		"LocalPlayerMixin",
+		"MinecraftMixin",
 		"AbstractContainerScreenAccessor",
 		"KeyMappingAccessor",
 		"MouseHandlerAccessor",

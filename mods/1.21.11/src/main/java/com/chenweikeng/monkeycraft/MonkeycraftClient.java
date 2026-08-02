@@ -79,12 +79,14 @@ public class MonkeycraftClient implements ClientModInitializer {
             }
           }
 
-          if (!wasConnectedToClient && connectedNow) {
+          if (connectedNow) {
             isConnectedToClient = true;
-            if (client.mouseHandler.isMouseGrabbed()) {
-              client.mouseHandler.releaseMouse();
+            if (!hasRecentLocalKeyInput()) {
+              if (client.mouseHandler.isMouseGrabbed()) {
+                client.mouseHandler.releaseMouse();
+              }
+              automaticallyReleasedCursor = true;
             }
-            automaticallyReleasedCursor = true;
           }
           if (!connectedNow) {
             isConnectedToClient = false;
