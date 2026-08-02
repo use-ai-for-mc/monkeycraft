@@ -2,7 +2,7 @@
 
 # 🐒 MonkeyCraft
 
-<img src="mods/26.1/src/main/resources/assets/monkeycraft/icon.png" alt="MonkeyCraft Logo" width="128" height="128">
+<img src="https://raw.githubusercontent.com/use-ai-for-mc/monkeycraft/master/mods/26.1/src/main/resources/assets/monkeycraft/icon.png" alt="MonkeyCraft Logo" width="128" height="128">
 
 ### *Play Minecraft from anywhere. Really anywhere.*
 
