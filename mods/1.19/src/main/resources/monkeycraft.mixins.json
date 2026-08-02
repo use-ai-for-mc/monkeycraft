@@ -6,6 +6,7 @@
 		"KeyboardMixin",
 		"ChatListenerMixin",
 		"LocalPlayerMixin",
+		"MinecraftMixin",
 		"AbstractContainerScreenAccessor",
 		"KeyMappingAccessor",
 		"MouseHandlerAccessor",

@@ -1,3 +1,23 @@
+# Modrinth Description Update
+
+Project: <https://modrinth.com/mod/monkeycraft>
+Slug: `monkeycraft`
+
+The current environment can read the public Modrinth project but has no
+Modrinth API token or authenticated page-editing session. The content below is
+the complete proposed update and has not been written to Modrinth automatically.
+
+## Short description
+
+```text
+Fabric mod for remote Minecraft gameplay; iOS client 1.4.1 is on the App Store, while Android is not publicly released and is being prepared for Google Play closed testing.
+```
+
+## Full description
+
+Copy the following Markdown into the Modrinth project's description editor:
+
+~~~~markdown
 <div align="center">
 
 # 🐒 MonkeyCraft
@@ -16,19 +36,18 @@
 
 ---
 
-iOS client 1.4.1 is now available on the Apple App Store. Android client is not publicly released yet; Google Play closed-testing and production-release preparation is in progress. Please refer to the [wiki](https://github.com/use-ai-for-mc/monkeycraft/wiki) for the latest client release information.
-
----
+iOS client 1.4.1 is now available on the [Apple App Store](https://apps.apple.com/app/id6759430770). Android client is not publicly released yet; Google Play closed-testing and production-release preparation is in progress. Please refer to the [wiki](https://github.com/use-ai-for-mc/monkeycraft/wiki) for the latest client release information.
 
 ## 📱 Mobile App Availability
 
 - **iOS 1.4.1** — Available on the [Apple App Store](https://apps.apple.com/app/id6759430770).
-- **Android** — Not publicly released yet. Google Play closed-testing and production-release preparation is in progress; Android public availability will be announced separately.
+- **Android** — Not publicly released yet; Google Play closed-testing and production-release preparation is in progress.
 
+---
 
 ## ✨ What Can You Do?
 
-MonkeyCraft lets you **play Minecraft remotely** from your iOS or Android phone. 
+MonkeyCraft lets you **play Minecraft remotely** from your iOS or Android phone.
 
 🎮 **Imagine these scenarios:**
 
@@ -61,7 +80,7 @@ first-person feed. Handy for navigation, base layout, or following someone else 
 Full gameplay control with intuitive touch interface:
 
 | Control | Action |
-|---------|--------|
+|--------|--------|
 | 🕹️ **Virtual Joystick** | Move around (WASD) |
 | 👆 **Look Pad** | Look around by dragging + tap to click |
 | 🦘 **Jump Button** | Jump (Space) |
@@ -80,7 +99,7 @@ Full gameplay control with intuitive touch interface:
 Stay informed even when not actively playing:
 
 | Type | Description |
-|------|-------------|
+|-------------|-------------|
 | ⏰ **Timed Notification** | Get reminded at a specific time with countdown |
 | 📳 **Instant Nudge** | Receive immediate alerts from in-game events |
 
@@ -101,14 +120,6 @@ Need to step away but stay connected?
 - 🔗 **Keep Connection** — Stays logged in to the server
 - 💬 **Chat Available** — Still send and receive messages
 - 📱 **Live Activity (iOS)** — See countdown on your lock screen
-
-### 🧭 Remote Server Join
-
-Connect from your phone while Minecraft is still at the title screen:
-
-- 📋 **Saved server list** — browse the multiplayer servers saved on your client
-- ⌨️ **Direct connect** — type any server address to join
-- 🚪 **Hands-free** — with *Start Server at Launch* enabled, pick and join a server entirely from the app
 
 ### 🔐 Secure Connection
 
@@ -132,6 +143,7 @@ In Minecraft, type `/monkey start` to launch the WebSocket server.
 ### 3️⃣ Connect Your Phone
 
 Open the MonkeyCraft app on your phone and:
+
 - Enter your computer's IP address and port (default: 9600)
 - Scan the QR code displayed in-game, or
 - Enter the password manually
@@ -150,13 +162,10 @@ Access settings via `/monkey config` or through ModMenu:
 |--------|---------|--------------|
 | 🚪 **Port** | 9600 | The port number for connections |
 | 🔑 **Password** | Random | Your connection password |
-| 🌍 **Who Can Connect** | My local network | Base scope: This computer only / My local network / Anyone |
-| 🔐 **Tailscale Access** | If detected | Accept Tailscale (`100.64.0.0/10`): If detected / Always / Never |
+| 🌍 **Allow Connections From** | Local Network | Who can connect |
 | ✅ **Command Allowlist** | All allowed | Which commands can be run remotely |
 | ❌ **Command Denylist** | op, deop | Blocked commands |
 | 🚀 **Auto-Launch** | Off | Start server automatically when joining a world |
-| 🟢 **Start Server at Launch** | Off | Start the server when Minecraft finishes loading, so the app can connect from the title screen |
-| 🔗 **Allow Remote Server Join** | On | Let the connected app make this client join a multiplayer server |
 
 ---
 
@@ -166,7 +175,7 @@ Access settings via `/monkey config` or through ModMenu:
 |---------|-------------|
 | `/monkey` | Show help (also prints your IPs while the server is running) |
 | `/monkey start` | Start the WebSocket server |
-| `/monkey stop` | Stop the server |
+| `/monkey stop` | Stop the WebSocket server |
 | `/monkey config` | Open settings screen |
 
 ---
@@ -176,7 +185,6 @@ Access settings via `/monkey config` or through ModMenu:
 | Screen | Purpose |
 |--------|---------|
 | 🔐 **Login** | Enter server details and password |
-| 🧭 **Server Picker** | Choose a multiplayer server to join when the client is at the title screen |
 | 📹 **Stream** | Main gameplay with video and controls |
 | 💬 **Chat** | Dedicated chat interface |
 | ⚙️ **Settings** | Adjust video quality and preferences |
@@ -230,6 +238,7 @@ Yes! MonkeyCraft streams your Minecraft client, so you can play on any server or
 ### Is there lag?
 
 Video is encoded and streamed in real-time. For best results:
+
 - Use a strong WiFi connection
 - Lower resolution/FPS if needed
 - Keep your computer close to your router
@@ -253,3 +262,13 @@ By default, all commands are allowed except `op` and `deop`. Configure allowlist
 **Made with ❤️ by [weikengchen](https://github.com/weikengchen)**
 
 </div>
+~~~~
+
+## Manual Modrinth steps
+
+1. Sign in to the Modrinth account that owns `monkeycraft`.
+2. Open the project settings and edit the short description and description body.
+3. Replace both fields with the content above, then save the project.
+4. Re-open the public project page and verify that the iOS App Store link works,
+   Android is explicitly described as not publicly released, and no legacy Apple
+   review-status wording remains in the mobile-release status.

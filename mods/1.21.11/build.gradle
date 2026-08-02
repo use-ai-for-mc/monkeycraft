@@ -22,6 +22,13 @@ repositories {
 	mavenCentral()
 	maven { url = "https://maven.shedaniel.me/" }
 	maven { url = "https://maven.terraformersmc.com/releases/" }
+	maven {
+		name = "Gnomecraft"
+		url = "https://maven.gnomecraft.net/releases/"
+		content {
+			includeGroup "com.terraformersmc"
+		}
+	}
 	maven { url = "https://jitpack.io" }
 }
 
