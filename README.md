@@ -8,7 +8,7 @@
 
 **Stream and control your Minecraft game from your phone**
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.19%20%7C%201.21.11%20%7C%2026.1-green.svg)](https://www.minecraft.net/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.19%20%7C%201.21.11%20%7C%2026.1%20%7C%2026.2-green.svg)](https://www.minecraft.net/)
 [![Fabric](https://img.shields.io/badge/Fabric-0.14.22+-orange.svg)](https://fabricmc.net/)
 [![License](https://img.shields.io/badge/License-CC0--1.0-purple.svg)](LICENSE)
 
@@ -123,7 +123,7 @@ Connect from your phone while Minecraft is still at the title screen:
 
 ### 1️⃣ Install the Mod
 
-Install the MonkeyCraft mod on your **Fabric** Minecraft client (1.19, 1.21.11, or 26.1+).
+Install the MonkeyCraft mod on your **Fabric** Minecraft client (1.19, 1.21.11, 26.1, or 26.2).
 
 ### 2️⃣ Start the Server
 
@@ -189,7 +189,8 @@ Access settings via `/monkey config` or through ModMenu:
 
 | Minecraft Version | Java | Mod Location |
 |-------------------|------|--------------|
-| 26.1+ | 25+ | `mods/26.1/` |
+| 26.2 | 25+ | `mods/26.2/` |
+| 26.1 | 25+ | `mods/26.1/` |
 | 1.21.11 | 21+ | `mods/1.21.11/` |
 | 1.19 | 17+ | `mods/1.19/` |
 
@@ -206,6 +207,9 @@ Access settings via `/monkey config` or through ModMenu:
 ### Building from Source
 
 ```bash
+# Build for Minecraft 26.2 (needs Java 25)
+cd mods/26.2 && ./gradlew build
+
 # Build for Minecraft 26.1 (needs Java 25)
 cd mods/26.1 && ./gradlew build
 

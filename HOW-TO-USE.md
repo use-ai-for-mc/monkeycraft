@@ -45,6 +45,9 @@ Goal: your mod should work even if Monkeycraft is not installed.
 
 Use JitPack to pull directly from GitHub releases:
 
+Each Minecraft target resolves the matching Git tag from JitPack. The Monkeycraft
+build does not read a sibling local checkout of `monkeycraft-api`.
+
 ```gradle
 repositories {
   mavenCentral()
@@ -52,8 +55,8 @@ repositories {
 }
 
 dependencies {
-  // Use the artifact matching your Minecraft version: -mc1.19 / -mc1.21.11 / -mc26.1
-  compileOnly('com.github.weikengchen:monkeycraft-api:1.0.0-mc1.21.11') {
+  // Use the artifact matching your Minecraft version: -mc1.19 / -mc1.21.11 / -mc26.1 / -mc26.2
+  compileOnly('com.github.weikengchen:monkeycraft-api:1.0.0-mc26.2') {
     transitive = false
   }
 }

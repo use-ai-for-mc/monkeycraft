@@ -7,6 +7,36 @@ name: build
 on: [pull_request, push]
 
 jobs:
+  build-26-2:
+    name: Build mod (Minecraft 26.2)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mods/26.2
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: setup jdk
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: make gradle wrapper executable
+        run: chmod +x ./gradlew
+      - name: check formatting
+        run: ./gradlew spotlessCheck
+      - name: build
+        run: ./gradlew build
+      - name: test
+        run: ./gradlew test
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts-26.2
+          path: mods/26.2/build/libs/
+
   build-26-1:
     name: Build mod (Minecraft 26.1)
     runs-on: ubuntu-24.04

@@ -342,7 +342,7 @@ Fabric mod metadata.
 - `environment`: `client`
 - `entrypoints.client`: `MonkeycraftClient`
 - `entrypoints.modmenu`: `ModMenuIntegration`
-- `depends`: fabricloader, minecraft ~1.21.11, java 21, fabric-api
+- `depends`: fabricloader, the target Minecraft version, its Java level, fabric-api
 - `suggests`: modmenu
 
 ### monkeycraft.mixins.json
