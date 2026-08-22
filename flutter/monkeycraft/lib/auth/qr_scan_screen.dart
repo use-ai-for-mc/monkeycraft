@@ -29,7 +29,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Password QR')),
+      appBar: AppBar(title: const Text('Scan Pairing QR')),
       body: MobileScanner(
         controller: _controller,
         onDetect: (capture) {

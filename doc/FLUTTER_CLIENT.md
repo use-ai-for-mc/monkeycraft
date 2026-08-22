@@ -9,7 +9,8 @@ flutter/monkeycraft/lib/
 ├── main.dart                         # App entry point
 ├── auth/                             # Authentication screens
 │   ├── login_screen.dart             # Connection setup screen
-│   └── qr_scan_screen.dart           # QR code scanner for password
+│   ├── pairing_payload.dart           # Versioned password + TLS pin parser
+│   └── qr_scan_screen.dart            # Pairing QR scanner
 ├── chat/                             # Chat functionality
 │   ├── chat_screen.dart              # In-game chat interface
 │   └── chat_models.dart              # Chat message types
@@ -54,9 +55,9 @@ flutter/monkeycraft/lib/
 ### LoginScreen (`screens/login_screen.dart`)
 Entry point for the app. Handles:
 - Host/port/password input
-- QR code scanning for password
+- QR code scanning for password and certificate SHA-256 pin
 - Credential persistence via SharedPreferences
-- WebSocket connection establishment
+- WSS connection establishment with Pin-or-WebPKI certificate validation
 - Connection timeout handling
 
 ### StreamScreen (`screens/stream_screen.dart`)
@@ -85,7 +86,9 @@ Dedicated chat interface:
 - Rich text rendering with click/hover events
 
 ### QrScanScreen (`screens/qr_scan_screen.dart`)
-Simple QR scanner using `mobile_scanner` package to capture password from Minecraft mod's QR display.
+Simple QR scanner using `mobile_scanner`. Version 2 pairing codes contain the password and the
+SHA-256 fingerprint of the mod's persistent self-signed certificate. Legacy password-only codes
+still parse, but cannot authorize an untrusted self-signed certificate.
 
 ### StreamSettingsScreen (`stream/screens/stream_settings_screen.dart`)
 Configuration UI for:
@@ -102,12 +105,22 @@ Configuration UI for:
 ### StreamProxy (`stream/stream_proxy.dart`)
 Central communication hub between Flutter app and Minecraft mod.
 
+Connections use WSS by default. A certificate is accepted when either:
+
+1. Its SHA-256 fingerprint matches the value scanned from the pairing QR, or
+2. The platform validates its public CA chain and hostname normally.
+
+The first path covers direct LAN, Tailscale, raw TCP tunnels, and port forwarding. The second path
+covers TLS-terminating services such as Cloudflare Tunnel, ngrok HTTP, and Tailscale Funnel. The
+pin exception is installed on the connection's private `HttpClient`; it does not change certificate
+validation for other app traffic.
+
 **WebSocket Protocol:**
 | Direction | Type | Description |
 |-----------|------|-------------|
 | Server→Client | `HELLO` | Authentication challenge with salt |
 | Client→Server | `AUTH` | HMAC-SHA256 authentication response |
-| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; `AUTH_OK` carries `protocolVersion` + `capabilities[]` (feature tokens like `PLAYER_LIST`, `DATA_SAVER`) the client gates optional features on |
+| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; the client verifies the reciprocal HMAC before accepting `AUTH_OK`; it also carries `protocolVersion` + `capabilities[]` (including `TLS`) |
 | Server→Client | Binary | H.264 video access unit (with optional 6-byte resolution header) |
 | Client→Server | `ACK` | Video frame acknowledgment |
 | Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps/autoFaceMovement/dataSaver (`dataSaver` lengthens the encoder GOP to cut bandwidth; gated on the `DATA_SAVER` capability) |

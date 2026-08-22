@@ -49,7 +49,7 @@ with its own `build.gradle`, `gradle.properties`, wrapper, and
 | `server/` | WebSocket server, H.264 streaming, chat / command / input / screen handlers, API provider |
 | `mixin/` | Mixin classes and `@Invoker` accessors |
 | `ui/` | In-game overlays (e.g. password QR) |
-| `utils/` | Crypto (HMAC-SHA256), network (local IPs), image |
+| `utils/` | Crypto (HMAC-SHA256), persistent TLS identity, network (local IPs), image |
 | (root)  | `MonkeycraftClient`, `MapDataHandler`, `CameraController`, `FrameCaptureManager` |
 
 ### Resources (`mods/<mc>/src/main/resources/`)

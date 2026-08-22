@@ -10,6 +10,7 @@ import com.chenweikeng.monkeycraft.server.handler.InputHandler;
 import com.chenweikeng.monkeycraft.server.handler.ScreenInteractionHandler;
 import com.chenweikeng.monkeycraft.server.handler.WorldJoinHandler;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
+import com.chenweikeng.monkeycraft.utils.TlsIdentityStore;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
@@ -18,8 +19,10 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.fabricmc.loader.api.FabricLoader;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.DefaultSSLWebSocketServerFactory;
 import org.java_websocket.server.WebSocketServer;
 
 public class WebSocketServerHandler {
@@ -36,6 +39,7 @@ public class WebSocketServerHandler {
   }
 
   private MonkeycraftWebSocketServer server;
+  private TlsIdentityStore.TlsIdentity tlsIdentity;
   private int currentPort = -1;
   private final AtomicBoolean running = new AtomicBoolean(false);
   private volatile boolean persistent = false;
@@ -245,7 +249,9 @@ public class WebSocketServerHandler {
     }
 
     try {
+      TlsIdentityStore.TlsIdentity identity = ensureTlsIdentity();
       server = new MonkeycraftWebSocketServer(port);
+      server.setWebSocketFactory(new DefaultSSLWebSocketServerFactory(identity.sslContext()));
       server.setReuseAddr(true);
       server.start();
       currentPort = port;
@@ -291,6 +297,20 @@ public class WebSocketServerHandler {
 
   public boolean isRunning() {
     return running.get();
+  }
+
+  public String getCertificateSha256() {
+    TlsIdentityStore.TlsIdentity identity = tlsIdentity;
+    return identity == null ? null : identity.certificateSha256();
+  }
+
+  private synchronized TlsIdentityStore.TlsIdentity ensureTlsIdentity() throws Exception {
+    if (tlsIdentity == null) {
+      tlsIdentity =
+          TlsIdentityStore.loadOrCreate(
+              FabricLoader.getInstance().getConfigDir().resolve("monkeycraft-tls.p12"));
+    }
+    return tlsIdentity;
   }
 
   public boolean isPersistent() {
@@ -614,6 +634,12 @@ public class WebSocketServerHandler {
   }
 
   public int startServerWithPortRange(int preferredPort, boolean isAutoLaunch, boolean persistent) {
+    try {
+      ensureTlsIdentity();
+    } catch (Exception e) {
+      MonkeycraftClient.LOGGER.error("Failed to load the MonkeyCraft TLS identity", e);
+      return -1;
+    }
     int startPort = Math.max(9600, Math.min(9700, preferredPort));
     for (int port = startPort; port <= 9700; port++) {
       if (startServer(port, isAutoLaunch, persistent)) {

@@ -32,12 +32,14 @@ class StreamScreen extends StatefulWidget {
   final StreamProxy proxy;
   final String server;
   final String password;
+  final String? certificateSha256;
 
   const StreamScreen({
     super.key,
     required this.proxy,
     required this.server,
     required this.password,
+    this.certificateSha256,
   });
 
   @override
@@ -116,7 +118,11 @@ class _StreamScreenState extends State<StreamScreen>
     _loadStreamSettings();
     _liveActivityService.init();
     _session.initialize();
-    _session.setCredentials(widget.server, widget.password);
+    _session.setCredentials(
+      widget.server,
+      widget.password,
+      certificateSha256: widget.certificateSha256,
+    );
     _attachProxyStreams();
     _attachSessionState();
 
@@ -406,6 +412,7 @@ class _StreamScreenState extends State<StreamScreen>
           proxy: widget.proxy,
           server: widget.server,
           password: widget.password,
+          certificateSha256: widget.certificateSha256,
         ),
       ),
     );

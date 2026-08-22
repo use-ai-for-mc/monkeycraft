@@ -9,7 +9,6 @@ import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/stream/session_controller.dart';
 import 'package:monkeycraft_client/chat/chat_rich_text.dart';
-import 'package:monkeycraft_client/auth/credential_store.dart';
 
 class ChatScreen extends StatefulWidget {
   final StreamProxy proxy;
@@ -141,7 +140,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     });
 
-    _loadCredentialsToSession();
     _loadCachedMessages();
   }
 
@@ -164,11 +162,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _hibernationBannerDismissed = false;
       }
     });
-  }
-
-  Future<void> _loadCredentialsToSession() async {
-    final credentials = await CredentialStore.load();
-    widget.session?.setCredentials(credentials.server, credentials.password);
   }
 
   Future<void> _loadCachedMessages() async {
@@ -373,9 +366,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
 
     try {
-      await _loadCredentialsToSession();
+      await session.resumeConnection();
     } catch (e) {
-      debugPrint('ChatScreen: failed to load credentials: $e');
+      debugPrint('ChatScreen: failed to resume connection: $e');
     }
   }
 
@@ -498,11 +491,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.people,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        const Icon(Icons.people, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           players.isEmpty
@@ -647,9 +636,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               if (bgPath != null)
                 Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.65),
-                  ),
+                  child: Container(color: Colors.black.withValues(alpha: 0.65)),
                 ),
               SafeArea(
                 top: true,

@@ -11,10 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CredentialStore {
   static const _serverKey = 'server';
   static const _passwordKey = 'password';
+  static const _certificateSha256Key = 'certificate_sha256';
   static const _defaultServer = '127.0.0.1:9600';
   static const _storage = FlutterSecureStorage();
 
-  static Future<({String server, String password})> load() async {
+  static Future<({String server, String password, String? certificateSha256})>
+  load() async {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
@@ -22,8 +24,10 @@ class CredentialStore {
     final server = prefs?.getString(_serverKey) ?? _defaultServer;
 
     String? password;
+    String? certificateSha256;
     try {
       password = await _storage.read(key: _passwordKey);
+      certificateSha256 = await _storage.read(key: _certificateSha256Key);
     } catch (_) {}
 
     if (password == null) {
@@ -38,10 +42,18 @@ class CredentialStore {
       }
     }
 
-    return (server: server, password: password ?? '');
+    return (
+      server: server,
+      password: password ?? '',
+      certificateSha256: certificateSha256,
+    );
   }
 
-  static Future<void> save(String server, String password) async {
+  static Future<void> save(
+    String server,
+    String password, {
+    String? certificateSha256,
+  }) async {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
@@ -49,6 +61,14 @@ class CredentialStore {
     } catch (_) {}
     try {
       await _storage.write(key: _passwordKey, value: password);
+      if (certificateSha256 == null) {
+        await _storage.delete(key: _certificateSha256Key);
+      } else {
+        await _storage.write(
+          key: _certificateSha256Key,
+          value: certificateSha256,
+        );
+      }
       await prefs?.remove(_passwordKey);
     } catch (_) {}
   }

@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
+import 'package:monkeycraft_client/auth/pairing_payload.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
@@ -22,13 +25,26 @@ class AuthFailureException implements Exception {
   String toString() => 'AuthFailureException: $message';
 }
 
+typedef StreamWebSocketConnector =
+    WebSocketChannel Function(
+      Uri url, {
+      HttpClient? customClient,
+      Duration? connectTimeout,
+    });
+
 class StreamProxy {
+  final StreamWebSocketConnector _connectWebSocket;
   WebSocketChannel? _wsChannel;
+  HttpClient? _httpClient;
   StreamSubscription? _wsSubscription;
   bool _authenticated = false;
   Set<String> _serverCapabilities = {};
   bool _starting = false;
   Completer<void>? _startCompleter;
+  Completer<void>? _startCancellation;
+  String? _activeStartUrl;
+  String? _activeStartPassword;
+  String? _activeStartCertificateSha256;
 
   final VideoRelay _videoRelay = VideoRelay();
   final CommandSender _commandSender = CommandSender();
@@ -60,6 +76,21 @@ class StreamProxy {
   bool _screenOpen = false;
   bool get screenOpen => _screenOpen;
   Completer<List<ChatMessage>>? _chatSubscribeCompleter;
+
+  StreamProxy({StreamWebSocketConnector? connectWebSocket})
+    : _connectWebSocket = connectWebSocket ?? _defaultConnectWebSocket;
+
+  static WebSocketChannel _defaultConnectWebSocket(
+    Uri url, {
+    HttpClient? customClient,
+    Duration? connectTimeout,
+  }) {
+    return IOWebSocketChannel.connect(
+      url,
+      customClient: customClient,
+      connectTimeout: connectTimeout,
+    );
+  }
 
   DateTime? _lastServerMessageTime;
   DateTime? _heartbeatSentTime;
@@ -223,23 +254,24 @@ class StreamProxy {
   Uri _parseServerUrl(String server) {
     server = server.trim();
 
-    if (server.startsWith('https://')) {
-      return Uri.parse(server.replaceFirst('https://', 'wss://'));
-    }
-    if (server.startsWith('http://')) {
-      return Uri.parse(server.replaceFirst('http://', 'ws://'));
-    }
-    if (server.startsWith('wss://') || server.startsWith('ws://')) {
-      return Uri.parse(server);
+    if (server.contains('://')) {
+      final uri = Uri.parse(server);
+      switch (uri.scheme.toLowerCase()) {
+        case 'https':
+          return uri.replace(scheme: 'wss');
+        case 'wss':
+          return uri.replace(scheme: 'wss');
+        case 'http':
+        case 'ws':
+          throw const FormatException(
+            'MonkeyCraft requires a secure WSS connection',
+          );
+        default:
+          throw FormatException('Unsupported server URL scheme: ${uri.scheme}');
+      }
     }
 
-    final hasPort = RegExp(r':\d+$').hasMatch(server);
-
-    if (hasPort) {
-      return Uri.parse('ws://$server');
-    } else {
-      return Uri.parse('wss://$server');
-    }
+    return Uri.parse('wss://$server');
   }
 
   static final Random _saltRandom = Random.secure();
@@ -255,13 +287,41 @@ class StreamProxy {
     return base64Encode(digest.bytes);
   }
 
+  String _certificateSha256(X509Certificate certificate) {
+    return base64UrlEncode(
+      sha256.convert(certificate.der).bytes,
+    ).replaceAll('=', '');
+  }
+
+  bool _constantTimeEquals(String a, String b) {
+    final aBytes = utf8.encode(a);
+    final bBytes = utf8.encode(b);
+    var difference = aBytes.length ^ bBytes.length;
+    final length = max(aBytes.length, bBytes.length);
+    for (var i = 0; i < length; i++) {
+      final aByte = i < aBytes.length ? aBytes[i] : 0;
+      final bByte = i < bBytes.length ? bBytes[i] : 0;
+      difference |= aByte ^ bByte;
+    }
+    return difference == 0;
+  }
+
   Future<void> start(
     String server,
     String password, {
+    String? certificateSha256,
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
   }) async {
+    final wsUrl = _parseServerUrl(server);
+    final requestedUrl = wsUrl.toString();
+    final pinnedFingerprint = normalizeCertificateSha256(certificateSha256);
     if (_starting && _startCompleter != null) {
+      if (_activeStartUrl != requestedUrl ||
+          _activeStartPassword != password ||
+          _activeStartCertificateSha256 != pinnedFingerprint) {
+        throw StateError('A different connection attempt is already active');
+      }
       try {
         await _startCompleter!.future;
       } catch (e) {
@@ -272,21 +332,52 @@ class StreamProxy {
 
     _starting = true;
     _startCompleter = Completer<void>();
+    _startCompleter!.future.ignore();
+    final cancellation = Completer<void>();
+    _startCancellation = cancellation;
+    _activeStartUrl = requestedUrl;
+    _activeStartPassword = password;
+    _activeStartCertificateSha256 = pinnedFingerprint;
     try {
-      await stop();
+      await _stopConnection();
+      _throwIfCancelled(cancellation);
       _authenticated = false;
       _initStreamControllers();
 
       // Start video relay (local TCP server)
       await _videoRelay.start();
+      _throwIfCancelled(cancellation);
 
       // Connect to WebSocket
-      final wsUrl = _parseServerUrl(server);
-      _wsChannel = WebSocketChannel.connect(wsUrl);
-      await _wsChannel!.ready.timeout(connectTimeout);
+      HttpClient? httpClient;
+      if (wsUrl.scheme == 'wss') {
+        httpClient = HttpClient();
+        if (pinnedFingerprint != null) {
+          final expectedHost = wsUrl.host;
+          final expectedPort = wsUrl.hasPort ? wsUrl.port : 443;
+          httpClient.badCertificateCallback = (certificate, host, port) {
+            if (host != expectedHost || port != expectedPort) return false;
+            return _constantTimeEquals(
+              _certificateSha256(certificate),
+              pinnedFingerprint,
+            );
+          };
+        }
+        _httpClient = httpClient;
+      }
+      final channel = _connectWebSocket(
+        wsUrl,
+        customClient: httpClient,
+        connectTimeout: connectTimeout,
+      );
+      _wsChannel = channel;
+      await _untilCancelled(
+        channel.ready.timeout(connectTimeout),
+        cancellation,
+      );
 
       // Attach command sender
-      _commandSender.attach(_wsChannel!);
+      _commandSender.attach(channel);
       _commandSender.onClientStatusSent = (fps) {
         if (fps != null) _videoRelay.updateFps(fps);
         _videoRelay.reset();
@@ -299,8 +390,10 @@ class StreamProxy {
       }
 
       String? serverSalt;
-      _wsSubscription = _wsChannel!.stream.listen(
+      String? clientSalt;
+      _wsSubscription = channel.stream.listen(
         (message) {
+          if (!identical(_wsChannel, channel)) return;
           _lastServerMessageTime = DateTime.now();
           if (message is List<int>) {
             _handleBinaryMessage(message);
@@ -308,8 +401,10 @@ class StreamProxy {
             _handleTextMessage(
               message,
               serverSalt: serverSalt,
+              clientSalt: clientSalt,
               password: password,
               onServerSalt: (salt) => serverSalt = salt,
+              onClientSalt: (salt) => clientSalt = salt,
               completeAuthError: completeAuthError,
               onAuthSuccess: () {
                 if (!authCompleter.isCompleted) authCompleter.complete();
@@ -318,24 +413,58 @@ class StreamProxy {
           }
         },
         onError: (e, st) {
-          _handleConnectionLoss();
+          if (!identical(_wsChannel, channel)) return;
+          _handleConnectionLoss(channel);
           completeAuthError(e, st);
         },
         onDone: () {
-          _handleConnectionLoss();
+          if (!identical(_wsChannel, channel)) return;
+          _handleConnectionLoss(channel);
           completeAuthError(StateError('WebSocket closed'));
         },
       );
 
-      await authCompleter.future.timeout(authTimeout);
+      await _untilCancelled(
+        authCompleter.future.timeout(authTimeout),
+        cancellation,
+      );
       _startCompleter?.complete();
-    } catch (e) {
-      await stop();
-      _startCompleter?.completeError(e);
-      rethrow;
+    } catch (e, stackTrace) {
+      try {
+        await _stopConnection();
+      } catch (cleanupError) {
+        debugPrint('StreamProxy: cleanup after failed start: $cleanupError');
+      }
+      final completer = _startCompleter;
+      if (completer != null && !completer.isCompleted) {
+        completer.completeError(e, stackTrace);
+      }
+      Error.throwWithStackTrace(e, stackTrace);
     } finally {
+      if (identical(_startCancellation, cancellation)) {
+        if (!cancellation.isCompleted) cancellation.complete();
+        _startCancellation = null;
+      }
       _starting = false;
       _startCompleter = null;
+      _activeStartUrl = null;
+      _activeStartPassword = null;
+      _activeStartCertificateSha256 = null;
+    }
+  }
+
+  Future<T> _untilCancelled<T>(Future<T> future, Completer<void> cancellation) {
+    return Future.any([
+      future,
+      cancellation.future.then<T>(
+        (_) => throw StateError('Connection attempt cancelled'),
+      ),
+    ]);
+  }
+
+  void _throwIfCancelled(Completer<void> cancellation) {
+    if (cancellation.isCompleted) {
+      throw StateError('Connection attempt cancelled');
     }
   }
 
@@ -351,8 +480,7 @@ class StreamProxy {
     _nudgeNotificationController =
         StreamController<NudgeNotification>.broadcast();
     _serverStatusController = StreamController<ServerStatus>.broadcast();
-    _commandDeniedController =
-        StreamController<CommandDeniedEvent>.broadcast();
+    _commandDeniedController = StreamController<CommandDeniedEvent>.broadcast();
     _serverDisconnectController =
         StreamController<ServerDisconnectEvent>.broadcast();
     _chatMessageController = StreamController<ChatMessage>.broadcast();
@@ -363,8 +491,7 @@ class StreamProxy {
     _screenStateController = StreamController<bool>.broadcast();
     _mapDataController = StreamController<MapData>.broadcast();
     _worldStateController = StreamController<WorldState>.broadcast();
-    _serverListController =
-        StreamController<List<ServerListEntry>>.broadcast();
+    _serverListController = StreamController<List<ServerListEntry>>.broadcast();
     _joinResultController = StreamController<JoinResult>.broadcast();
     _playerListController = StreamController<List<String>>.broadcast();
     _playerCountController = StreamController<int>.broadcast();
@@ -441,22 +568,20 @@ class StreamProxy {
         final name = utf8.decode(nameBytes);
         offset += nameLength;
 
-        entities.add(MapEntity(
-          type: type,
-          x: x,
-          z: z,
-          entityId: entityId,
-          name: name,
-        ));
+        entities.add(
+          MapEntity(type: type, x: x, z: z, entityId: entityId, name: name),
+        );
       }
 
-      _mapDataController?.add(MapData(
-        playerX: playerX,
-        playerZ: playerZ,
-        playerYaw: playerYaw.toDouble(),
-        playerUuid: playerUuid,
-        entities: entities,
-      ));
+      _mapDataController?.add(
+        MapData(
+          playerX: playerX,
+          playerZ: playerZ,
+          playerYaw: playerYaw.toDouble(),
+          playerUuid: playerUuid,
+          entities: entities,
+        ),
+      );
     } catch (e) {
       debugPrint('StreamProxy: error parsing map data: $e');
     }
@@ -465,8 +590,10 @@ class StreamProxy {
   void _handleTextMessage(
     dynamic message, {
     required String? serverSalt,
+    required String? clientSalt,
     required String password,
     required void Function(String) onServerSalt,
+    required void Function(String) onClientSalt,
     required void Function(Object, [StackTrace?]) completeAuthError,
     required void Function() onAuthSuccess,
   }) {
@@ -477,22 +604,46 @@ class StreamProxy {
         final salt = data['salt']?.toString();
         if (salt != null) {
           onServerSalt(salt);
-          final clientSalt = _generateSalt();
-          final signature = _computeHmac(password, '$salt$clientSalt');
+          final generatedClientSalt = _generateSalt();
+          onClientSalt(generatedClientSalt);
+          final signature = _computeHmac(password, '$salt$generatedClientSalt');
           final authMsg = jsonEncode({
             'type': 'AUTH',
-            'salt': clientSalt,
+            'salt': generatedClientSalt,
             'signature': signature,
-            'protocolVersion': 2,
+            'protocolVersion': 3,
           });
           _wsChannel!.sink.add(authMsg);
         } else {
           completeAuthError(Exception('Server did not provide salt'));
         }
       } else if (data['type'] == 'AUTH_OK') {
+        final signature = data['signature']?.toString();
+        if (serverSalt == null || clientSalt == null || signature == null) {
+          completeAuthError(
+            AuthFailureException(
+              'Server authentication response is incomplete',
+            ),
+          );
+          _wsChannel?.sink.close(status.policyViolation);
+          return;
+        }
+        final expectedSignature = _computeHmac(
+          password,
+          '$clientSalt$serverSalt',
+        );
+        if (!_constantTimeEquals(expectedSignature, signature)) {
+          completeAuthError(
+            AuthFailureException('Server signature verification failed'),
+          );
+          _wsChannel?.sink.close(status.policyViolation);
+          return;
+        }
         final versionWarning = data['versionWarning'];
         if (versionWarning is String && versionWarning.isNotEmpty) {
-          debugPrint('StreamProxy: server protocol version warning: $versionWarning');
+          debugPrint(
+            'StreamProxy: server protocol version warning: $versionWarning',
+          );
         }
         final caps = data['capabilities'];
         _serverCapabilities = caps is List
@@ -506,17 +657,14 @@ class StreamProxy {
       } else if (data['type'] == 'AUTH_RESPONSE') {
         final success = data['success'] == true;
         if (success) {
-          _authenticated = true;
-          _commandSender.setAuthenticated(true);
-          _startHeartbeatTimer();
-          _notifyConnectionRestored();
-          onAuthSuccess();
+          completeAuthError(
+            AuthFailureException('Server did not provide a signed response'),
+          );
+          _wsChannel?.sink.close(status.policyViolation);
         } else {
           final msg = data['message']?.toString().trim();
           completeAuthError(
-            AuthFailureException(
-              msg == null || msg.isEmpty ? null : msg,
-            ),
+            AuthFailureException(msg == null || msg.isEmpty ? null : msg),
           );
           _wsChannel?.sink.close(status.normalClosure);
         }
@@ -532,23 +680,17 @@ class StreamProxy {
         }
       } else if (data['type'] == 'COMMAND_DENIED') {
         final command = data['command']?.toString() ?? '';
-        _commandDeniedController?.add(
-          CommandDeniedEvent(command: command),
-        );
+        _commandDeniedController?.add(CommandDeniedEvent(command: command));
       } else if (data['type'] == 'DISCONNECT') {
         final reason = data['reason']?.toString() ?? '';
-        _serverDisconnectController?.add(
-          ServerDisconnectEvent(reason: reason),
-        );
+        _serverDisconnectController?.add(ServerDisconnectEvent(reason: reason));
       } else if (data['type'] == 'CHAT_MESSAGE') {
         _chatMessageController?.add(ChatMessage.fromJson(data));
       } else if (data['type'] == 'CACHED_CHAT_MESSAGES') {
         final messagesList = data['messages'] as List<dynamic>?;
         final cachedMessages =
             messagesList
-                ?.map(
-                  (m) => ChatMessage.fromJson(m as Map<String, dynamic>),
-                )
+                ?.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
                 .toList() ??
             <ChatMessage>[];
         if (_chatSubscribeCompleter != null &&
@@ -631,11 +773,13 @@ class StreamProxy {
     }
   }
 
-  void _handleConnectionLoss() {
+  void _handleConnectionLoss(WebSocketChannel channel) {
+    if (!identical(_wsChannel, channel)) return;
     final wasAuthenticated = _authenticated;
     _stopHeartbeatTimer();
     _wsSubscription = null;
     _wsChannel = null;
+    _closeHttpClient();
     _authenticated = false;
     _serverCapabilities = {};
     _commandSender.detach();
@@ -721,11 +865,31 @@ class StreamProxy {
   }
 
   Future<void> stop() async {
+    final activeStart = _startCompleter?.future;
+    final cancellation = _startCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
+    }
+    try {
+      await _stopConnection();
+    } finally {
+      if (activeStart != null) {
+        try {
+          await activeStart;
+        } catch (_) {}
+      }
+    }
+  }
+
+  Future<void> _stopConnection() async {
     _stopHeartbeatTimer();
     _commandSender.detach();
-    await _wsSubscription?.cancel();
+    final subscription = _wsSubscription;
     _wsSubscription = null;
     final ws = _wsChannel;
+    _wsChannel = null;
+    _authenticated = false;
+    await subscription?.cancel();
     if (ws != null) {
       try {
         await ws.sink
@@ -733,12 +897,16 @@ class StreamProxy {
             .timeout(const Duration(seconds: 1));
       } catch (_) {}
     }
-    _wsChannel = null;
-    _authenticated = false;
+    _closeHttpClient();
     await _closeStreamControllers();
     _screenOpen = false;
     _worldState = null;
     await _videoRelay.stop();
+  }
+
+  void _closeHttpClient() {
+    _httpClient?.close(force: true);
+    _httpClient = null;
   }
 
   Future<void> _closeStreamControllers() async {

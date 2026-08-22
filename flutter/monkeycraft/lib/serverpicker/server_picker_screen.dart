@@ -12,12 +12,14 @@ class ServerPickerScreen extends StatefulWidget {
   final StreamProxy proxy;
   final String server;
   final String password;
+  final String? certificateSha256;
 
   const ServerPickerScreen({
     super.key,
     required this.proxy,
     required this.server,
     required this.password,
+    this.certificateSha256,
   });
 
   @override
@@ -124,6 +126,7 @@ class _ServerPickerScreenState extends State<ServerPickerScreen> {
           proxy: widget.proxy,
           server: widget.server,
           password: widget.password,
+          certificateSha256: widget.certificateSha256,
         ),
       ),
     );

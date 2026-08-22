@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/auth/credential_store.dart';
+import 'package:monkeycraft_client/auth/pairing_payload.dart';
 import 'package:monkeycraft_client/auth/qr_scan_screen.dart';
 import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
 import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _serverController = TextEditingController();
   final _passController = TextEditingController();
+  String? _certificateSha256;
   bool _isLoading = false;
   bool _connectInFlight = false;
   int _connectAttempt = 0;
@@ -49,15 +51,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loadCredentials() async {
     final credentials = await CredentialStore.load();
-    if (!mounted) return;
+    if (!mounted || _connectInFlight) return;
     setState(() {
       _serverController.text = credentials.server;
       _passController.text = credentials.password;
+      _certificateSha256 = normalizeCertificateSha256(
+        credentials.certificateSha256,
+      );
     });
-  }
-
-  Future<void> _saveCredentials() async {
-    await CredentialStore.save(_serverController.text, _passController.text);
   }
 
   void _cancelConnect() {
@@ -95,19 +96,28 @@ class _LoginScreenState extends State<LoginScreen> {
     _lastConnectTapAt = now;
     if (!_formKey.currentState!.validate()) return;
 
+    final server = _serverController.text;
+    final password = _passController.text;
+    final certificateSha256 = _certificateSha256;
     _connectInFlight = true;
     _connectAttempt += 1;
     final attempt = _connectAttempt;
     setState(() => _isLoading = true);
-    await _saveCredentials();
+    await CredentialStore.save(
+      server,
+      password,
+      certificateSha256: certificateSha256,
+    );
+    if (attempt != _connectAttempt) return;
 
     final proxy = StreamProxy();
     _inFlightProxy = proxy;
     try {
       await proxy
           .start(
-            _serverController.text,
-            _passController.text,
+            server,
+            password,
+            certificateSha256: certificateSha256,
             connectTimeout: const Duration(seconds: 5),
             authTimeout: const Duration(seconds: 5),
           )
@@ -135,13 +145,15 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context) => inWorld
                 ? StreamScreen(
                     proxy: proxy,
-                    server: _serverController.text,
-                    password: _passController.text,
+                    server: server,
+                    password: password,
+                    certificateSha256: certificateSha256,
                   )
                 : ServerPickerScreen(
                     proxy: proxy,
-                    server: _serverController.text,
-                    password: _passController.text,
+                    server: server,
+                    password: password,
+                    certificateSha256: certificateSha256,
                   ),
           ),
         );
@@ -191,6 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 TextFormField(
                   controller: _serverController,
+                  enabled: !_isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Server',
                     hintText: '192.168.0.3:9600 or example.ngrok-free.app',
@@ -200,6 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passController,
+                  enabled: !_isLoading,
                   decoration: InputDecoration(
                     labelText: 'Password (scan the QR code from the client)',
                     suffixIcon: IconButton(
@@ -217,7 +231,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     );
                                 if (!mounted) return;
                                 if (scanned == null) return;
-                                setState(() => _passController.text = scanned);
+                                final pairing = PairingPayload.parse(scanned);
+                                setState(() {
+                                  _passController.text = pairing.password;
+                                  _certificateSha256 =
+                                      pairing.certificateSha256;
+                                });
                               } catch (e) {
                                 if (!mounted) return;
                                 messenger.showSnackBar(
@@ -232,6 +251,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: true,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
+                if (_certificateSha256 != null) ...[
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    'Certificate SHA-256: $_certificateSha256',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
                 const SizedBox(height: 32),
                 if (Platform.isAndroid)
                   Row(

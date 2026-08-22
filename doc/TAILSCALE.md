@@ -1,8 +1,8 @@
 # Using MonkeyCraft over Tailscale
 
-MonkeyCraft's WebSocket server is plaintext and authenticated by an HMAC
-challenge-response. That's fine on a LAN but uncomfortable on the open
-internet. [Tailscale](https://tailscale.com/) gives you a private,
+MonkeyCraft's WebSocket server uses TLS with a persistent self-signed certificate and HMAC
+challenge-response authentication. The app pins that certificate from the pairing QR.
+[Tailscale](https://tailscale.com/) additionally gives you a private,
 end-to-end-encrypted (WireGuard) overlay network between your PC and your
 phone, so the phone can reach the mod from anywhere as if it were on the
 same LAN — without port-forwarding and without exposing the WebSocket
@@ -96,8 +96,9 @@ In the MonkeyCraft phone app's login screen:
 
 - **Host**: `<PC_TS_IP>` (the `100.x.y.z` you noted in step 1)
 - **Port**: `9600` (or whatever your mod config shows)
-- **Password**: scan the QR shown in the corner of Minecraft, or paste
-  it manually.
+- **Pairing**: scan the QR shown in the corner of Minecraft. It supplies the password and pins the
+  mod's TLS certificate. Manual password entry only works when the address presents a certificate
+  accepted by the platform trust store.
 
 You should be paired and streaming.
 
@@ -140,8 +141,9 @@ it.
 
 ## Security notes
 
-- **Transport encryption.** Tailscale wraps the WebSocket traffic in
-  WireGuard, so the plain-WS protocol becomes irrelevant on the wire.
+- **Transport encryption.** MonkeyCraft uses TLS end-to-end to the mod; Tailscale also wraps the
+  route in WireGuard. The extra standard TLS layer keeps the same certificate identity when the mod
+  is reached through LAN, Tailscale, a raw TCP tunnel, or port forwarding.
 - **Auth still matters.** Tailscale gives you the network, not
   authorization. The mod's HMAC challenge-response (per
   [WebSocketServerHandler.java](../mods/26.1/src/main/java/com/chenweikeng/monkeycraft/server/WebSocketServerHandler.java))
@@ -162,7 +164,7 @@ it.
 
 | Symptom | Likely cause | Fix |
 | ------- | ------------ | --- |
-| App says "Connection refused" | Mod's WS server isn't running | `/monkey start`, or enable Start Server at Launch |
+| App says "Connection refused" | Mod's WSS server isn't running | `/monkey start`, or enable Start Server at Launch |
 | App says "Connection not allowed from this address" | Mod couldn't auto-detect Tailscale locally (rare; e.g. macOS App Store sandboxing) | Set **Tailscale Access** to *Always allow* in `/monkey config`. You'll also see an in-game chat message suggesting this. |
 | App times out | Phone's Tailscale VPN is off | Toggle Tailscale on in the phone app |
 | App times out only on cellular | macOS / Windows firewall blocking inbound on the Tailscale interface | Allow Java / Minecraft inbound; on macOS, accept the firewall prompt the first time the WS server starts |

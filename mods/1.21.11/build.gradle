@@ -47,6 +47,13 @@ dependencies {
 	implementation "org.java-websocket:Java-WebSocket:${project.websocket_version}"
 	include "org.java-websocket:Java-WebSocket:${project.websocket_version}"
 
+	implementation "org.bouncycastle:bcprov-jdk18on:${project.bouncycastle_version}"
+	implementation "org.bouncycastle:bcutil-jdk18on:${project.bouncycastle_version}"
+	implementation "org.bouncycastle:bcpkix-jdk18on:${project.bouncycastle_version}"
+	include "org.bouncycastle:bcprov-jdk18on:${project.bouncycastle_version}"
+	include "org.bouncycastle:bcutil-jdk18on:${project.bouncycastle_version}"
+	include "org.bouncycastle:bcpkix-jdk18on:${project.bouncycastle_version}"
+
 	implementation "org.jcodec:jcodec:${project.jcodec_version}"
 	implementation "org.jcodec:jcodec-javase:${project.jcodec_version}"
 	include "org.jcodec:jcodec:${project.jcodec_version}"

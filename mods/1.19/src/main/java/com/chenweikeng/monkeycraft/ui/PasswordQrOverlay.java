@@ -4,6 +4,8 @@ import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
@@ -13,6 +15,7 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -25,14 +28,15 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
 public final class PasswordQrOverlay {
-  private static final int QR_SIZE_PX = 64;
+  private static final int QR_SIZE_PX = 128;
   private static final int MARGIN_PX = 20;
+  private static final Gson GSON = new Gson();
   private static final ResourceLocation TEXTURE_ID =
       new ResourceLocation(MonkeycraftClient.MOD_ID, "password_qr");
 
   private static boolean registered = false;
   private static DynamicTexture texture;
-  private static String lastPassword;
+  private static String lastPayload;
 
   private PasswordQrOverlay() {}
 
@@ -64,7 +68,8 @@ public final class PasswordQrOverlay {
       return;
     }
 
-    if (!ensureTexture(password.trim())) {
+    String payload = pairingPayload(password.trim(), handler.getCertificateSha256());
+    if (payload == null || !ensureTexture(payload)) {
       return;
     }
 
@@ -97,7 +102,8 @@ public final class PasswordQrOverlay {
     if (password == null || password.isBlank()) {
       return;
     }
-    if (!ensureTexture(password.trim())) {
+    String payload = pairingPayload(password.trim(), handler.getCertificateSha256());
+    if (payload == null || !ensureTexture(payload)) {
       return;
     }
 
@@ -110,7 +116,7 @@ public final class PasswordQrOverlay {
     int lineHeight = mc.font.lineHeight + 1;
     int rightX = x + QR_SIZE_PX;
     int textY = y - 4 - lineHeight * (ips.size() + 1);
-    drawRightAligned(poseStack, mc, "MonkeyCraft - scan for password", rightX, textY);
+    drawRightAligned(poseStack, mc, "MonkeyCraft - scan to pair", rightX, textY);
     textY += lineHeight;
     for (String ip : ips) {
       drawRightAligned(poseStack, mc, ip, rightX, textY);
@@ -129,8 +135,17 @@ public final class PasswordQrOverlay {
     mc.font.drawShadow(poseStack, text, rightX - width, y, 0xFFFFFFFF);
   }
 
-  private static boolean ensureTexture(String password) {
-    if (texture != null && password.equals(lastPassword)) {
+  private static String pairingPayload(String password, String certificateSha256) {
+    if (certificateSha256 == null || certificateSha256.isBlank()) return null;
+    JsonObject payload = new JsonObject();
+    payload.addProperty("v", 2);
+    payload.addProperty("pw", password);
+    payload.addProperty("fp", certificateSha256);
+    return GSON.toJson(payload);
+  }
+
+  private static boolean ensureTexture(String payload) {
+    if (texture != null && payload.equals(lastPayload)) {
       return true;
     }
 
@@ -138,7 +153,7 @@ public final class PasswordQrOverlay {
 
     NativeImage image;
     try {
-      image = generateQrNativeImage(password, QR_SIZE_PX);
+      image = generateQrNativeImage(payload, QR_SIZE_PX);
     } catch (Exception e) {
       MonkeycraftClient.LOGGER.warn("Failed to generate password QR", e);
       return false;
@@ -146,7 +161,7 @@ public final class PasswordQrOverlay {
 
     texture = new DynamicTexture(image);
     Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, texture);
-    lastPassword = password;
+    lastPayload = payload;
     return true;
   }
 
@@ -155,7 +170,7 @@ public final class PasswordQrOverlay {
       texture.close();
       texture = null;
     }
-    lastPassword = null;
+    lastPayload = null;
   }
 
   private static NativeImage generateQrNativeImage(String data, int size) throws WriterException {
@@ -167,7 +182,15 @@ public final class PasswordQrOverlay {
             size,
             size,
             Map.of(
-                EncodeHintType.MARGIN, 1, EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H));
+                EncodeHintType.MARGIN,
+                1,
+                EncodeHintType.ERROR_CORRECTION,
+                ErrorCorrectionLevel.H,
+                EncodeHintType.CHARACTER_SET,
+                StandardCharsets.UTF_8.name()));
+    if (matrix.getWidth() != size || matrix.getHeight() != size) {
+      throw new WriterException("Pairing QR payload is too large");
+    }
 
     NativeImage image = new NativeImage(size, size, true);
     for (int y = 0; y < size; y++) {

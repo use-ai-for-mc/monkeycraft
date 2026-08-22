@@ -43,6 +43,7 @@ class SessionController extends ChangeNotifier {
   static const int _maxReconnectRetries = 3;
   String? _server;
   String? _password;
+  String? _certificateSha256;
   bool _disposed = false;
 
   bool get supportedPlatform => Platform.isIOS || Platform.isAndroid;
@@ -333,9 +334,14 @@ class SessionController extends ChangeNotifier {
     await d?.dispose();
   }
 
-  void setCredentials(String server, String password) {
+  void setCredentials(
+    String server,
+    String password, {
+    String? certificateSha256,
+  }) {
     _server = server;
     _password = password;
+    _certificateSha256 = certificateSha256;
   }
 
   void handleConnectionLost() {
@@ -365,7 +371,11 @@ class SessionController extends ChangeNotifier {
     if (_server == null || _password == null) return;
 
     try {
-      await proxy.start(_server!, _password!);
+      await proxy.start(
+        _server!,
+        _password!,
+        certificateSha256: _certificateSha256,
+      );
       if (_disposed) {
         // The screen went away while connecting; don't keep a ghost
         // connection holding the mod's single client slot.
@@ -375,10 +385,7 @@ class SessionController extends ChangeNotifier {
       proxy.sendPing();
 
       _updateState(
-        _state.copyWith(
-          connected: true,
-          clearReconnectionState: true,
-        ),
+        _state.copyWith(connected: true, clearReconnectionState: true),
       );
       _reconnectRetryTimer?.cancel();
 
@@ -416,17 +423,18 @@ class SessionController extends ChangeNotifier {
 
     _updateState(_state.copyWith(isReconnecting: true));
     try {
-      await proxy.start(_server!, _password!);
+      await proxy.start(
+        _server!,
+        _password!,
+        certificateSha256: _certificateSha256,
+      );
       if (_disposed) {
         await proxy.stop();
         return;
       }
       proxy.sendPing();
       _updateState(
-        _state.copyWith(
-          connected: true,
-          clearReconnectionState: true,
-        ),
+        _state.copyWith(connected: true, clearReconnectionState: true),
       );
       _onConnectionRestored();
     } on AuthFailureException {

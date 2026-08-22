@@ -76,16 +76,18 @@ Singleton managing the WebSocket server lifecycle and protocol.
 
 **Key State:**
 - `server`: MonkeycraftWebSocketServer instance
+- `tlsIdentity`: Persistent self-signed TLS identity from `config/monkeycraft-tls.p12`
 - `authenticatedSession`: Current authenticated WebSocket connection
 - `streamer`: H264Streamer for video encoding
 - `streamConfig`: Current resolution, FPS, color mode
 - `isHibernating`: Hibernation state
 
 **Authentication Flow:**
-1. Server sends `HELLO` with random salt
-2. Client responds with `AUTH` containing salt + HMAC signature
-3. Server verifies: `HMAC(password, serverSalt + clientSalt)`
-4. Server responds with `AUTH_OK` + mutual signature
+1. Client validates the WSS certificate using the scanned SHA-256 pin or normal WebPKI
+2. Server sends `HELLO` with random salt
+3. Client responds with `AUTH` containing salt + HMAC signature
+4. Server verifies: `HMAC(password, serverSalt + clientSalt)`
+5. Server responds with `AUTH_OK` + mutual signature, which the client verifies
 
 **Message Handlers:**
 | Message | Handler | Description |
@@ -247,8 +249,8 @@ Creates Cloth Config UI for in-game configuration.
 Renders QR code on HUD when server is running but no client connected.
 
 **Behavior:**
-- Generates QR code from password using ZXing
-- Displays 64x64 QR in bottom-right corner
+- Generates a versioned password + certificate fingerprint QR using ZXing
+- Displays 128x128 QR in bottom-right corner
 - Only shows when: server running AND no client connected
 - Uses dynamic texture for efficient rendering
 
@@ -299,6 +301,11 @@ HMAC-SHA256 authentication utilities.
 **Methods:**
 - `generateSalt()`: Generate 16-byte random salt (Base64)
 - `computeHmac(key, data)`: Compute HMAC-SHA256 (Base64)
+
+### TlsIdentityStore.java
+Creates or loads `config/monkeycraft-tls.p12`, verifies the EC private key matches the certificate,
+builds the server `SSLContext`, and exposes the base64url SHA-256 certificate fingerprint used by
+the pairing QR. Corrupt identities fail closed instead of being silently replaced.
 
 ### NetworkUtils.java
 Local network utilities.

@@ -59,6 +59,10 @@ flutter build apk            # Build Android
 
 ## WebSocket Protocol Summary
 
+The transport is WSS. Direct connections trust the persistent mod certificate only when its
+SHA-256 fingerprint matches the pairing QR; TLS-terminating domain tunnels use normal WebPKI.
+The protocol version is 3 and the server advertises the `TLS` capability.
+
 ### Client → Server
 | Type | Purpose |
 |------|---------|

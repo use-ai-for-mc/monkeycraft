@@ -114,8 +114,9 @@ Connect from your phone while Minecraft is still at the title screen:
 
 - 🛡️ **Password Protected** — Only those with your password can connect
 - 🔒 **HMAC Authentication** — Cryptographic challenge-response
+- 🔐 **Encrypted Transport** — TLS with QR certificate pinning or normal WebPKI
 - 🌐 **Network Control** — Restrict to localhost, local network, or anywhere
-- 📱 **QR Code Setup** — Quick scan to enter password
+- 📱 **QR Code Setup** — Scan the password and local certificate fingerprint
 
 ---
 
@@ -133,8 +134,8 @@ In Minecraft, type `/monkey start` to launch the WebSocket server.
 
 Open the MonkeyCraft app on your phone and:
 - Enter your computer's IP address and port (default: 9600)
-- Scan the QR code displayed in-game, or
-- Enter the password manually
+- Scan the QR code displayed in-game to pair a direct local/Tailscale connection
+- For a public-CA domain tunnel, the password can also be entered manually
 
 ### 4️⃣ Play!
 
