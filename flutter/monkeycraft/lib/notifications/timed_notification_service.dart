@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 
 class TimedNotificationService {
   static const MethodChannel _channel = MethodChannel('monkeycraft/notifications');
@@ -9,7 +8,7 @@ class TimedNotificationService {
   static const int timedId = 1;
 
   Future<bool> requestPermission() async {
-    if (!Platform.isIOS && !Platform.isAndroid) return false;
+    if (!platformCapabilities.supportsNativeNotifications) return false;
     final result = await _channel.invokeMethod<bool>('requestPermission');
     return result ?? false;
   }
@@ -20,7 +19,7 @@ class TimedNotificationService {
     required String body,
     required bool sound,
   }) async {
-    if (!Platform.isIOS && !Platform.isAndroid) return;
+    if (!platformCapabilities.supportsNativeNotifications) return;
     await _channel.invokeMethod<void>('scheduleTimed', {
       'id': timedId,
       'fireAtEpochMs': fireAtEpochMs,
@@ -31,7 +30,7 @@ class TimedNotificationService {
   }
 
   Future<void> cancelTimed() async {
-    if (!Platform.isIOS && !Platform.isAndroid) return;
+    if (!platformCapabilities.supportsNativeNotifications) return;
     await _channel.invokeMethod<void>('cancelTimed', {'id': timedId});
   }
 
@@ -40,7 +39,7 @@ class TimedNotificationService {
     required String body,
     required bool sound,
   }) async {
-    if (!Platform.isIOS && !Platform.isAndroid) return;
+    if (!platformCapabilities.supportsNativeNotifications) return;
     await _channel.invokeMethod<void>('showImmediate', {
       'title': title,
       'body': body,
@@ -49,12 +48,12 @@ class TimedNotificationService {
   }
 
   Future<void> playNotificationSound() async {
-    if (!Platform.isIOS && !Platform.isAndroid) return;
+    if (!platformCapabilities.supportsNativeNotifications) return;
     await _channel.invokeMethod<void>('playNotificationSound');
   }
 
   Future<NotificationSettingsInfo> getSettings() async {
-    if (!Platform.isIOS) return NotificationSettingsInfo.unknown;
+    if (!platformCapabilities.isIOS) return NotificationSettingsInfo.unknown;
     final map = await _channel.invokeMapMethod<String, dynamic>(
       'getNotificationSettings',
     );
@@ -62,7 +61,7 @@ class TimedNotificationService {
   }
 
   Future<void> openSettings() async {
-    if (!Platform.isIOS) return;
+    if (!platformCapabilities.isIOS) return;
     await _channel.invokeMethod<void>('openNotificationSettings');
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 class MpegTsMuxer {
@@ -18,9 +17,9 @@ class MpegTsMuxer {
     _videoCc = 0;
   }
 
-  void writeTables(Socket client) {
-    client.add(_buildPatPacket());
-    client.add(_buildPmtPacket());
+  void writeTables(void Function(List<int> data) sink) {
+    sink(_buildPatPacket());
+    sink(_buildPmtPacket());
   }
 
   List<Uint8List> muxH264AccessUnit(Uint8List accessUnit, int pts90k) {

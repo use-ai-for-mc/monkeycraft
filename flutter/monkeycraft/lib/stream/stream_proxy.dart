@@ -11,6 +11,7 @@ import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/stream/h264_nal.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
+import 'package:monkeycraft_client/platform/page_visibility.dart';
 import 'package:monkeycraft_client/stream/proxy/video_relay.dart';
 import 'package:monkeycraft_client/stream/proxy/command_sender.dart';
 
@@ -65,6 +66,8 @@ class StreamProxy {
   DateTime? _heartbeatSentTime;
   bool _waitingForHeartbeatAck = false;
   Timer? _heartbeatTimer;
+  bool _pageHidden = false;
+  void Function()? _stopPageVisibility;
 
   int? _lastReceivedWidth;
   int? _lastReceivedHeight;
@@ -302,8 +305,9 @@ class StreamProxy {
       _wsSubscription = _wsChannel!.stream.listen(
         (message) {
           _lastServerMessageTime = DateTime.now();
-          if (message is List<int>) {
-            _handleBinaryMessage(message);
+          final binary = _asBinary(message);
+          if (binary != null) {
+            _handleBinaryMessage(binary);
           } else {
             _handleTextMessage(
               message,
@@ -368,6 +372,12 @@ class StreamProxy {
     _joinResultController = StreamController<JoinResult>.broadcast();
     _playerListController = StreamController<List<String>>.broadcast();
     _playerCountController = StreamController<int>.broadcast();
+  }
+
+  List<int>? _asBinary(dynamic message) {
+    if (message is Uint8List) return message;
+    if (message is List<int>) return message;
+    return null;
   }
 
   void _handleBinaryMessage(List<int> message) {
@@ -666,8 +676,16 @@ class StreamProxy {
     _lastServerMessageTime = DateTime.now();
     _heartbeatSentTime = null;
     _waitingForHeartbeatAck = false;
+    _stopPageVisibility ??= listenPageHidden((hidden) {
+      _pageHidden = hidden;
+      if (!hidden) {
+        _lastServerMessageTime = DateTime.now();
+        _waitingForHeartbeatAck = false;
+        _heartbeatSentTime = null;
+      }
+    });
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!_authenticated) return;
+      if (!_authenticated || _pageHidden) return;
       final now = DateTime.now();
       final lastMessageAge = now.difference(_lastServerMessageTime ?? now);
 
@@ -695,6 +713,9 @@ class StreamProxy {
     _heartbeatTimer = null;
     _waitingForHeartbeatAck = false;
     _heartbeatSentTime = null;
+    _stopPageVisibility?.call();
+    _stopPageVisibility = null;
+    _pageHidden = false;
   }
 
   Future<List<ChatMessage>> subscribeToChat({

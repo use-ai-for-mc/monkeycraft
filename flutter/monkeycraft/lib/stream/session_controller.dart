@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:monkeycraft_client/stream/hardware_h264_decoder.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
 import 'package:monkeycraft_client/stream/session_state.dart';
+import 'package:monkeycraft_client/stream/video/monkeycraft_video_decoder.dart';
 
 export 'package:monkeycraft_client/stream/session_state.dart';
 
@@ -22,8 +22,7 @@ class SessionController extends ChangeNotifier {
       StreamController<SessionState>.broadcast();
   Stream<SessionState> get stateStream => _stateController.stream;
 
-  HardwareH264Decoder? decoder;
-  int? textureId;
+  MonkeycraftVideoDecoder? decoder;
   int streamWidth = 0;
   int streamHeight = 0;
   StreamSettings settings = StreamSettings.defaults;
@@ -45,7 +44,10 @@ class SessionController extends ChangeNotifier {
   String? _password;
   bool _disposed = false;
 
-  bool get supportedPlatform => Platform.isIOS || Platform.isAndroid;
+  int? get textureId => decoder?.textureId;
+  bool get hasVideoSurface =>
+      decoder?.textureId != null || decoder?.platformViewType != null;
+  bool get supportedPlatform => platformCapabilities.supportsVideoDecoder;
 
   SessionController({required this.proxy, required this.settingsStore});
 
@@ -329,7 +331,6 @@ class SessionController extends ChangeNotifier {
   Future<void> disposeDecoder() async {
     final d = decoder;
     decoder = null;
-    textureId = null;
     await d?.dispose();
   }
 

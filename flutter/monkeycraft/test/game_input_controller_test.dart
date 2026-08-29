@@ -69,4 +69,29 @@ void main() {
       'SPACE:false',
     ]);
   });
+
+  test('physical WASD, space and shift map to existing keys', () {
+    final events = <String>[];
+    final controller = GameInputController((key, pressed) {
+      events.add('$key:$pressed');
+    });
+
+    expect(controller.handlePhysicalKey('w', true), isTrue);
+    expect(controller.handlePhysicalKey('D', true), isTrue);
+    expect(controller.handlePhysicalKey(' ', true), isTrue);
+    expect(controller.handlePhysicalKey('ShiftLeft', true), isTrue);
+    expect(controller.handlePhysicalKey('q', true), isFalse);
+    controller.releaseAll();
+
+    expect(events, [
+      'W:true',
+      'D:true',
+      'SPACE:true',
+      'SHIFT:true',
+      'W:false',
+      'D:false',
+      'SPACE:false',
+      'SHIFT:false',
+    ]);
+  });
 }

@@ -4,6 +4,7 @@ import 'package:monkeycraft_client/auth/login_screen.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
 import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
+import 'package:monkeycraft_client/platform/web_frame_keep_alive.dart';
 import 'package:monkeycraft_client/shared/keyboard_prewarmer.dart';
 import 'package:monkeycraft_client/notifications/timed_notification_service.dart';
 import 'package:monkeycraft_client/notifications/banner_style_nudge.dart';
@@ -44,13 +45,16 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             fontFamily: appSettings.font.familyName,
+            fontFamilyFallback: AppSettings.emojiFallbackFamilies,
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
             useMaterial3: true,
           ),
-          home: KeyboardPrewarmerWidget(
-            child: BannerStyleNudgeGate(
-              nudge: bannerStyleNudge,
-              child: const LoginScreen(),
+          home: WebFrameKeepAlive(
+            child: KeyboardPrewarmerWidget(
+              child: BannerStyleNudgeGate(
+                nudge: bannerStyleNudge,
+                child: const LoginScreen(),
+              ),
             ),
           ),
         );

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/notifications/banner_style_settings_tile.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
 
@@ -195,7 +196,8 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                       setState(() => _settings = _settings.copyWith(dataSaver: v))
                 : null,
           ),
-          const Divider(height: 32),
+          if (platformCapabilities.supportsLocalFiles) const Divider(height: 32),
+          if (platformCapabilities.supportsLocalFiles)
           ListTile(
             title: const Text('Chat Background'),
             subtitle: Text(

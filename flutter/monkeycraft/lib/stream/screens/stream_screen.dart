@@ -1,14 +1,15 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/main.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/stream/game_input_controller.dart';
 import 'package:monkeycraft_client/notifications/ios_timed_notification_scheduler.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
-import 'package:monkeycraft_client/stream/hardware_h264_decoder.dart';
+import 'package:monkeycraft_client/stream/video/video_decoder_factory.dart';
+import 'package:monkeycraft_client/stream/widgets/video_surface.dart';
 import 'package:monkeycraft_client/notifications/live_activity_service.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
@@ -91,7 +92,7 @@ class _StreamScreenState extends State<StreamScreen>
   int? _lastFiredTimedNotificationMs;
   int? _lastHandledTimedFireAtMs;
 
-  bool get _supportedPlatform => Platform.isIOS || Platform.isAndroid;
+  bool get _supportedPlatform => platformCapabilities.supportsVideoDecoder;
 
   @override
   void initState() {
@@ -576,10 +577,13 @@ class _StreamScreenState extends State<StreamScreen>
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
-    final decoder = HardwareH264Decoder();
-    final textureId = await decoder.createDecoder(fps: _settings.fps);
+    final decoder = createVideoDecoder();
+    decoder.onKeyframeNeeded = widget.proxy.requestKeyframe;
+    decoder.onChanged = () {
+      if (mounted) setState(() {});
+    };
+    await decoder.initialize(fps: _settings.fps);
     _session.decoder = decoder;
-    _session.textureId = textureId;
 
     _accessUnitSub = widget.proxy.accessUnits.listen((data) {
       _session.handleAccessUnit(
@@ -634,9 +638,13 @@ class _StreamScreenState extends State<StreamScreen>
           await _resumeIfNeeded();
         } else if (currentState == AppLifecycleState.inactive ||
             currentState == AppLifecycleState.paused ||
+            currentState == AppLifecycleState.hidden ||
             currentState == AppLifecycleState.detached) {
-          _session.setForeground(false);
-          await _pauseStreaming();
+          _input.releaseAll();
+          if (!platformCapabilities.isWeb) {
+            _session.setForeground(false);
+            await _pauseStreaming();
+          }
         }
       } catch (e) {
         debugPrint('StreamScreen lifecycle error: $e');
@@ -722,7 +730,9 @@ class _StreamScreenState extends State<StreamScreen>
     if (sw <= 0 || sh <= 0) {
       return Padding(
         padding: pad,
-        child: SizedBox.expand(child: Texture(textureId: _session.textureId!)),
+        child: SizedBox.expand(
+          child: VideoSurface(decoder: _session.decoder),
+        ),
       );
     }
     final mq = MediaQuery.of(context);
@@ -744,7 +754,7 @@ class _StreamScreenState extends State<StreamScreen>
         child: SizedBox(
           width: displayWidth,
           height: displayHeight,
-          child: Texture(textureId: _session.textureId!),
+          child: VideoSurface(decoder: _session.decoder),
         ),
       ),
     );
@@ -816,48 +826,6 @@ class _StreamScreenState extends State<StreamScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (!_supportedPlatform) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Unsupported platform',
-                    style: appSettings.textStyleWithFont(
-                      const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'This client supports iOS and Android only.',
-                    style: appSettings.textStyleWithFont(
-                      const TextStyle(color: Colors.white70),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Back'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     final state = _session.state;
 
     return OrientationBuilder(
@@ -1016,14 +984,28 @@ class _StreamScreenState extends State<StreamScreen>
           });
         }
 
-        final showTouchControls = _supportedPlatform;
+        final showTouchControls = platformCapabilities.supportsTouchControls;
 
-        return Scaffold(
+        return Focus(
+          autofocus: true,
+          onKeyEvent: _handleKeyEvent,
+          child: Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
             children: [
-              if (state.shouldShowVideo && _session.textureId != null)
+              if (state.shouldShowVideo && _session.hasVideoSurface)
                 Center(child: _buildTextureWithAspectRatio(pad)),
+              if (_session.decoder?.lastError != null)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _session.decoder!.lastError!,
+                      style: const TextStyle(color: Colors.white70, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               if (state.shouldShowHibernation)
                 HibernationOverlay(message: state.videoStateMessage),
               if (state.shouldShowWaiting) const WaitingOverlay(),
@@ -1249,8 +1231,35 @@ class _StreamScreenState extends State<StreamScreen>
               ],
             ],
           ),
+        ),
         );
       },
     );
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary != null &&
+        primary.context?.widget is EditableText) {
+      return KeyEventResult.ignored;
+    }
+    if (event is! KeyDownEvent && event is! KeyUpEvent) {
+      return KeyEventResult.ignored;
+    }
+    final pressed = event is KeyDownEvent;
+    final label = event.logicalKey.keyLabel;
+    if (_input.handlePhysicalKey(label, pressed)) {
+      return KeyEventResult.handled;
+    }
+    final digit = int.tryParse(label);
+    if (pressed && digit != null && digit >= 1 && digit <= 9) {
+      final slot = digit - 1;
+      setState(() {
+        _selectedHotbarSlot = slot;
+      });
+      widget.proxy.sendCommand({'type': 'HOTBAR_SELECT', 'slot': slot});
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 }

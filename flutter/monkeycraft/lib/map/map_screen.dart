@@ -10,6 +10,7 @@ import 'package:monkeycraft_client/stream/widgets/virtual_joystick.dart';
 import 'package:monkeycraft_client/stream/widgets/jump_button.dart';
 import 'package:monkeycraft_client/stream/widgets/shift_button.dart';
 import 'package:monkeycraft_client/stream/widgets/hotbar_selector.dart';
+import 'package:monkeycraft_client/stream/widgets/video_surface.dart';
 
 class MapScreen extends StatefulWidget {
   final StreamProxy proxy;
@@ -181,7 +182,7 @@ class _MapScreenState extends State<MapScreen> {
         : (((safeW - (20 * 2) - 16) - (hotbarGap * 8)) / 9.0).clamp(28.0, 40.0);
     final topBarY = pad.top + 12;
 
-    final textureId = widget.session.textureId;
+    final hasVideo = widget.session.hasVideoSurface;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -195,8 +196,8 @@ class _MapScreenState extends State<MapScreen> {
                 child: SizedBox(
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
-                  child: textureId != null
-                      ? Texture(textureId: textureId)
+                  child: hasVideo
+                      ? VideoSurface(decoder: widget.session.decoder)
                       : const Center(
                           child: Text(
                             'Waiting for video...',

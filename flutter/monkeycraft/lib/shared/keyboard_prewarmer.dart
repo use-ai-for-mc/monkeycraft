@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 
 class KeyboardPrewarmer {
   static final KeyboardPrewarmer _instance = KeyboardPrewarmer._internal();
@@ -14,7 +14,7 @@ class KeyboardPrewarmer {
   bool get isPrewarmed => _prewarmed;
 
   void prewarm(BuildContext context) {
-    if (_prewarmed || !Platform.isIOS) return;
+    if (_prewarmed || !platformCapabilities.isIOS) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;

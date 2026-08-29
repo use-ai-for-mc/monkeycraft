@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'package:monkeycraft_client/notifications/timed_notification_coordinator.dart';
 import 'package:monkeycraft_client/notifications/timed_notification_service.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 
 class IosTimedNotificationScheduler implements TimedNotificationScheduler {
   final TimedNotificationService _service;
@@ -13,7 +12,7 @@ class IosTimedNotificationScheduler implements TimedNotificationScheduler {
   Future<bool> ensurePermission() async {
     // Despite the class name, this also drives Android notifications via the
     // same `monkeycraft/notifications` channel.
-    if (!Platform.isIOS && !Platform.isAndroid) return false;
+    if (!platformCapabilities.supportsNativeNotifications) return false;
     final granted = _granted;
     if (granted != null) return granted;
     final next = await _service.requestPermission();
