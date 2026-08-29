@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:monkeycraft_client/main.dart';
+import 'package:monkeycraft_client/platform/local_file.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
@@ -343,10 +344,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (currentState == AppLifecycleState.resumed) {
           openAudioMcService.softRefresh();
           mcParksV1Service.softRefresh();
-          if (widget.manageConnection) {
-            await _reconnect();
-          } else {
-            if (widget.proxy.isConnected) {
+          if (!platformCapabilities.isWeb) {
+            if (widget.manageConnection) {
+              await _reconnect();
+            } else if (widget.proxy.isConnected) {
               _reattachChatStreams();
               await _loadCachedMessages();
             }
@@ -639,11 +640,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             children: [
               if (bgPath != null)
                 Positioned.fill(
-                  child: Image.file(
-                    File(bgPath),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
+                  child:
+                      localFileImage(bgPath, fit: BoxFit.cover) ??
+                      const SizedBox.shrink(),
                 ),
               if (bgPath != null)
                 Positioned.fill(

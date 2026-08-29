@@ -1,6 +1,6 @@
 # Flutter Client Architecture
 
-The Monkeycraft Flutter client (`flutter/monkeycraft/`) is a mobile app for iOS and Android that connects to the Minecraft mod via WebSocket to provide remote gameplay.
+The Monkeycraft Flutter client (`flutter/monkeycraft/`) connects to the Minecraft mod via WebSocket to provide remote gameplay. It targets iOS, Android, and Flutter Web (desktop Chrome/Edge first).
 
 ## Directory Structure
 
@@ -13,6 +13,7 @@ flutter/monkeycraft/lib/
 ├── chat/                             # Chat functionality
 │   ├── chat_screen.dart              # In-game chat interface
 │   └── chat_models.dart              # Chat message types
+├── platform/                         # Platform capabilities and file helpers
 ├── stream/                           # Streaming functionality
 │   ├── screens/
 │   │   ├── stream_screen.dart        # Main game streaming screen
@@ -23,7 +24,9 @@ flutter/monkeycraft/lib/
 │   │   ├── jump_button.dart          # Jump action button
 │   │   ├── shift_button.dart         # Sneak action button
 │   │   ├── hotbar_selector.dart      # Hotbar slot selector
-│   │   └── screen_controls.dart      # Screen touch controls
+│   │   ├── screen_controls.dart      # Screen touch controls
+│   │   └── video_surface.dart        # Native Texture / Web canvas
+│   ├── video/                        # Shared decoder interface + WebCodecs
 │   ├── stream_proxy.dart             # WebSocket communication hub
 │   ├── session_controller.dart       # Session state management
 │   ├── game_input_controller.dart    # Movement/input state machine
@@ -272,5 +275,20 @@ Simple press/release buttons with visual feedback.
 - Uses MediaCodec for hardware H.264 decoding
 - Native plugin in `android/app/` handles decoder lifecycle
 
-### Unsupported Platforms
-The app displays "Unsupported platform" on desktop/web.
+### Flutter Web
+Web reuses the same login, stream, chat, map, and settings pages.
+
+- Serve the app from `http://localhost` (`flutter run -d chrome` or `flutter build web`).
+- Connect to the mod with `ws://<LAN-IP>:<port>` from the login form. HTTPS pages cannot use plain `ws://`.
+- Video uses WebCodecs `VideoDecoder` with Annex-B access units (`avc1.420028` by default). Canvas is embedded via `HtmlElementView` with `pointer-events: none`.
+- First version disables QR scanning, native notifications, Live Activity, OpenAudioMC, and MCParks audio. Those stay available on iOS/Android.
+- `VideoRelay` (local MPEG-TS TCP) is a no-op on web; frames still go through `StreamProxy.accessUnits`.
+
+Local start:
+
+```bash
+cd flutter/monkeycraft
+flutter run -d chrome
+```
+
+Fill Server as `host:port` (for example `192.168.1.10:9600`) and the mod password. Do not put the password in source, tests, or docs.

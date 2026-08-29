@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 
 /// Settings-screen control that shows the current iOS notification Banner Style
 /// and offers a shortcut into iOS Settings to change it. iOS-only.
@@ -21,7 +20,7 @@ class _BannerStyleSettingsTileState extends State<BannerStyleSettingsTile>
   @override
   void initState() {
     super.initState();
-    if (Platform.isIOS) {
+    if (platformCapabilities.isIOS) {
       WidgetsBinding.instance.addObserver(this);
       _refresh();
     }
@@ -66,7 +65,7 @@ class _BannerStyleSettingsTileState extends State<BannerStyleSettingsTile>
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isIOS) return const SizedBox.shrink();
+    if (!platformCapabilities.isIOS) return const SizedBox.shrink();
     final info = _info;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

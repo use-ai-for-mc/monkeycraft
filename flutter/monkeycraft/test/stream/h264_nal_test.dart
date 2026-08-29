@@ -12,7 +12,6 @@ void main() {
     });
 
     test('finds IDR after a leading non-IDR NAL with 3-byte codes', () {
-      // SPS (7), PPS (8), then IDR (5), all 3-byte start codes.
       expect(
         containsIdrNal([0, 0, 1, 0x67, 0x42, 0, 0, 1, 0x68, 0, 0, 1, 0x65]),
         isTrue,
@@ -32,9 +31,7 @@ void main() {
     });
 
     test('payload bytes that look like NAL type 5 are not misread', () {
-      // 0x65 without a preceding start code must not count.
       expect(containsIdrNal([0x65, 0x65, 0x65]), isFalse);
-      // Inside emulation-prevention-free payload after a non-IDR header.
       expect(containsIdrNal([0, 0, 1, 0x41, 0, 1, 0x65]), isFalse);
     });
 
@@ -42,6 +39,24 @@ void main() {
       expect(containsIdrNal([]), isFalse);
       expect(containsIdrNal([0, 0, 1]), isFalse);
       expect(containsIdrNal([0, 0, 1, 0x65]), isTrue);
+    });
+  });
+
+  group('SPS codec string', () {
+    test('reads Baseline Level 4.0 from a JCodec-style IDR AU', () {
+      final au = [
+        0, 0, 0, 1, 0x67, 0x42, 0x00, 0x28, 0xAB,
+        0, 0, 0, 1, 0x68, 0xCE,
+        0, 0, 0, 1, 0x65, 0x88,
+      ];
+      expect(containsSpsNal(au), isTrue);
+      expect(containsPpsNal(au), isTrue);
+      expect(containsIdrNal(au), isTrue);
+      expect(parseSpsCodec(au)?.codecString, 'avc1.420028');
+    });
+
+    test('returns null when there is no SPS', () {
+      expect(parseSpsCodec([0, 0, 0, 1, 0x41, 0x9A]), isNull);
     });
   });
 }

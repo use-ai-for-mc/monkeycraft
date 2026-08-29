@@ -1,7 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:monkeycraft_client/platform/local_file.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppFont { mulish, montserrat, nunitoSans }
@@ -56,7 +54,7 @@ class AppSettings extends ChangeNotifier {
     _font = AppFont.values[index.clamp(0, AppFont.values.length - 1)];
 
     final bgPath = prefs.getString(_kChatBackground);
-    if (bgPath != null && File(bgPath).existsSync()) {
+    if (bgPath != null && localFileExists(bgPath)) {
       _chatBackgroundPath = bgPath;
     }
 
@@ -77,21 +75,17 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> setChatBackground(String sourcePath) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final dest = File('${dir.path}/chat_background.jpg');
-    await File(sourcePath).copy(dest.path);
-    _chatBackgroundPath = dest.path;
+    final destPath = await persistLocalFile(sourcePath, 'chat_background.jpg');
+    if (destPath == null) return;
+    _chatBackgroundPath = destPath;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kChatBackground, dest.path);
+    await prefs.setString(_kChatBackground, destPath);
     notifyListeners();
   }
 
   Future<void> clearChatBackground() async {
     if (_chatBackgroundPath != null) {
-      final file = File(_chatBackgroundPath!);
-      if (file.existsSync()) {
-        await file.delete();
-      }
+      await deleteLocalFile(_chatBackgroundPath!);
     }
     _chatBackgroundPath = null;
     final prefs = await SharedPreferences.getInstance();
@@ -116,7 +110,21 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  static const List<String> emojiFallbackFamilies = [
+    'Noto Color Emoji',
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Noto Sans Symbols 2',
+  ];
+
   TextStyle textStyleWithFont(TextStyle? base) {
-    return (base ?? const TextStyle()).copyWith(fontFamily: _font.familyName);
+    final style = base ?? const TextStyle();
+    return style.copyWith(
+      fontFamily: _font.familyName,
+      fontFamilyFallback: [
+        ...?style.fontFamilyFallback,
+        ...emojiFallbackFamilies,
+      ],
+    );
   }
 }

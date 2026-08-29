@@ -44,6 +44,42 @@ class GameInputController {
     _setKey('SHIFT', pressed: pressed, current: _shiftDown, assign: (v) => _shiftDown = v);
   }
 
+  bool handlePhysicalKey(String logicalKey, bool pressed) {
+    switch (logicalKey) {
+      case 'KeyW':
+      case 'w':
+      case 'W':
+        _setKey('W', pressed: pressed, current: _wDown, assign: (v) => _wDown = v);
+        return true;
+      case 'KeyA':
+      case 'a':
+      case 'A':
+        _setKey('A', pressed: pressed, current: _aDown, assign: (v) => _aDown = v);
+        return true;
+      case 'KeyS':
+      case 's':
+      case 'S':
+        _setKey('S', pressed: pressed, current: _sDown, assign: (v) => _sDown = v);
+        return true;
+      case 'KeyD':
+      case 'd':
+      case 'D':
+        _setKey('D', pressed: pressed, current: _dDown, assign: (v) => _dDown = v);
+        return true;
+      case 'Space':
+      case ' ':
+        setJumpPressed(pressed);
+        return true;
+      case 'ShiftLeft':
+      case 'ShiftRight':
+      case 'Shift':
+        setShiftPressed(pressed);
+        return true;
+      default:
+        return false;
+    }
+  }
+
   void releaseAll() {
     _setKey('W', pressed: false, current: _wDown, assign: (v) => _wDown = v);
     _setKey('A', pressed: false, current: _aDown, assign: (v) => _aDown = v);

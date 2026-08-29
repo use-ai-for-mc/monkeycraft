@@ -143,3 +143,5 @@ jobs:
         run: flutter analyze
       - name: test
         run: flutter test
+      - name: build web
+        run: flutter build web --release --base-href /monkeycraft/

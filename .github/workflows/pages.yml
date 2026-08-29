@@ -1,0 +1,58 @@
+name: pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'flutter/monkeycraft/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: flutter/monkeycraft
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: get dependencies
+        run: flutter pub get
+      - name: analyze
+        run: flutter analyze
+      - name: test
+        run: flutter test
+      - name: build web
+        run: flutter build web --release --base-href /monkeycraft/
+      - name: spa fallback
+        run: cp build/web/index.html build/web/404.html
+      - name: upload pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: flutter/monkeycraft/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

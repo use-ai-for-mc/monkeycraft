@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/auth/credential_store.dart';
 import 'package:monkeycraft_client/auth/qr_scan_screen.dart';
+import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
 import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
@@ -36,9 +36,13 @@ class _LoginScreenState extends State<LoginScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (ModalRoute.of(context)?.isCurrent == true) {
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: SystemUiOverlay.values,
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ),
       );
     }
   }
@@ -68,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _exitApp() {
-    if (Platform.isAndroid) {
+    if (platformCapabilities.isAndroid) {
       SystemNavigator.pop();
       return;
     }
@@ -198,38 +202,47 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _passController,
                   decoration: InputDecoration(
                     labelText: 'Password (scan the QR code from the client)',
-                    suffixIcon: IconButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              try {
-                                final scanned = await Navigator.of(context)
-                                    .push<String>(
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const QrScanScreen(),
-                                      ),
+                    suffixIcon: platformCapabilities.supportsQrScanner
+                        ? IconButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () async {
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
                                     );
-                                if (!mounted) return;
-                                if (scanned == null) return;
-                                setState(() => _passController.text = scanned);
-                              } catch (e) {
-                                if (!mounted) return;
-                                messenger.showSnackBar(
-                                  SnackBar(content: Text('Scan failed: $e')),
-                                );
-                              }
-                            },
-                      icon: const Icon(Icons.qr_code_scanner),
-                      tooltip: 'Scan QR code',
-                    ),
+                                    try {
+                                      final scanned = await Navigator.of(
+                                        context,
+                                      ).push<String>(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const QrScanScreen(),
+                                        ),
+                                      );
+                                      if (!mounted) return;
+                                      if (scanned == null) return;
+                                      setState(
+                                        () => _passController.text = scanned,
+                                      );
+                                    } catch (e) {
+                                      if (!mounted) return;
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('Scan failed: $e'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(Icons.qr_code_scanner),
+                            tooltip: 'Scan QR code',
+                          )
+                        : null,
                   ),
                   obscureText: true,
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 32),
-                if (Platform.isAndroid)
+                if (platformCapabilities.isAndroid)
                   Row(
                     children: [
                       Expanded(

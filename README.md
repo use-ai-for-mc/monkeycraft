@@ -23,6 +23,7 @@ iOS client 1.4.1 is now available on the Apple App Store. Android client is not 
 ## 📱 Mobile App Availability
 
 - **iOS 1.4.1** — Available on the [Apple App Store](https://apps.apple.com/app/id6759430770).
+- **Web** — [use-ai-for-mc.github.io/monkeycraft](https://use-ai-for-mc.github.io/monkeycraft/). Desktop Chrome/Edge. Open from the same machine or LAN as the Minecraft client (`ws://`), or over Tailscale (`wss://`).
 - **Android** — Not publicly released yet. Google Play closed-testing and production-release preparation is in progress; Android public availability will be announced separately.
 
 
@@ -129,11 +130,11 @@ Install the MonkeyCraft mod on your **Fabric** Minecraft client (1.19, 1.21.11, 
 
 In Minecraft, type `/monkey start` to launch the WebSocket server.
 
-### 3️⃣ Connect Your Phone
+### 3️⃣ Connect Your Phone or Browser
 
-Open the MonkeyCraft app on your phone and:
+Open the MonkeyCraft app, or the [web client](https://use-ai-for-mc.github.io/monkeycraft/), and:
 - Enter your computer's IP address and port (default: 9600)
-- Scan the QR code displayed in-game, or
+- Scan the QR code displayed in-game (mobile), or
 - Enter the password manually
 
 ### 4️⃣ Play!
@@ -221,6 +222,9 @@ cd mods/1.19 && ./gradlew build
 
 # Build Flutter app
 cd flutter/monkeycraft && flutter build apk
+
+# Build Flutter web (GitHub Pages uses --base-href /monkeycraft/)
+cd flutter/monkeycraft && flutter build web --release --base-href /monkeycraft/
 ```
 
 ---

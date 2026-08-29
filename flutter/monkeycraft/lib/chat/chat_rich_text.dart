@@ -5,6 +5,7 @@ import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/audio/openaudiomc_service.dart';
 import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:monkeycraft_client/main.dart';
+import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ChatRichText extends StatefulWidget {
@@ -81,6 +82,7 @@ class _ChatRichTextState extends State<ChatRichText> {
           style: TextStyle(
             color: color ?? Colors.white,
             fontSize: 13,
+            fontFamilyFallback: AppSettings.emojiFallbackFamilies,
             fontWeight: seg.bold ? FontWeight.bold : null,
             fontStyle: seg.italic ? FontStyle.italic : null,
             decoration: TextDecoration.combine([
@@ -193,6 +195,10 @@ class _ChatRichTextState extends State<ChatRichText> {
     final base = widget.baseStyle ?? defaultStyle;
     return base.copyWith(
       color: color ?? base.color,
+      fontFamilyFallback: [
+        ...?base.fontFamilyFallback,
+        ...AppSettings.emojiFallbackFamilies,
+      ],
       fontWeight: seg.bold ? FontWeight.bold : null,
       fontStyle: seg.italic ? FontStyle.italic : null,
       decoration: TextDecoration.combine([
