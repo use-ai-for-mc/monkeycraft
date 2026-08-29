@@ -8,6 +8,7 @@ This is a **Fabric Minecraft Mod** project (Monkeycraft) that enables remote con
 ```
 monkeycraft/
 ├── mods/                         # One mod tree per Minecraft target
+│   ├── 26.2/                     # Minecraft 26.2, Java 25
 │   ├── 26.1/                     # Minecraft 26.1, Java 25
 │   ├── 1.21.11/                  # Minecraft 1.21.11, Java 21
 │   └── 1.19/                     # Minecraft 1.19, Java 17
@@ -62,15 +63,18 @@ Companion mobile app for remote Minecraft control.
 
 ### External Dependencies
 - **monkeycraft-api** — published as one artifact per Minecraft target,
-  e.g. `com.github.weikengchen:monkeycraft-api:1.0.0-mc26.1`. The mod
+  e.g. `com.github.weikengchen:monkeycraft-api:1.0.0-mc26.2`. The mod
   consumes it via JitPack; external mods integrating with Monkeycraft
-  do the same. See [HOW-TO-USE.md](../HOW-TO-USE.md).
+  do the same. Loom's `include` configuration nests that exact API jar in
+  the built Monkeycraft jar; sibling local checkouts are not consulted.
+  See [HOW-TO-USE.md](../HOW-TO-USE.md).
 
 ## Build Commands
 
 Each mod is its own Gradle project — `cd` into the target first.
 
 ```bash
+cd mods/26.2     && ./gradlew build           # MC 26.2   (Java 25)
 cd mods/26.1     && ./gradlew build           # MC 26.1   (Java 25)
 cd mods/1.21.11  && ./gradlew build           # MC 1.21.11 (Java 21)
 cd mods/1.19     && ./gradlew build           # MC 1.19   (Java 17)

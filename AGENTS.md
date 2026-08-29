@@ -20,8 +20,8 @@ MonkeyCraft is a **remote Minecraft control system** consisting of:
 
 ## Key Files to Understand
 
-Paths prefixed with `mods/<mc>/` exist in all three mod trees (`mods/26.1/`,
-`mods/1.21.11/`, `mods/1.19/`) with the same role; differences are usually
+Paths prefixed with `mods/<mc>/` exist in all four mod trees (`mods/26.2/`,
+`mods/26.1/`, `mods/1.21.11/`, `mods/1.19/`) with the same role; differences are usually
 narrow API adaptations.
 
 | File | Purpose |
@@ -40,6 +40,7 @@ narrow API adaptations.
 
 ```bash
 # Java Mod — pick a target
+cd mods/26.2     && ./gradlew build    # needs Java 25
 cd mods/26.1     && ./gradlew build    # needs Java 25
 cd mods/1.21.11  && ./gradlew build    # needs Java 21
 cd mods/1.19     && ./gradlew build    # needs Java 17 (Gradle launcher needs 21+)
@@ -111,8 +112,8 @@ When adding new protocol messages:
 
 ## Important Constraints
 
-- Minecraft targets: 1.19, 1.21.11, 26.1 (three parallel mod trees under `mods/`)
-- Java versions: 17 (1.19), 21 (1.21.11), 25 (26.1) — matches each MC release
+- Minecraft targets: 1.19, 1.21.11, 26.1, 26.2 (four parallel mod trees under `mods/`)
+- Java versions: 17 (1.19), 21 (1.21.11), 25 (26.1/26.2) — matches each MC release
 - Fabric mod (client-side only)
 - Only ONE phone can connect at a time
 - Video is H.264 encoded, max 20 FPS

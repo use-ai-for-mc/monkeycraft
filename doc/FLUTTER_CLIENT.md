@@ -132,7 +132,7 @@ Central communication hub between Flutter app and Minecraft mod.
 | Server→Client | `CHAT_MESSAGE` | Incoming chat |
 | Server→Client | `CHAT_DENIED` | Outgoing chat blocked |
 | Server→Client | `PLAYER_COUNT` | Online player count only (`count`) |
-| Server→Client | `PLAYER_LIST` | Online player account names in tab-list order (`count` + `players[]`); 26.1/1.21.11 honor server `tabListOrder` (staff on top), 1.19 is alphabetical |
+| Server→Client | `PLAYER_LIST` | Online player account names in tab-list order (`count` + `players[]`); 26.2/26.1/1.21.11 honor server `tabListOrder` (staff on top), 1.19 is alphabetical |
 | Server→Client | `SERVER_STATUS` | Server state broadcast |
 | Server→Client | `HEARTBEAT` | Server heartbeat |
 | Client→Server | `HEARTBEAT_ACK` | Heartbeat acknowledgment |

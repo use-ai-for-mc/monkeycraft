@@ -1,0 +1,39 @@
+{
+	"schemaVersion": 1,
+	"id": "monkeycraft",
+	"version": "${version}",
+	"name": "MonkeyCraft",
+	"description": "Stream and control your Minecraft game from your phone. Live H.264 video, touch controls, chat, and notifications from anywhere.",
+	"authors": [
+		"weikengchen"
+	],
+	"contact": {
+		"homepage": "https://github.com/use-ai-for-mc/monkeycraft",
+		"sources": "https://github.com/use-ai-for-mc/monkeycraft",
+		"issues": "https://github.com/use-ai-for-mc/monkeycraft/issues"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/monkeycraft/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.chenweikeng.monkeycraft.MonkeycraftClient"
+		],
+		"modmenu": [
+			"com.chenweikeng.monkeycraft.integration.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"monkeycraft.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*",
+		"cloth-config": ">=26.2.155"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}
