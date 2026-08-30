@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:monkeycraft_client/auth/credential_store.dart';
@@ -56,7 +57,11 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('server'), 'host:9600');
-      expect(prefs.getString('password'), isNull);
+      if (kIsWeb) {
+        expect(prefs.getString('password'), 'new-secret');
+      } else {
+        expect(prefs.getString('password'), isNull);
+      }
       expect(
         await const FlutterSecureStorage().read(key: 'password'),
         'new-secret',

@@ -6,7 +6,7 @@ final PlatformCapabilities platformCapabilities = const PlatformCapabilities(
   isAndroid: false,
   supportsNativeNotifications: false,
   supportsLiveActivity: false,
-  supportsQrScanner: false,
+  supportsQrScanner: true,
   supportsEmbeddedAudioWebView: false,
   supportsVideoDecoder: true,
   supportsTouchControls: true,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -49,7 +50,15 @@ class CredentialStore {
     } catch (_) {}
     try {
       await _storage.write(key: _passwordKey, value: password);
-      await prefs?.remove(_passwordKey);
-    } catch (_) {}
+      if (kIsWeb) {
+        await prefs?.setString(_passwordKey, password);
+      } else {
+        await prefs?.remove(_passwordKey);
+      }
+    } catch (_) {
+      try {
+        await prefs?.setString(_passwordKey, password);
+      } catch (_) {}
+    }
   }
 }
