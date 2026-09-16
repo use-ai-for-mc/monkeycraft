@@ -222,6 +222,10 @@ export class SessionController {
     this.send({ type: "REQUEST_KEYFRAME" });
   }
 
+  dismissNudge(): void {
+    this.dispatch({ type: "dismiss-nudge" });
+  }
+
   serverSupports(capability: string): boolean {
     return this.snapshot.capabilities.includes(capability);
   }

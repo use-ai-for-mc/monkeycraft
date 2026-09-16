@@ -1,10 +1,21 @@
 import { useSignal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useCallback, useEffect, useRef } from "preact/hooks";
+import { isEditableTarget, KeyboardMapper } from "../../input/keyboard.ts";
+import { hasCoarsePointer, showTouchControls } from "../../input/layout.ts";
+import { LookAccumulator } from "../../input/look.ts";
+import { PointerController, type PointerKind } from "../../input/pointer.ts";
+import { type ClickMode, ScreenMode } from "../../input/screen-mode.ts";
+import { isFullscreen, toggleFullscreen } from "../../platform/fullscreen.ts";
+import { WakeLock } from "../../platform/wake-lock.ts";
+import type { ClientMessage } from "../../protocol/messages.ts";
 import { computeStreamSize, type StreamSize, shouldRenegotiate } from "../../session/resolution.ts";
 import { deriveView } from "../../session/session.ts";
 import { type DecoderStats, H264Decoder } from "../../video/decoder.ts";
-import { CanvasRenderer } from "../../video/renderer.ts";
+import { CanvasRenderer, type DisplayRect } from "../../video/renderer.ts";
 import type { AppContext } from "../app.tsx";
+import { Hotbar } from "./hotbar.tsx";
+import { ScreenPalette } from "./palette.tsx";
+import { HoldButton, Joystick } from "./touch-pads.tsx";
 
 interface Props {
   ctx: AppContext;
@@ -15,15 +26,37 @@ const RESIZE_DEBOUNCE_MS = 500;
 
 export function StreamPage({ ctx, onLeave }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<HTMLElement>(null);
   const unsupported = useSignal<string | null>(null);
   const stats = useSignal<DecoderStats | null>(null);
   const measuredFps = useSignal(0);
+  const lastPointer = useSignal<PointerKind | null>(null);
+  const hotbarSlot = useSignal(0);
+  const hotbarOpen = useSignal(false);
+  const paletteOpen = useSignal(false);
+  const shiftActive = useSignal(false);
+  const clickMode = useSignal<ClickMode>("left");
+  const fullscreen = useSignal(isFullscreen());
   const debug = new URLSearchParams(window.location.search).get("debug") === "1";
 
+  const controller = ctx.controller;
+  const send = useCallback((msg: ClientMessage) => controller.send(msg), [controller]);
+  const screenModeRef = useRef(new ScreenMode());
+  const pointerRef = useRef<PointerController | null>(null);
+
+  const selectSlot = useCallback(
+    (slot: number) => {
+      const s = ((slot % 9) + 9) % 9;
+      hotbarSlot.value = s;
+      send({ type: "HOTBAR_SELECT", slot: s });
+    },
+    [send, hotbarSlot],
+  );
+
+  // Video pipeline + pointer input, bound to the host element.
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const controller = ctx.controller;
     const renderer = new CanvasRenderer(host);
     const decoder = new H264Decoder(
       {
@@ -41,6 +74,31 @@ export function StreamPage({ ctx, onLeave }: Props) {
     let disposed = false;
     const offVideo = controller.onVideo((au) => decoder.push(au));
     decoder.start().catch(() => {});
+
+    let rect: DisplayRect = renderer.displayRect;
+    renderer.setRectListener((r) => {
+      rect = r;
+    });
+
+    const look = new LookAccumulator({
+      sensitivity: ctx.settings.value.lookSensitivity,
+      invertY: ctx.settings.value.invertLookY,
+    });
+    const pointer = new PointerController({
+      element: host,
+      send,
+      rect: () => rect,
+      screenOpen: () => controller.snapshot.screenOpen,
+      look,
+      screenMode: screenModeRef.current,
+      onPointerKind: (kind) => {
+        lastPointer.value = kind;
+      },
+      onHotbarStep: (delta) => selectSlot(hotbarSlot.value + delta),
+      usePointerLock: () => ctx.settings.value.controlLayout !== "touch",
+    });
+    pointer.attach();
+    pointerRef.current = pointer;
 
     // Requested size policy: once now, then on debounced meaningful resizes.
     let lastViewport: { cssWidth: number; cssHeight: number } | null = null;
@@ -69,12 +127,14 @@ export function StreamPage({ ctx, onLeave }: Props) {
     });
     observer.observe(host);
 
-    // Measured fps for the debug overlay.
     let lastDrawn = 0;
     const fpsTimer = setInterval(() => {
       measuredFps.value = renderer.framesDrawn - lastDrawn;
       lastDrawn = renderer.framesDrawn;
     }, 1000);
+
+    const wakeLock = new WakeLock();
+    void wakeLock.request();
 
     return () => {
       disposed = true;
@@ -82,16 +142,103 @@ export function StreamPage({ ctx, onLeave }: Props) {
       observer.disconnect();
       if (timer !== null) clearTimeout(timer);
       clearInterval(fpsTimer);
+      wakeLock.release();
+      pointer.detach();
+      pointerRef.current = null;
       decoder.close();
       renderer.destroy();
     };
-  }, [ctx]);
+  }, [ctx, controller, send, selectSlot, hotbarSlot, lastPointer, measuredFps, stats, unsupported]);
 
-  const state = ctx.controller.state.value;
+  // Keyboard, focus loss, screen-state transitions.
+  useEffect(() => {
+    const keys = new KeyboardMapper();
+    const releaseAll = () => {
+      for (const m of keys.releaseAll()) send(m);
+    };
+    const onKey = (pressed: boolean) => (e: KeyboardEvent) => {
+      const outputs = pressed
+        ? keys.keyDown({ code: e.code, repeat: e.repeat, editable: isEditableTarget(e.target) })
+        : keys.keyUp({ code: e.code });
+      for (const out of outputs) {
+        switch (out.kind) {
+          case "send":
+            send(out.msg);
+            e.preventDefault();
+            break;
+          case "hotbar":
+            selectSlot(out.slot);
+            e.preventDefault();
+            break;
+          case "escape":
+            if (controller.snapshot.screenOpen) {
+              send(ScreenMode.escape(out.pressed));
+              e.preventDefault();
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    };
+    const down = onKey(true);
+    const up = onKey(false);
+    const onHidden = () => {
+      if (document.hidden) releaseAll();
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", releaseAll);
+    document.addEventListener("visibilitychange", onHidden);
+    const onFullscreen = () => {
+      fullscreen.value = isFullscreen();
+    };
+    document.addEventListener("fullscreenchange", onFullscreen);
+
+    let wasOpen = controller.snapshot.screenOpen;
+    let wasHibernating = controller.snapshot.hibernating;
+    const unsubscribe = controller.state.subscribe((s) => {
+      if (s.screenOpen !== wasOpen) {
+        wasOpen = s.screenOpen;
+        pointerRef.current?.setScreenOpen(s.screenOpen);
+        releaseAll();
+        if (!s.screenOpen) {
+          paletteOpen.value = false;
+          if (shiftActive.value) {
+            shiftActive.value = false;
+            send(ScreenMode.shift(false));
+          }
+        }
+      }
+      if (s.hibernating !== wasHibernating) {
+        wasHibernating = s.hibernating;
+        if (s.hibernating) releaseAll();
+        else controller.requestKeyframe();
+      }
+    });
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", releaseAll);
+      document.removeEventListener("visibilitychange", onHidden);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      unsubscribe();
+      releaseAll();
+    };
+  }, [controller, send, selectSlot, paletteOpen, shiftActive, fullscreen]);
+
+  const state = controller.state.value;
   const view = deriveView(state);
+  const touch = showTouchControls(
+    ctx.settings.value.controlLayout,
+    lastPointer.value,
+    hasCoarsePointer(),
+  );
+  const showPads = touch && view.showVideo && !state.screenOpen;
+  const showPalette = view.showVideo && state.screenOpen;
 
   return (
-    <main class="stream">
+    <main class="stream" ref={pageRef}>
       <div class="video-host" ref={hostRef} />
       {view.showHibernation && (
         <div class="overlay scrim">
@@ -111,16 +258,84 @@ export function StreamPage({ ctx, onLeave }: Props) {
           <p>{unsupported.value}</p>
         </div>
       )}
-      <div class="toolbar">
+      {state.nudge && (
+        <button
+          type="button"
+          class="banner"
+          onClick={() => controller.dismissNudge()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {state.nudge.title && <strong>{state.nudge.title} </strong>}
+          {state.nudge.body}
+        </button>
+      )}
+      <div class="toolbar" onPointerDown={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={() => pageRef.current && toggleFullscreen(pageRef.current)}
+          title={fullscreen.value ? "Exit fullscreen" : "Fullscreen"}
+        >
+          {fullscreen.value ? "⤡" : "⤢"}
+        </button>
         <button type="button" onClick={onLeave} title="Disconnect">
           ✕
         </button>
       </div>
+      {view.showVideo && (
+        <Hotbar
+          selected={hotbarSlot.value}
+          expanded={hotbarOpen.value}
+          onToggle={() => {
+            hotbarOpen.value = !hotbarOpen.value;
+          }}
+          onSelect={(slot) => {
+            selectSlot(slot);
+            hotbarOpen.value = false;
+          }}
+          send={send}
+          showKeys={!state.screenOpen}
+        />
+      )}
+      {showPads && (
+        <>
+          <div class="pad-left" onPointerDown={(e) => e.stopPropagation()}>
+            <Joystick send={send} />
+          </div>
+          <div class="pad-right" onPointerDown={(e) => e.stopPropagation()}>
+            <HoldButton send={send} keyName="SPACE" label="Jump" class="jump" />
+            <HoldButton send={send} keyName="SHIFT" label="Sneak" class="sneak" />
+          </div>
+        </>
+      )}
+      {showPalette && (
+        <ScreenPalette
+          expanded={paletteOpen.value}
+          onToggle={() => {
+            paletteOpen.value = !paletteOpen.value;
+          }}
+          onEscape={() => {
+            send(ScreenMode.escape(true));
+            send(ScreenMode.escape(false));
+            paletteOpen.value = false;
+          }}
+          shiftActive={shiftActive.value}
+          onShift={(active) => {
+            shiftActive.value = active;
+            send(ScreenMode.shift(active));
+          }}
+          clickMode={clickMode.value}
+          onClickMode={(mode) => {
+            clickMode.value = mode;
+            screenModeRef.current.clickMode = mode;
+          }}
+          showClickModes={touch}
+        />
+      )}
       {debug && stats.value && (
         <pre class="debug">
           {`fps ${measuredFps.value}  recv ${stats.value.received}  dec ${stats.value.decoded}  drop ${stats.value.dropped}  wait ${stats.value.waitedForKey}
 err ${stats.value.errors}  cfg ${stats.value.configures}  kf ${stats.value.keyframeRequests}  q ${stats.value.queueSize}  ${stats.value.codec ?? "-"}
-server ${state.serverSize ? `${state.serverSize.width}x${state.serverSize.height}` : "-"}  req ${state.requestedSize ? `${state.requestedSize.width}x${state.requestedSize.height}` : "-"}  link ${state.link.phase}${stats.value.lastError ? `\n${stats.value.lastError}` : ""}`}
+server ${state.serverSize ? `${state.serverSize.width}x${state.serverSize.height}` : "-"}  req ${state.requestedSize ? `${state.requestedSize.width}x${state.requestedSize.height}` : "-"}  link ${state.link.phase}  screen ${state.screenOpen ? "open" : "closed"}  ptr ${lastPointer.value ?? "-"}${stats.value.lastError ? `\n${stats.value.lastError}` : ""}`}
         </pre>
       )}
     </main>

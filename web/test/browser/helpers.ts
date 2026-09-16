@@ -1,15 +1,20 @@
 import { expect, type Page } from "@playwright/test";
 import { REPLAY_HTTP, REPLAY_PASSWORD, REPLAY_URL } from "../../playwright.config.ts";
 
-/** Log in against the replay server with the debug overlay on. */
-export async function loginToReplay(page: Page): Promise<void> {
+/**
+ * Log in against the replay server with the debug overlay on. Returns the tag
+ * that identifies this connection's messages in the server log.
+ */
+export async function loginToReplay(page: Page): Promise<string> {
+  const tag = Math.random().toString(36).slice(2, 10);
   await page.goto("/?debug=1");
-  await page.getByLabel("Server address").fill(REPLAY_URL);
+  await page.getByLabel("Server address").fill(`${REPLAY_URL}/?tag=${tag}`);
   const usePassword = page.getByRole("button", { name: "Use password instead" });
   if (await usePassword.isVisible()) await usePassword.click();
   await page.getByRole("textbox", { name: "Password" }).fill(REPLAY_PASSWORD);
   await page.getByRole("button", { name: "Connect" }).click();
   await expect(page.locator(".stream")).toBeVisible({ timeout: 15_000 });
+  return tag;
 }
 
 export interface DebugStats {
@@ -48,12 +53,15 @@ export async function waitForDecoded(page: Page, atLeast: number, timeout = 20_0
     .toBeGreaterThanOrEqual(atLeast);
 }
 
-/** Messages the replay server received since the previous call. */
-export async function drainServerLog(page: Page): Promise<Record<string, unknown>[]> {
-  const entries = (await page.evaluate(async (url) => {
-    const r = await fetch(`${url}/log`);
-    return (await r.json()) as Array<{ msg: Record<string, unknown> }>;
-  }, REPLAY_HTTP)) as Array<{ msg: Record<string, unknown> }>;
+/** Messages the replay server received on this tagged connection since the previous call. */
+export async function drainServerLog(page: Page, tag: string): Promise<Record<string, unknown>[]> {
+  const entries = (await page.evaluate(
+    async ([url, t]) => {
+      const r = await fetch(`${url}/log?tag=${t}`);
+      return (await r.json()) as Array<{ msg: Record<string, unknown> }>;
+    },
+    [REPLAY_HTTP, tag] as [string, string],
+  )) as Array<{ msg: Record<string, unknown> }>;
   return entries.map((e) => e.msg);
 }
 

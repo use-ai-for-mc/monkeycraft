@@ -202,3 +202,182 @@ body {
   color: #9f9;
   pointer-events: none;
 }
+
+/* controls */
+.toolbar button + button {
+  margin-left: 0;
+}
+
+.banner {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 70%;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: none;
+  background: rgba(20, 20, 28, 0.9);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.hotbar {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hotbar .pill {
+  width: 44px;
+  height: 40px;
+  border-radius: 20px;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hotbar .grid {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  gap: 6px;
+}
+
+.hotbar .slot {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.hotbar .slot.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.hotbar .slot.key {
+  background: rgba(40, 40, 60, 0.7);
+}
+
+.pad-left {
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.pad-right {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.joystick {
+  position: relative;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  touch-action: none;
+}
+
+.joystick .knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40%;
+  height: 40%;
+  margin: -20% 0 0 -20%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+
+.hold {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.hold.sneak {
+  width: 70px;
+  height: 70px;
+}
+
+.hold.active {
+  background: rgba(245, 166, 35, 0.6);
+}
+
+.palette {
+  position: absolute;
+  top: max(60px, calc(env(safe-area-inset-top) + 52px));
+  right: max(8px, env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.palette .puck {
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  border: 2px solid var(--accent);
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--accent);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.palette .tray {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.palette .esc,
+.palette .chip {
+  height: 40px;
+  min-width: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #1f1f28;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.palette .esc {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  font-weight: 700;
+}
+
+.palette .chip.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}

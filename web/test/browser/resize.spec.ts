@@ -6,9 +6,9 @@ import { drainServerLog, loginToReplay, readDebug, waitForDecoded } from "./help
 
 test("a resize storm keeps one decoder and sends at most a few CLIENT_STATUS", async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 700 });
-  await loginToReplay(page);
+  const tag = await loginToReplay(page);
   await waitForDecoded(page, 10);
-  await drainServerLog(page);
+  await drainServerLog(page, tag);
 
   for (let i = 0; i < 20; i++) {
     const w = 700 + ((i * 137) % 600);
@@ -26,7 +26,7 @@ test("a resize storm keeps one decoder and sends at most a few CLIENT_STATUS", a
   expect(after.dec).toBeGreaterThan(before.dec + 5);
   expect(after.link).toBe("connected");
 
-  const statuses = (await drainServerLog(page)).filter((m) => m.type === "CLIENT_STATUS");
+  const statuses = (await drainServerLog(page, tag)).filter((m) => m.type === "CLIENT_STATUS");
   expect(statuses.length).toBeLessThanOrEqual(3);
   // The picture is sized from decoded frames, never from the request.
   const canvas = page.locator(".video-host canvas");

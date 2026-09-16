@@ -54,7 +54,7 @@ if (frames.length === 0) {
 const hmac = (key: string, msg: string) =>
   createHmac("sha256", key).update(msg, "utf8").digest("base64");
 
-const log: Array<{ t: number; msg: Record<string, unknown> }> = [];
+const log: Array<{ t: number; tag: string; msg: Record<string, unknown> }> = [];
 const state = { clients: 0, streaming: false, framesSent: 0, dropped: 0 };
 
 class Client {
@@ -69,9 +69,11 @@ class Client {
   timer: ReturnType<typeof setInterval> | null = null;
 
   readonly ws: WebSocket;
+  readonly tag: string;
 
-  constructor(ws: WebSocket) {
+  constructor(ws: WebSocket, tag: string) {
     this.ws = ws;
+    this.tag = tag;
   }
 
   send(obj: Record<string, unknown>) {
@@ -132,7 +134,7 @@ class Client {
       this.send({ type: "ERROR", message: "Invalid JSON" });
       return;
     }
-    log.push({ t: Date.now(), msg });
+    log.push({ t: Date.now(), tag: this.tag, msg });
     const type = String(msg.type);
     if (type === "AUTH") return this.onAuth(msg);
     if (!this.authed) {
@@ -298,7 +300,12 @@ const http = createServer((req, res) => {
   if (url.startsWith("/health")) {
     res.end("ok");
   } else if (url.startsWith("/log")) {
-    const out = log.splice(0, log.length);
+    // Drain messages for one tag (connections are tagged by ?tag= on the ws URL).
+    const tag = new URL(url, "http://x").searchParams.get("tag") ?? "";
+    const out: typeof log = [];
+    for (let i = log.length - 1; i >= 0; i--) {
+      if ((log[i] as { tag: string }).tag === tag) out.unshift(...log.splice(i, 1));
+    }
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(out));
   } else if (url.startsWith("/state")) {
@@ -311,8 +318,9 @@ const http = createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server: http });
-wss.on("connection", (ws) => {
-  const client = new Client(ws);
+wss.on("connection", (ws, req) => {
+  const tag = new URL(req.url ?? "/", "http://x").searchParams.get("tag") ?? "";
+  const client = new Client(ws, tag);
   state.clients += 1;
   client.send({ type: "HELLO", salt: client.serverSalt, pairing: true, keyId: "replay-key" });
   ws.on("message", (data, isBinary) => {
