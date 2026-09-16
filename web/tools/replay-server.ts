@@ -10,7 +10,7 @@
 //   GET /state             -> JSON {clients, streaming, framesSent, dropped}
 // Test controls, sent by the client as RUN_COMMAND:
 //   /replay screen open|close   /replay hibernate on|off   /replay nudge <text>
-//   /replay disconnect          /replay close <code>       /replay pose
+//   /replay disconnect          /replay close <code>       /replay world menu|inworld
 
 import { createHmac, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
@@ -271,6 +271,14 @@ class Client {
         this.hibernating = rest[0] === "on";
         if (!this.hibernating) this.needsIdr = true;
         this.serverStatus();
+        break;
+      case "world":
+        this.send({
+          type: "WORLD_STATE",
+          phase: rest[0] === "menu" ? "MENU" : "IN_WORLD",
+          serverName: rest[0] === "menu" ? undefined : "Replay",
+          singleplayer: false,
+        });
         break;
       case "nudge":
         this.send({ type: "NUDGE", title: "Replay", body: rest.join(" ") || "nudge", sound: true });

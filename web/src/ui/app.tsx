@@ -4,7 +4,10 @@ import { listenVisibility } from "../platform/visibility.ts";
 import { SessionController } from "../session/controller.ts";
 import { loadSettings, type Settings, saveSettings } from "../session/settings.ts";
 import { browserStorage, CredentialStore } from "../session/storage.ts";
+import { ChatPanel } from "./chat/chat-panel.tsx";
 import { LoginPage } from "./login/login-page.tsx";
+import { PickerPanel } from "./picker/picker-panel.tsx";
+import { SettingsPanel } from "./settings/settings-panel.tsx";
 import { StreamPage } from "./stream/stream-page.tsx";
 
 export interface AppContext {
@@ -33,7 +36,10 @@ export function createAppContext(): AppContext {
   };
 }
 
+export type Panel = "chat" | "settings" | null;
+
 const screen = signal<"login" | "stream">("login");
+const panel = signal<Panel>(null);
 const loginNotice = signal<string | null>(null);
 
 export function App({ ctx }: { ctx: AppContext }) {
@@ -46,24 +52,46 @@ export function App({ ctx }: { ctx: AppContext }) {
       if (screen.value !== "stream") return;
       if (link.phase === "failed") {
         loginNotice.value = link.message;
+        panel.value = null;
         screen.value = "login";
       } else if (link.phase === "idle") {
         loginNotice.value = reason ? "Disconnected by the computer." : "Disconnected.";
+        panel.value = null;
         screen.value = "login";
       }
     });
   }, [ctx]);
 
+  const leave = () => {
+    ctx.controller.disconnect();
+    loginNotice.value = null;
+    panel.value = null;
+    screen.value = "login";
+  };
+
   if (screen.value === "stream") {
+    const atMenu = ctx.controller.state.value.world?.phase === "MENU";
     return (
-      <StreamPage
-        ctx={ctx}
-        onLeave={() => {
-          ctx.controller.disconnect();
-          loginNotice.value = null;
-          screen.value = "login";
-        }}
-      />
+      <>
+        <StreamPage
+          ctx={ctx}
+          onLeave={leave}
+          onOpenChat={() => (panel.value = "chat")}
+          onOpenSettings={() => (panel.value = "settings")}
+        />
+        {panel.value === "chat" && <ChatPanel ctx={ctx} onClose={() => (panel.value = null)} />}
+        {panel.value === "settings" && (
+          <SettingsPanel
+            ctx={ctx}
+            onClose={() => (panel.value = null)}
+            onLogout={() => {
+              ctx.credentials.clearPasswords();
+              leave();
+            }}
+          />
+        )}
+        {atMenu && <PickerPanel ctx={ctx} onDisconnect={leave} />}
+      </>
     );
   }
   return (

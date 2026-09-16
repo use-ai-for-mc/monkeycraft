@@ -36,4 +36,14 @@ test("logs in through the dev proxy and draws video frames", async ({ page }) =>
   expect(text).toMatch(/err 0/);
   expect(text).toMatch(/cfg 1/);
   await page.screenshot({ path: "test-results/live-stream.png" });
+
+  // Real inventory round trip: E opens it (SCREEN_STATE true -> palette),
+  // physical Escape closes it (SCREEN_STATE false -> palette gone).
+  const palette = page.getByTestId("screen-palette");
+  await page.mouse.click(400, 300);
+  await page.keyboard.press("KeyE");
+  await expect(palette).toBeVisible({ timeout: 5_000 });
+  await page.screenshot({ path: "test-results/live-inventory.png" });
+  await page.keyboard.press("Escape");
+  await expect(palette).toHaveCount(0, { timeout: 5_000 });
 });

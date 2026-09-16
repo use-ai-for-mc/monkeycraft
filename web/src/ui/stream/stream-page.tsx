@@ -20,11 +20,13 @@ import { HoldButton, Joystick } from "./touch-pads.tsx";
 interface Props {
   ctx: AppContext;
   onLeave: () => void;
+  onOpenChat: () => void;
+  onOpenSettings: () => void;
 }
 
 const RESIZE_DEBOUNCE_MS = 500;
 
-export function StreamPage({ ctx, onLeave }: Props) {
+export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLElement>(null);
   const unsupported = useSignal<string | null>(null);
@@ -74,6 +76,7 @@ export function StreamPage({ ctx, onLeave }: Props) {
     let disposed = false;
     const offVideo = controller.onVideo((au) => decoder.push(au));
     decoder.start().catch(() => {});
+    const offSettings = ctx.settings.subscribe((s) => decoder.setFps(s.fps));
 
     let rect: DisplayRect = renderer.displayRect;
     renderer.setRectListener((r) => {
@@ -83,6 +86,10 @@ export function StreamPage({ ctx, onLeave }: Props) {
     const look = new LookAccumulator({
       sensitivity: ctx.settings.value.lookSensitivity,
       invertY: ctx.settings.value.invertLookY,
+    });
+    const offLook = ctx.settings.subscribe((s) => {
+      look.sensitivity = s.lookSensitivity;
+      look.invertY = s.invertLookY;
     });
     const pointer = new PointerController({
       element: host,
@@ -139,6 +146,8 @@ export function StreamPage({ ctx, onLeave }: Props) {
     return () => {
       disposed = true;
       offVideo();
+      offSettings();
+      offLook();
       observer.disconnect();
       if (timer !== null) clearTimeout(timer);
       clearInterval(fpsTimer);
@@ -270,6 +279,12 @@ export function StreamPage({ ctx, onLeave }: Props) {
         </button>
       )}
       <div class="toolbar" onPointerDown={(e) => e.stopPropagation()}>
+        <button type="button" onClick={onOpenChat} title="Chat" aria-label="Chat">
+          💬
+        </button>
+        <button type="button" onClick={onOpenSettings} title="Settings" aria-label="Settings">
+          ⚙
+        </button>
         <button
           type="button"
           onClick={() => pageRef.current && toggleFullscreen(pageRef.current)}
