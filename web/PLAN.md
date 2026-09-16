@@ -1,7 +1,8 @@
 # MonkeyCraft web client: engineering plan
 
-Status: proposed 2026-09-16. Supersedes `web-client-handoff/` (Aug 2026), which
-planned Flutter-web reuse; that direction is abandoned.
+Status: in progress. M0 and M1 done, M2 started (2026-09-16); see `CHANGELOG.md`.
+Supersedes `web-client-handoff/` (Aug 2026), which planned Flutter-web reuse; that
+direction is abandoned.
 
 ## 0. Decision and scope
 
@@ -154,7 +155,7 @@ input (keyboard/pointer/touch) ──▶ input/* ──▶ codec.serialize ─�
 Each milestone ends with the listed acceptance checks passing and a short entry
 in `web/CHANGELOG.md`. Effort is an estimate in focused sessions.
 
-### M0. Baseline and contract (1 session)
+### M0. Baseline and contract (1 session) — done
 
 1. User commits the current 26.2 server tree and related working-tree changes
    (the contract the client targets). Recommended: one commit for `mods/`, one
@@ -174,7 +175,7 @@ in `web/CHANGELOG.md`. Effort is an estimate in focused sessions.
 Acceptance: `pnpm lint && pnpm test && pnpm build` green locally and in CI; at
 least one recorded fixture with ≥ 200 access units.
 
-### M1. Protocol core, Node-testable (2 sessions)
+### M1. Protocol core, Node-testable (2 sessions) — done
 
 `src/protocol`, `src/transport`, `src/session` without UI.
 
@@ -197,7 +198,7 @@ least one recorded fixture with ≥ 200 access units.
 Acceptance: unit coverage on `protocol/` and `transport/` ≥ 90 % lines; probe
 runs against the Prism instance and reports ≥ 8 fps at the requested size.
 
-### M2. Video pipeline (2 sessions)
+### M2. Video pipeline (2 sessions) — in progress
 
 `src/video` plus a bare stream page (canvas only, no controls).
 
