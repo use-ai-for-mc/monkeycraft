@@ -6,6 +6,7 @@ import 'package:monkeycraft_client/shared/protocol_models.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
+import 'package:monkeycraft_client/stream/connection_endpoint.dart';
 import 'package:monkeycraft_client/stream/session_state.dart';
 import 'package:monkeycraft_client/stream/video/monkeycraft_video_decoder.dart';
 
@@ -40,7 +41,7 @@ class SessionController extends ChangeNotifier {
 
   Timer? _reconnectRetryTimer;
   static const int _maxReconnectRetries = 3;
-  String? _server;
+  ConnectionEndpoint? _endpoint;
   String? _password;
   bool _disposed = false;
 
@@ -335,9 +336,18 @@ class SessionController extends ChangeNotifier {
   }
 
   void setCredentials(String server, String password) {
-    _server = server;
+    setEndpoint(DirectEndpoint(server), password);
+  }
+
+  bool get hasEndpoint => _endpoint != null;
+
+  void setEndpoint(ConnectionEndpoint endpoint, String password) {
+    _endpoint = endpoint;
     _password = password;
   }
+
+  Future<String> _resolvedServer() =>
+      (_endpoint ?? DirectEndpoint('')).resolve();
 
   void handleConnectionLost() {
     if (_state.shouldReturnToLogin) return;
@@ -363,10 +373,12 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _attemptReconnect() async {
     if (_disposed) return;
-    if (_server == null || _password == null) return;
+    if (_endpoint == null || _password == null) return;
 
     try {
-      await proxy.start(_server!, _password!);
+      final server = await _resolvedServer();
+      if (_disposed) return;
+      await proxy.start(server, _password!);
       if (_disposed) {
         // The screen went away while connecting; don't keep a ghost
         // connection holding the mod's single client slot.
@@ -413,11 +425,13 @@ class SessionController extends ChangeNotifier {
   Future<void> resumeConnection() async {
     if (_disposed) return;
     if (proxy.isConnected) return;
-    if (_server == null || _password == null) return;
+    if (_endpoint == null || _password == null) return;
 
     _updateState(_state.copyWith(isReconnecting: true));
     try {
-      await proxy.start(_server!, _password!);
+      final server = await _resolvedServer();
+      if (_disposed) return;
+      await proxy.start(server, _password!);
       if (_disposed) {
         await proxy.stop();
         return;

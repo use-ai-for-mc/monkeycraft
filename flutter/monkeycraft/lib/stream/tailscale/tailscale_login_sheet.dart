@@ -1,0 +1,273 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:monkeycraft_client/auth/credential_store.dart';
+import 'package:monkeycraft_client/stream/tailscale/tailscale_embedded.dart';
+import 'package:monkeycraft_client/stream/tailscale/tailscale_models.dart';
+
+class TailscaleLoginResult {
+  const TailscaleLoginResult({
+    required this.nodeId,
+    required this.displayName,
+    required this.port,
+  });
+
+  final String nodeId;
+  final String displayName;
+  final int port;
+}
+
+class TailscaleLoginSheet extends StatefulWidget {
+  const TailscaleLoginSheet({
+    super.key,
+    required this.client,
+    this.savedNodeId,
+    this.defaultPort = 9600,
+  });
+
+  final TailscaleClient client;
+  final String? savedNodeId;
+  final int defaultPort;
+
+  static Future<TailscaleLoginResult?> show(
+    BuildContext context, {
+    required TailscaleClient client,
+    String? savedNodeId,
+    int defaultPort = 9600,
+  }) {
+    return showModalBottomSheet<TailscaleLoginResult>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => TailscaleLoginSheet(
+        client: client,
+        savedNodeId: savedNodeId,
+        defaultPort: defaultPort,
+      ),
+    );
+  }
+
+  @override
+  State<TailscaleLoginSheet> createState() => _TailscaleLoginSheetState();
+}
+
+class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
+  StreamSubscription<TailscaleEmbeddedSnapshot>? _sub;
+  TailscaleDiagnostics? _diagnostics;
+  TailscaleEmbeddedSnapshot _snapshot = const TailscaleEmbeddedSnapshot(
+    phase: 'stopped',
+  );
+  String? _savedNodeId;
+  Object? _error;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _savedNodeId = widget.savedNodeId;
+    _sub = widget.client.events.listen((snapshot) {
+      if (!mounted) return;
+      setState(() => _snapshot = snapshot);
+    });
+    unawaited(_bootstrap());
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      final diagnostics = await widget.client.diagnostics();
+      if (!mounted) return;
+      setState(() => _diagnostics = diagnostics);
+      if (!diagnostics.available) return;
+      await widget.client.start();
+      final status = await widget.client.status();
+      if (!mounted) return;
+      setState(() => _snapshot = status);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  bool get _showSpinner => _busy || _snapshot.phase == 'starting';
+
+  String get _statusText {
+    if (_diagnostics != null && !_diagnostics!.available) {
+      return _diagnostics!.reason;
+    }
+    switch (_snapshot.phase) {
+      case 'starting':
+        return 'Starting embedded Tailscale…';
+      case 'needsLogin':
+        return 'Sign in on the Tailscale page that just opened. This screen waits until the node is running.';
+      case 'needsApproval':
+        return 'This device is waiting for a tailnet admin to approve it. If you signed into the wrong account, sign out and try again.';
+      case 'running':
+        return 'Signed in. Pick a computer. HMAC still confirms the game.';
+      case 'failed':
+        return _snapshot.errorMessage ?? 'Embedded Tailscale failed.';
+      case 'unavailable':
+        return _snapshot.errorMessage ?? 'Embedded Tailscale is unavailable.';
+      default:
+        return 'Embedded Tailscale is stopped.';
+    }
+  }
+
+  Future<void> _retry() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.client.start();
+      await widget.client.loginInteractive();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cancelLogin() async {
+    if (mounted) Navigator.of(context).pop();
+    unawaited(widget.client.cancel().catchError((_) {}));
+  }
+
+  bool get _canLogout {
+    switch (_snapshot.phase) {
+      case 'starting':
+      case 'needsLogin':
+      case 'needsApproval':
+      case 'running':
+      case 'failed':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out of Tailscale?'),
+        content: const Text(
+          'This deletes the embedded node on this device so you can sign in with a different account. Direct/LAN connect still works.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep signed in'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign out and delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await CredentialStore.saveTailscaleNodeId(null);
+    setState(() {
+      _busy = true;
+      _error = null;
+      _savedNodeId = null;
+    });
+    try {
+      await widget.client.logout();
+      if (!mounted) return;
+      setState(() {
+        _snapshot = const TailscaleEmbeddedSnapshot(phase: 'stopped');
+      });
+      await widget.client.start();
+      await widget.client.loginInteractive();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _selectPeer(TailscalePeer peer) {
+    Navigator.of(context).pop(
+      TailscaleLoginResult(
+        nodeId: peer.nodeId,
+        displayName: peer.displayName,
+        port: widget.defaultPort,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final peers = _snapshot.peers;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Built-in Tailscale',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(_statusText),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$_error',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (_showSpinner) ...[
+              const Center(child: CircularProgressIndicator()),
+              const SizedBox(height: 16),
+            ],
+            if (_snapshot.needsLogin ||
+                _snapshot.phase == 'failed' ||
+                _snapshot.phase == 'stopped')
+              ElevatedButton(
+                onPressed: _showSpinner ? null : _retry,
+                child: const Text('Open Tailscale login'),
+              ),
+            if (_snapshot.isRunning && peers.isEmpty)
+              const Text('No other devices are visible on this tailnet yet.'),
+            if (_snapshot.isRunning)
+              ...peers.map(
+                (peer) => ListTile(
+                  title: Text(peer.displayName),
+                  subtitle: Text(peer.online ? 'Online' : 'Offline'),
+                  selected: peer.nodeId == _savedNodeId,
+                  onTap: () => _selectPeer(peer),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: _cancelLogin,
+                  child: const Text('Cancel'),
+                ),
+                const Spacer(),
+                if (_canLogout)
+                  TextButton(
+                    onPressed: _showSpinner ? null : _logout,
+                    child: const Text('Sign out and retry'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

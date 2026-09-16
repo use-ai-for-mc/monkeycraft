@@ -88,7 +88,7 @@ Dedicated chat interface:
 - Rich text rendering with click/hover events
 
 ### QrScanScreen (`screens/qr_scan_screen.dart`)
-Simple QR scanner using `mobile_scanner` package to capture password from Minecraft mod's QR display.
+Legacy QR scanner. New pairing uses an empty password + `/monkey accept` instead of the title-screen QR overlay.
 
 ### StreamSettingsScreen (`stream/screens/stream_settings_screen.dart`)
 Configuration UI for:
@@ -108,9 +108,11 @@ Central communication hub between Flutter app and Minecraft mod.
 **WebSocket Protocol:**
 | Direction | Type | Description |
 |-----------|------|-------------|
-| Server→Client | `HELLO` | Authentication challenge with salt |
-| Client→Server | `AUTH` | HMAC-SHA256 authentication response |
-| Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; `AUTH_OK` carries `protocolVersion` + `capabilities[]` (feature tokens like `PLAYER_LIST`, `DATA_SAVER`) the client gates optional features on |
+    | Server→Client | `HELLO` | Authentication challenge with salt; `pairing: true` when `/monkey accept` is available; `keyId` names the current long-term password (capability `KEY_ID`) |
+| Client→Server | `AUTH` | HMAC-SHA256 authentication response, or `{mode:"PAIR"}` to start pairing. All AUTH variants (pair, password, post-pair) may carry optional `deviceName` (user-editable in app settings, defaults to the device model) and `deviceModel`; the mod stores them as last-phone info and shows the name on `/monkey` and in the pairing prompt. Older mods ignore these fields |
+| Server→Client | `PAIR_WAITING` | 8-character pairing code + `ttlMs` (phone displays it; PC runs `/monkey accept CODE`) |
+| Server→Client | `PAIR_OK` | Long-term password after `/monkey accept`; phone stores it and continues with HMAC `AUTH` |
+    | Server→Client | `AUTH_OK` / `AUTH_RESPONSE` | Auth result; `AUTH_OK` carries `protocolVersion` + `capabilities[]` (feature tokens like `PLAYER_LIST`, `DATA_SAVER`, `PAIRING`, `KEY_ID`) the client gates optional features on |
 | Server→Client | Binary | H.264 video access unit (with optional 6-byte resolution header) |
 | Client→Server | `ACK` | Video frame acknowledgment |
 | Client→Server | `CLIENT_STATUS` | Sync mode/resolution/fps/autoFaceMovement/dataSaver (`dataSaver` lengthens the encoder GOP to cut bandwidth; gated on the `DATA_SAVER` capability) |
@@ -164,7 +166,7 @@ State machine managing the streaming session.
 - Automatic stream restart on resolution change
 - Resolution mismatch handling (waits for correct resolution, drops mismatched frames)
 - Hibernation state transitions
-- Reconnection with exponential backoff (3 retries, ~7 seconds total)
+- Reconnection with exponential backoff (3 retries, ~7 seconds total). Embedded Tailscale sessions re-resolve a loopback bridge (`openBridge`) on each resume/retry instead of reusing a stale `ws://127.0.0.1` URL.
 
 ### GameInputController (`stream/game_input_controller.dart`)
 State machine for movement input:

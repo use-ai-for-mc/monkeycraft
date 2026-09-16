@@ -44,3 +44,18 @@ replay_*.log
 # dream skill audit workspace
 
 .dream/
+
+# tailscale helper build artifacts
+native/tailscale-helper/dist/
+native/tailscale-helper/harness/java/out/
+
+# generated / vendored binaries (synced by scripts, not committed)
+flutter/monkeycraft/ios/third_party/
+flutter/monkeycraft/android/third_party/
+flutter/monkeycraft/web/tailscale/
+mods/*/logs/
+
+# local agent tool state
+.codex/
+.opencode/
+.workbuddy/

@@ -24,7 +24,6 @@ public class ModConfig {
   private static final Gson GSON =
       new GsonBuilder()
           .setPrettyPrinting()
-          // Legacy field, read only for one-time migration to the split model.
           .registerTypeAdapter(
               AllowConnectionsFrom.class,
               (JsonDeserializer<AllowConnectionsFrom>)
@@ -49,20 +48,6 @@ public class ModConfig {
               NetworkScope.class,
               (JsonSerializer<NetworkScope>) (src, type, context) -> context.serialize(src.name()))
           .registerTypeAdapter(
-              TailscaleAccess.class,
-              (JsonDeserializer<TailscaleAccess>)
-                  (json, type, context) -> {
-                    try {
-                      return TailscaleAccess.valueOf(json.getAsString());
-                    } catch (Exception e) {
-                      return TailscaleAccess.IF_DETECTED;
-                    }
-                  })
-          .registerTypeAdapter(
-              TailscaleAccess.class,
-              (JsonSerializer<TailscaleAccess>)
-                  (src, type, context) -> context.serialize(src.name()))
-          .registerTypeAdapter(
               ServerAutoStart.class,
               (JsonDeserializer<ServerAutoStart>)
                   (json, type, context) -> {
@@ -81,20 +66,24 @@ public class ModConfig {
   private static ModConfig INSTANCE;
 
   private boolean enabled = true;
-  private Boolean autoLaunch; // legacy; migrated to serverAutoStart on load
+  private Boolean autoLaunch;
   private boolean showQrCodeWhenAutoLaunch = false;
   private int port = 9600;
   private String password;
-  private AllowConnectionsFrom allowConnectionsFrom = null; // legacy; migrated on load
+  private String passwordId;
+  private AllowConnectionsFrom allowConnectionsFrom = null;
   private NetworkScope networkScope = NetworkScope.LOCAL_NETWORK;
-  private TailscaleAccess tailscaleAccess = TailscaleAccess.IF_DETECTED;
   private List<String> commandAllowlist = new ArrayList<>(List.of("*"));
   private List<String> commandDenylist = new ArrayList<>(List.of("op *", "deop *"));
   private String defaultBehavior = "ALLOW";
   private boolean alwaysAutoJump = true;
-  private Boolean startServerAtLaunch; // legacy; migrated to serverAutoStart on load
-  private ServerAutoStart serverAutoStart; // null until set or migrated; getter falls back to OFF
+  private Boolean startServerAtLaunch;
+  private ServerAutoStart serverAutoStart;
   private boolean allowRemoteServerJoin = true;
+  private boolean wizardDone = false;
+  private boolean phonePairedOnce = false;
+  private String lastPhoneName;
+  private long lastPhoneSeenAt;
 
   public static ModConfig getInstance() {
     if (INSTANCE == null) {
@@ -135,32 +124,15 @@ public class ModConfig {
     this.networkScope = networkScope != null ? networkScope : NetworkScope.LOCAL_NETWORK;
   }
 
-  public TailscaleAccess getTailscaleAccess() {
-    return tailscaleAccess != null ? tailscaleAccess : TailscaleAccess.IF_DETECTED;
-  }
-
-  public void setTailscaleAccess(TailscaleAccess tailscaleAccess) {
-    this.tailscaleAccess = tailscaleAccess != null ? tailscaleAccess : TailscaleAccess.IF_DETECTED;
-  }
-
-  // One-time migration from the old single allowConnectionsFrom enum to the
-  // split networkScope + tailscaleAccess model. Returns true if it migrated.
   private boolean migrateLegacyConnectionSetting() {
     if (allowConnectionsFrom == null) {
       return false;
     }
     networkScope = allowConnectionsFrom.toNetworkScope();
-    tailscaleAccess = allowConnectionsFrom.toTailscaleAccess();
     allowConnectionsFrom = null;
     return true;
   }
 
-  // One-time migration from the legacy autoLaunch + startServerAtLaunch boolean pair
-  // to the unified serverAutoStart enum. Returns true if it migrated.
-  // Precedence: an explicit new-style serverAutoStart wins; otherwise
-  //   startServerAtLaunch=true  -> AT_TITLE_SCREEN  (it was the persistent one)
-  //   autoLaunch=true           -> ON_WORLD_JOIN
-  //   both false / absent       -> OFF
   private boolean migrateLegacyAutoStartFlags() {
     if (autoLaunch == null && startServerAtLaunch == null) {
       return false;
@@ -183,8 +155,18 @@ public class ModConfig {
     return password;
   }
 
+  public String getPasswordId() {
+    if (passwordId == null || passwordId.isBlank()) {
+      passwordId = PasswordKey.newId();
+    }
+    return passwordId;
+  }
+
   public void setPassword(String password) {
-    this.password = password;
+    String next = password == null ? "" : password;
+    String previous = this.password == null ? "" : this.password;
+    this.password = next;
+    this.passwordId = PasswordKey.idAfterChange(previous, next, passwordId);
   }
 
   public List<String> getCommandAllowlist() {
@@ -262,6 +244,38 @@ public class ModConfig {
     this.allowRemoteServerJoin = allowRemoteServerJoin;
   }
 
+  public boolean isWizardDone() {
+    return wizardDone;
+  }
+
+  public void setWizardDone(boolean wizardDone) {
+    this.wizardDone = wizardDone;
+  }
+
+  public boolean isPhonePairedOnce() {
+    return phonePairedOnce;
+  }
+
+  public void setPhonePairedOnce(boolean phonePairedOnce) {
+    this.phonePairedOnce = phonePairedOnce;
+  }
+
+  public String getLastPhoneName() {
+    return lastPhoneName == null ? "" : lastPhoneName;
+  }
+
+  public void setLastPhoneName(String lastPhoneName) {
+    this.lastPhoneName = lastPhoneName;
+  }
+
+  public long getLastPhoneSeenAt() {
+    return lastPhoneSeenAt;
+  }
+
+  public void setLastPhoneSeenAt(long lastPhoneSeenAt) {
+    this.lastPhoneSeenAt = lastPhoneSeenAt;
+  }
+
   public void save() {
     try {
       Files.writeString(CONFIG_PATH, GSON.toJson(this));
@@ -277,6 +291,11 @@ public class ModConfig {
         ModConfig config = GSON.fromJson(json, ModConfig.class);
         if (config.password == null || config.password.isEmpty()) {
           config.password = generateRandomPassword();
+          config.passwordId = PasswordKey.newId();
+          config.save();
+        }
+        if (config.passwordId == null || config.passwordId.isBlank()) {
+          config.passwordId = PasswordKey.newId();
           config.save();
         }
         if (config.commandAllowlist == null) {
@@ -305,12 +324,12 @@ public class ModConfig {
     } else {
       ModConfig config = new ModConfig();
       config.password = generateRandomPassword();
+      config.passwordId = PasswordKey.newId();
       config.save();
       return config;
     }
   }
 
-  /** Generates a random 12-character Base58 password (URL / QR / shell-safe). */
   public static String generateRandomPassword() {
     SecureRandom random = new SecureRandom();
     StringBuilder sb = new StringBuilder(DEFAULT_PASSWORD_LENGTH);

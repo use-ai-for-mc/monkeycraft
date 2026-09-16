@@ -4,13 +4,14 @@ import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.config.ServerAutoStart;
+import com.chenweikeng.monkeycraft.integration.FlawlessFrames;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
-import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.chenweikeng.monkeycraft.utils.ScreenHelper;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApiRegistration;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -58,7 +59,6 @@ public class MonkeycraftClient implements ClientModInitializer {
     registerLifecycleEvents();
     registerConnectionEvents();
     registerTickEvents();
-    PasswordQrOverlay.register();
   }
 
   private void registerTickEvents() {
@@ -91,6 +91,9 @@ public class MonkeycraftClient implements ClientModInitializer {
           if (!connectedNow) {
             isConnectedToClient = false;
             automaticallyReleasedCursor = false;
+          }
+          if (connectedNow != wasConnectedToClient) {
+            FlawlessFrames.setEnabled(connectedNow);
           }
           wasConnectedToClient = connectedNow;
 
@@ -136,6 +139,8 @@ public class MonkeycraftClient implements ClientModInitializer {
   }
 
   private void registerLifecycleEvents() {
+    ClientLifecycleEvents.CLIENT_STOPPING.register(
+        client -> WebSocketServerHandler.getInstance().shutdown());
     ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
           ModConfig config = ModConfig.getInstance();
@@ -176,7 +181,7 @@ public class MonkeycraftClient implements ClientModInitializer {
           WebSocketServerHandler ws = WebSocketServerHandler.getInstance();
           if (ws.isRunning() && !ws.isPersistent()) {
             LOGGER.info("Stopping Monkeycraft server due to disconnection...");
-            stopServer();
+            ws.stopServer();
           }
         });
   }
@@ -234,7 +239,27 @@ public class MonkeycraftClient implements ClientModInitializer {
                         context -> {
                           stopServer();
                           return 1;
-                        })));
+                        }))
+            .then(
+                ClientCommands.literal("accept")
+                    .then(
+                        ClientCommands.argument("code", StringArgumentType.word())
+                            .executes(
+                                context -> {
+                                  String code = StringArgumentType.getString(context, "code");
+                                  WebSocketServerHandler handler =
+                                      WebSocketServerHandler.getInstance();
+                                  if (handler.acceptPairing(code)) {
+                                    sendMonkeyMessage(
+                                        Component.literal(
+                                            "Paired. The phone now has the long-term password."));
+                                    return 1;
+                                  }
+                                  sendMonkeyMessage(
+                                      Component.literal(
+                                          "No matching pairing code. Check the phone and try again."));
+                                  return 0;
+                                }))));
   }
 
   public static int startServerWithPortRange(int preferredPort) {
@@ -327,6 +352,13 @@ public class MonkeycraftClient implements ClientModInitializer {
             .copy()
             .append(clickableCommand("/monkey config"))
             .append(Component.literal(" - Open settings").withStyle(ChatFormatting.WHITE)));
+    mc.player.sendSystemMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey accept"))
+            .append(
+                Component.literal(" - Confirm a phone pairing code")
+                    .withStyle(ChatFormatting.WHITE)));
 
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
     if (handler.isRunning()) {

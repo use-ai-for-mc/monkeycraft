@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "monkeycraft-tailscale-helper-ipc-v1",
+  "title": "MonkeyCraft Tailscale helper JSON Lines v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion"],
+  "properties": {
+    "protocolVersion": { "type": "integer", "const": 1 },
+    "sessionNonce": { "type": "string", "minLength": 1 },
+    "requestId": { "type": "string" },
+    "eventId": { "type": "integer", "minimum": 1 },
+    "command": {
+      "type": "string",
+      "enum": ["start", "status", "stop", "logout", "shutdown"]
+    },
+    "event": {
+      "type": "string",
+      "enum": ["ready", "stateChanged", "authRequired", "listening", "error", "stopped"]
+    },
+    "target": { "type": "string", "pattern": "^127\\.0\\.0\\.1:[1-9][0-9]{0,4}$" },
+    "listenPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "stateDir": { "type": "string", "minLength": 1 },
+    "hostname": { "type": "string" },
+    "state": {
+      "type": "string",
+      "enum": ["stopped", "starting", "needsLogin", "needsApproval", "running", "degraded", "stopping", "failed"]
+    },
+    "authUrl": { "type": "string" },
+    "tailnetIp": { "type": "string" },
+    "nodeId": { "type": "string" },
+    "port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "listening": { "type": "boolean" },
+    "connections": { "type": "integer", "minimum": 0 },
+    "errorCode": { "type": "string" },
+    "error": { "type": "string" },
+    "helperVersion": { "type": "string" },
+    "tailscale": { "type": "string" },
+    "recoverable": { "type": "boolean" }
+  }
+}

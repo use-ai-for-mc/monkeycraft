@@ -11,6 +11,9 @@
 **/DerivedData/
 Icon?
 **/Pods/
+third_party/libtailscale/src/
+third_party/libtailscale/out/
+third_party/libtailscale/Link.xcconfig
 **/.symlinks/
 profile
 xcuserdata

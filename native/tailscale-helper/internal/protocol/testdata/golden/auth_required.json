@@ -1,0 +1,1 @@
+{"protocolVersion":1,"sessionNonce":"n1","eventId":2,"event":"authRequired","state":"needsLogin","authUrl":"https://login.tailscale.com/a/example"}

@@ -13,20 +13,12 @@
 	"config.monkeycraft.option.port": "Port Number",
 	"config.monkeycraft.option.port.tooltip": "The port number for the MonkeyCraft server (1-65535)",
 	"config.monkeycraft.option.networkScope": "Who Can Connect",
-	"config.monkeycraft.option.networkScope.tooltip": "Which devices may connect to the server. Tailscale is configured separately below.",
+	"config.monkeycraft.option.networkScope.tooltip": "Which devices may connect to the server.",
 	"config.monkeycraft.option.networkScope.this_computer": "This computer only",
 	"config.monkeycraft.option.networkScope.local_network": "My local network",
 	"config.monkeycraft.option.networkScope.anyone": "Anyone (advanced)",
 	"config.monkeycraft.option.networkScope.anyone.warning": "WARNING: 'Anyone' lets any host that can reach this port attempt to connect. Only the password protects you, and traffic is not encrypted on the wire. Prefer 'My local network' unless you understand the risk.",
-	"config.monkeycraft.option.tailscaleAccess": "Tailscale Access",
-	"config.monkeycraft.option.tailscaleAccess.tooltip": "Whether to accept connections from your Tailscale network (the 100.64.0.0/10 range), in addition to the scope above.",
-	"config.monkeycraft.option.tailscaleAccess.if_detected": "If detected",
-	"config.monkeycraft.option.tailscaleAccess.always": "Always allow",
-	"config.monkeycraft.option.tailscaleAccess.never": "Never allow",
-	"config.monkeycraft.option.tailscaleAccess.status.detected": "Tailscale detected on this PC",
-	"config.monkeycraft.option.tailscaleAccess.status.not_detected": "Tailscale not detected on this PC",
 	"monkeycraft.server.allow_anywhere_warning": "WARNING: 'Who Can Connect' is set to Anyone. Anyone who can reach this port and knows the password can control your game.",
-	"monkeycraft.connection.rejected_possibly_tailscale": "Rejected a connection from %s (possibly Tailscale). Tailscale was not detected on this PC. Set Tailscale Access to 'Always allow' in /monkey config to allow it.",
 	"config.monkeycraft.option.password": "Password",
 	"config.monkeycraft.option.password.tooltip": "Password for authentication (leave empty to keep current)",
 	"config.monkeycraft.option.commandAllowlist": "Command Allowlist",
@@ -44,5 +36,5 @@
 	"monkeycraft.server.port_unavailable": "Port %s is unavailable. Server not started.",
 	"monkeycraft.server.disabled": "Mod is disabled in config",
 	"monkeycraft.server.autolaunch": "Auto-launching server...",
-	"monkeycraft.command.help": "/monkey - Show help and local IPs\n/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open settings"
+	"monkeycraft.command.help": "/monkey - Open the MonkeyCraft panel\n/monkey setup - Open first-time setup\n/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open the panel"
 }

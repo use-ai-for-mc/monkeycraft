@@ -1,0 +1,35 @@
+你将接手 MonkeyCraft 仓库（/Users/cusgadmin/if-local/monkeycraft）的改动整理与设置向导（Setup Wizard）集成工作。
+
+## 背景现状
+
+当前工作区有大量**未提交的并行改动**，来自多条工作线：
+
+1. **并行开发线**（不是你做的）：flutter 端全线（auth / stream / iOS 工程）、四棵 mod 树（26.2 / 26.1 / 1.21.11 / 1.19）的 MonkeycraftClient / WebSocketServerHandler / AuthenticationHandler、部分 doc 与 build 配置。
+2. **设置向导线**（另一个 AI 会话完成，待你处置）：26.2 树上的向导参考实现，未提交、未做游戏内验收。
+
+## 第一步：先读文档
+
+读 `doc/HANDOFF-wizard-implementation.md`——设置向导的完整交接文档，开篇「阅读前必读」节定义了边界：§1–§4 是版本无关的设计定稿（三个已拍板决策、三条铁律、五屏逐字文案与布局），§5 是 26.2 参考实现的详情与回退风险，§6 是跨版本移植勘察结论。配套的视觉稿导出在 `exports/monkeycraft-wizard/`。
+
+## 第二步：向导改动的处置边界（重要）
+
+- `mods/26.2/.../ui/SetupWizardScreen.java`：未跟踪新文件（??），可整体保留或删除，零风险。
+- `mods/26.2/.../config/ModConfig.java` 与 `MonkeycraftClient.java`：**混合改动（M）**——向导的 wizardDone 字段、首次启动自动弹、/monkey setup 命令与并行改动交织在同一文件里。如需摘除向导部分，只能**行级摘除**，严禁 git checkout 整文件，否则会丢掉并行改动。
+- `mods/26.2/.../ui/MonkeyPanelScreen.java`：未跟踪，但文件本体是更早的主面板工作产物；向导只加了 Advanced tab 的 "First-time setup" 区块，摘除时勿删整个文件。
+- 26.2 向导代码已通过 `./gradlew build`（Java 25，JAVA_HOME=/opt/homebrew/Cellar/openjdk/25.0.2/libexec/openjdk.jdk/Contents/Home），但未做游戏内人工验收。
+
+## 第三步：与用户确认策略后再动手
+
+在整理前，先向用户确认：
+
+1. 并行改动线的提交计划（哪些先提交、如何分批 / 分分支）。
+2. 向导参考实现是「随并行改动一起集成」还是「暂存待后续」。
+3. 跨版本移植（26.1 / 1.21.11 / 1.19）是否本轮启动——注意 26.1 树缺 MonkeyPanelScreen 与 tailscale 包，不是简单拷贝。
+
+## 硬性约束
+
+- 任何回退 / 摘除操作前先 `git status` + `git diff` 核对，禁止整文件 checkout。
+- 向导的设计铁律与三个已拍板决策见交接文档 §2–§4，实施时不得违反。
+- MC 26.2 内部 API 不要凭记忆，用 loom-cache 的 mapped jar（unzip + javap）验证。
+- 代码风格：spotless（google-java-format，2 空格缩进）、无注释（AGENTS.md 要求）。
+- 大改动前先给用户方案，确认后再执行。

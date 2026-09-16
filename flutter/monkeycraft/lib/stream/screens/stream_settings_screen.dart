@@ -9,6 +9,14 @@ import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
 
+class StreamSettingsResult {
+  const StreamSettingsResult.settings(this.settings) : logout = false;
+  const StreamSettingsResult.logout() : settings = null, logout = true;
+
+  final StreamSettings? settings;
+  final bool logout;
+}
+
 class StreamSettingsScreen extends StatefulWidget {
   final StreamSettings initial;
   final bool dataSaverSupported;
@@ -76,6 +84,55 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     return (label: 'ONESHOT', color: const Color(0xFFE1BEE7));
   }
 
+  Future<void> _editPhoneName(BuildContext context) async {
+    final controller = TextEditingController(
+      text: appSettings.phoneNameOverride ?? '',
+    );
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Phone Name'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLength: 40,
+              decoration: InputDecoration(
+                hintText: appSettings.deviceModel.isEmpty
+                    ? 'e.g. My iPhone'
+                    : 'Default: ${appSettings.deviceModel}',
+              ),
+              onSubmitted: (_) => Navigator.pop(dialogContext, true),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Shown in Minecraft when this phone connects. Leave empty to use the device default.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) {
+      await appSettings.setPhoneName(controller.text);
+      if (mounted) setState(() {});
+    }
+    controller.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,7 +140,8 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
         title: const Text('Stream Settings'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(_settings),
+            onPressed: () =>
+                Navigator.of(context).pop(StreamSettingsResult.settings(_settings)),
             child: const Text('Apply'),
           ),
         ],
@@ -91,6 +149,51 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Log out'),
+            subtitle: const Text(
+              'Forget the saved password on this phone. Disconnecting does not log out.',
+            ),
+            trailing: const Icon(Icons.logout),
+            onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Log out?'),
+                  content: const Text(
+                    'This forgets the saved MonkeyCraft password on this phone. You will need to pair or enter it again next time. Disconnecting without logging out keeps the password if Remember password is on.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Log out'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && context.mounted) {
+                Navigator.of(context).pop(const StreamSettingsResult.logout());
+              }
+            },
+          ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Phone Name'),
+            subtitle: Text(
+              appSettings.phoneNameOverride == null
+                  ? '${appSettings.phoneName} (device default)'
+                  : appSettings.phoneName,
+            ),
+            trailing: const Icon(Icons.edit),
+            onTap: () => _editPhoneName(context),
+          ),
+          const Divider(),
           DropdownButtonFormField<AppFont>(
             initialValue: appSettings.font,
             decoration: const InputDecoration(labelText: 'Font'),
@@ -152,6 +255,40 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                 setState(() => _settings = _settings.copyWith(fps: v.round())),
           ),
           const SizedBox(height: 16),
+          if (platformCapabilities.isWeb) ...[
+            const Text('Controls'),
+            const SizedBox(height: 8),
+            SegmentedButton<ControlLayout>(
+              segments: const [
+                ButtonSegment(
+                  value: ControlLayout.auto,
+                  label: Text('Auto'),
+                ),
+                ButtonSegment(
+                  value: ControlLayout.touch,
+                  label: Text('Touch'),
+                ),
+                ButtonSegment(
+                  value: ControlLayout.mouseKeyboard,
+                  label: Text('Mouse'),
+                ),
+              ],
+              selected: {_settings.controlLayout},
+              onSelectionChanged: (selected) {
+                setState(
+                  () => _settings = _settings.copyWith(
+                    controlLayout: selected.first,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Auto follows the last real pointer (mouse vs touch), not screen size. Mouse left/right always map to Minecraft clicks.',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+          ],
           SwitchListTile(
             title: const Text('Invert Look Y-Axis'),
             subtitle: const Text(

@@ -2,8 +2,6 @@ package com.chenweikeng.monkeycraft.server;
 
 import com.chenweikeng.monkeycraft.MonkeycraftClient;
 import com.chenweikeng.monkeycraft.config.ModConfig;
-import com.chenweikeng.monkeycraft.config.NetworkScope;
-import com.chenweikeng.monkeycraft.config.TailscaleAccess;
 import com.chenweikeng.monkeycraft.server.handler.AuthenticationHandler;
 import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
 import com.chenweikeng.monkeycraft.server.handler.InputHandler;
@@ -17,7 +15,13 @@ import com.mojang.blaze3d.platform.NativeImage;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
@@ -30,18 +34,37 @@ public class WebSocketServerHandler {
   }
 
   private static final long QR_TIMEOUT_MS = 2 * 60 * 1000;
+  private static final int WEBSOCKET_START_TIMEOUT_MS = 2000;
+  private static final int WEBSOCKET_STOP_TIMEOUT_MS = 2000;
+  private static final int WEBSOCKET_TERMINATION_GRACE_MS = 250;
+  private static final String SHUTDOWN_REASON = "Monkeycraft shutting down";
+
+  private enum LifecycleState {
+    STOPPED,
+    STARTING,
+    RUNNING,
+    STOPPING,
+    SHUTTING_DOWN,
+    SHUTDOWN
+  }
 
   private static final class InstanceHolder {
     static final WebSocketServerHandler INSTANCE = new WebSocketServerHandler();
   }
 
-  private MonkeycraftWebSocketServer server;
-  private int currentPort = -1;
+  private final Object lifecycleLock = new Object();
+  private final BooleanSupplier showQrCodeWhenAutoLaunch;
+  private volatile MonkeycraftWebSocketServer server;
+  private volatile int currentPort = -1;
   private final AtomicBoolean running = new AtomicBoolean(false);
+  private final AtomicBoolean cleanupInProgress = new AtomicBoolean(false);
+  private final AtomicBoolean shutdownRequested = new AtomicBoolean(false);
+  private volatile LifecycleState lifecycleState = LifecycleState.STOPPED;
   private volatile boolean persistent = false;
   private final AtomicBoolean hasEverConnected = new AtomicBoolean(false);
+  private volatile String connectedDeviceName = "";
   private volatile long qrDisplayStartTime = 0;
-  private volatile long lastTailscaleHintAt = 0;
+  private final AtomicReference<PairingSession> pairingSession = new AtomicReference<>();
   private static final Gson GSON = new Gson();
   private volatile H264Streamer streamer;
   private final com.chenweikeng.monkeycraft.MapDataHandler mapDataHandler =
@@ -209,6 +232,11 @@ public class WebSocketServerHandler {
   }
 
   private WebSocketServerHandler() {
+    this(() -> ModConfig.getInstance().isShowQrCodeWhenAutoLaunch());
+  }
+
+  WebSocketServerHandler(BooleanSupplier showQrCodeWhenAutoLaunch) {
+    this.showQrCodeWhenAutoLaunch = showQrCodeWhenAutoLaunch;
     inputHandler = new InputHandler(this);
     screenHandler = new ScreenInteractionHandler(this);
     chatCommandHandler = new ChatCommandHandler(this);
@@ -229,30 +257,72 @@ public class WebSocketServerHandler {
   }
 
   public boolean startServer(int port, boolean isAutoLaunch, boolean persistent) {
-    if (running.get()) {
-      if (currentPort == port) {
+    boolean restart;
+    synchronized (lifecycleLock) {
+      if (shutdownRequested.get()) {
+        MonkeycraftClient.LOGGER.warn(
+            "Ignoring WebSocket server start on port {} because Monkeycraft is shutting down",
+            port);
+        return false;
+      }
+      restart = lifecycleState == LifecycleState.RUNNING && currentPort != port;
+      if (lifecycleState == LifecycleState.RUNNING && !restart) {
         if (persistent) {
           this.persistent = true;
         }
         return true;
       }
-      stopServer();
+      if (!restart && lifecycleState != LifecycleState.STOPPED) {
+        MonkeycraftClient.LOGGER.warn(
+            "Ignoring WebSocket server start on port {} while lifecycle state is {}",
+            port,
+            lifecycleState);
+        return false;
+      }
     }
 
-    if (!isPortAvailable(port)) {
-      MonkeycraftClient.LOGGER.warn("Port {} is not available", port);
-      return false;
+    if (restart) {
+      stopServer();
+      return startServer(port, isAutoLaunch, persistent);
+    }
+
+    MonkeycraftWebSocketServer newServer;
+    synchronized (lifecycleLock) {
+      if (shutdownRequested.get() || lifecycleState != LifecycleState.STOPPED) {
+        return false;
+      }
+      if (!isPortAvailable(port)) {
+        MonkeycraftClient.LOGGER.warn("Port {} is not available", port);
+        return false;
+      }
+      lifecycleState = LifecycleState.STARTING;
+      newServer = new MonkeycraftWebSocketServer(port);
+      newServer.setReuseAddr(true);
+      newServer.setDaemon(true);
+      server = newServer;
     }
 
     try {
-      server = new MonkeycraftWebSocketServer(port);
-      server.setReuseAddr(true);
-      server.start();
-      currentPort = port;
-      running.set(true);
-      this.persistent = persistent;
+      newServer.start();
+      if (!newServer.awaitStartup(WEBSOCKET_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+        throw new IllegalStateException(
+            "WebSocket server did not start within " + WEBSOCKET_START_TIMEOUT_MS + " ms");
+      }
+      Exception startupFailure = newServer.startupFailure();
+      if (!newServer.isStartupComplete() || startupFailure != null) {
+        throw new IllegalStateException("WebSocket server failed during startup", startupFailure);
+      }
+      synchronized (lifecycleLock) {
+        if (shutdownRequested.get()) {
+          return false;
+        }
+        currentPort = port;
+        running.set(true);
+        this.persistent = persistent;
+        lifecycleState = LifecycleState.RUNNING;
+      }
 
-      if (isAutoLaunch && !ModConfig.getInstance().isShowQrCodeWhenAutoLaunch()) {
+      if (isAutoLaunch && !showQrCodeWhenAutoLaunch.getAsBoolean()) {
         hasEverConnected.set(true);
         qrDisplayStartTime = 0;
       } else {
@@ -261,32 +331,122 @@ public class WebSocketServerHandler {
 
       return true;
     } catch (Exception e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       MonkeycraftClient.LOGGER.error("Failed to start WebSocket server on port {}", port, e);
+      synchronized (lifecycleLock) {
+        if (server == newServer) {
+          server = null;
+        }
+        resetServerState();
+        lifecycleState =
+            shutdownRequested.get() ? LifecycleState.SHUTTING_DOWN : LifecycleState.STOPPING;
+      }
+      ShutdownSequence.run(
+          MonkeycraftClient.LOGGER,
+          new ShutdownSequence.Step(
+              "failed WebSocket server", () -> stopWebSocketServer(newServer)));
+      synchronized (lifecycleLock) {
+        lifecycleState = shutdownRequested.get() ? LifecycleState.SHUTDOWN : LifecycleState.STOPPED;
+      }
       return false;
     }
   }
 
   public void stopServer() {
-    if (streamer != null) {
-      streamer.close();
-      streamer = null;
-    }
-    isStreaming = false;
-    hasEverConnected.set(false);
-    qrDisplayStartTime = 0;
+    stopOwnedResources(false);
+  }
 
-    if (server != null) {
-      try {
-        server.stop();
-      } catch (Exception e) {
-        MonkeycraftClient.LOGGER.error("Error stopping WebSocket server", e);
-      } finally {
-        server = null;
-        currentPort = -1;
+  public void shutdown() {
+    shutdownRequested.set(true);
+    stopOwnedResources(true);
+  }
+
+  private void stopOwnedResources(boolean terminal) {
+    if (!cleanupInProgress.compareAndSet(false, true)) {
+      return;
+    }
+
+    MonkeycraftWebSocketServer serverToStop;
+    H264Streamer streamerToStop;
+    try {
+      synchronized (lifecycleLock) {
+        lifecycleState =
+            terminal || shutdownRequested.get()
+                ? LifecycleState.SHUTTING_DOWN
+                : LifecycleState.STOPPING;
         running.set(false);
-        persistent = false;
+        serverToStop = server;
+        server = null;
+        streamerToStop = streamer;
+        streamer = null;
+        pairingSession.set(null);
+        resetServerState();
+      }
+
+      ShutdownSequence.run(
+          MonkeycraftClient.LOGGER,
+          new ShutdownSequence.Step("WebSocket server", () -> stopWebSocketServer(serverToStop)),
+          new ShutdownSequence.Step(
+              "H264 streamer",
+              () -> {
+                if (streamerToStop != null) {
+                  streamerToStop.close();
+                }
+              }),
+          new ShutdownSequence.Step(
+              "input state",
+              () -> {
+                turnLeft = false;
+                turnRight = false;
+                lookUp = false;
+                lookDown = false;
+              }),
+          new ShutdownSequence.Step("map capture state", mapDataHandler::reset));
+    } finally {
+      synchronized (lifecycleLock) {
+        lifecycleState = shutdownRequested.get() ? LifecycleState.SHUTDOWN : LifecycleState.STOPPED;
+      }
+      cleanupInProgress.set(false);
+    }
+  }
+
+  private void stopWebSocketServer(MonkeycraftWebSocketServer serverToStop) throws Exception {
+    if (serverToStop == null) {
+      return;
+    }
+    for (WebSocket connection : serverToStop.getConnections()) {
+      try {
+        connection.close(1001, SHUTDOWN_REASON);
+      } catch (Exception e) {
+        MonkeycraftClient.LOGGER.warn("Failed to close a Monkeycraft client connection", e);
       }
     }
+    try {
+      serverToStop.stop(WEBSOCKET_STOP_TIMEOUT_MS, SHUTDOWN_REASON);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw e;
+    }
+    if (!serverToStop.awaitTermination(WEBSOCKET_TERMINATION_GRACE_MS, TimeUnit.MILLISECONDS)) {
+      MonkeycraftClient.LOGGER.warn(
+          "WebSocket server did not terminate within {} ms; selector, workers, or connection-lost checker may still be winding down. All WebSocket threads are daemon threads and will not block JVM shutdown.",
+          WEBSOCKET_STOP_TIMEOUT_MS + WEBSOCKET_TERMINATION_GRACE_MS);
+    }
+  }
+
+  private void resetServerState() {
+    currentPort = -1;
+    running.set(false);
+    persistent = false;
+    isStreaming = false;
+    isChatSubscribed = false;
+    hasReceivedClientStatus = false;
+    clientMode = ClientMode.STREAMING;
+    hasEverConnected.set(false);
+    qrDisplayStartTime = 0;
+    lastWorldPhase = null;
   }
 
   public boolean isRunning() {
@@ -305,6 +465,143 @@ public class WebSocketServerHandler {
     hasEverConnected.set(false);
   }
 
+  public String getConnectedDeviceName() {
+    return connectedDeviceName;
+  }
+
+  public void setConnectedDeviceName(String name) {
+    connectedDeviceName = name == null ? "" : name;
+  }
+
+  public void beginPairing(WebSocket conn) {
+    beginPairing(conn, "");
+  }
+
+  public void beginPairing(WebSocket conn, String deviceName) {
+    InetAddress addr = clientAddrOf(conn);
+    if (!isPairingAllowed(addr)) {
+      JsonObject failed = new JsonObject();
+      failed.addProperty("type", "PAIR_FAILED");
+      failed.addProperty("message", "Pairing is only allowed on this computer or LAN");
+      conn.send(GSON.toJson(failed));
+      conn.close();
+      return;
+    }
+    PairingSession previous = pairingSession.getAndSet(null);
+    if (previous != null && previous.conn() != conn && previous.conn().isOpen()) {
+      JsonObject busy = new JsonObject();
+      busy.addProperty("type", "PAIR_FAILED");
+      busy.addProperty("message", "Replaced by another pairing attempt");
+      previous.conn().send(GSON.toJson(busy));
+      previous.conn().close();
+    }
+    PairingSession session = new PairingSession(conn, deviceName);
+    pairingSession.set(session);
+    JsonObject waiting = new JsonObject();
+    waiting.addProperty("type", "PAIR_WAITING");
+    waiting.addProperty("code", session.code());
+    waiting.addProperty("ttlMs", PairingSession.TTL_MS);
+    conn.send(GSON.toJson(waiting));
+    String ip = addr == null ? "unknown" : addr.getHostAddress();
+    String who =
+        session.deviceName().isEmpty() ? "Phone at " + ip : session.deviceName() + " (" + ip + ")";
+    Minecraft mc = Minecraft.getInstance();
+    if (mc != null) {
+      mc.execute(
+          () -> {
+            if (currentPairing() != session) {
+              return;
+            }
+            MonkeycraftClient.sendMonkeyMessage(
+                Component.literal(
+                    who
+                        + " wants to pair ("
+                        + PairingSession.displayCode(session.code())
+                        + "). Allow in the prompt, or /monkey accept "
+                        + session.code()));
+            MonkeycraftClient.openPairingPrompt(session.code(), ip, session.deviceName());
+          });
+    }
+  }
+
+  public boolean rejectPairing() {
+    return rejectCurrentPairing();
+  }
+
+  public boolean rejectPairing(String typedCode) {
+    PairingSession session = pairingSession.get();
+    if (session == null || typedCode == null || !session.matches(typedCode)) {
+      return false;
+    }
+    return clearPairing(session);
+  }
+
+  private boolean rejectCurrentPairing() {
+    PairingSession session = pairingSession.get();
+    if (session == null) {
+      return false;
+    }
+    return clearPairing(session);
+  }
+
+  private boolean clearPairing(PairingSession session) {
+    if (!pairingSession.compareAndSet(session, null)) {
+      return false;
+    }
+    if (session.conn().isOpen()) {
+      JsonObject failed = new JsonObject();
+      failed.addProperty("type", "PAIR_FAILED");
+      failed.addProperty("message", "Pairing declined on the computer");
+      session.conn().send(GSON.toJson(failed));
+      session.conn().close();
+    }
+    return true;
+  }
+
+  private static InetAddress clientAddrOf(WebSocket conn) {
+    if (conn == null) {
+      return null;
+    }
+    InetSocketAddress remote = conn.getRemoteSocketAddress();
+    return remote == null ? null : remote.getAddress();
+  }
+
+  public static boolean isPairingAllowed(InetAddress addr) {
+    return com.chenweikeng.monkeycraft.utils.NetworkUtils.isPairingAllowed(addr);
+  }
+
+  public boolean acceptPairing(String typedCode) {
+    PairingSession session = pairingSession.get();
+    if (session == null || session.isExpired() || !session.conn().isOpen()) {
+      pairingSession.compareAndSet(session, null);
+      return false;
+    }
+    if (!session.matches(typedCode)) {
+      return false;
+    }
+    if (!pairingSession.compareAndSet(session, null)) {
+      return false;
+    }
+    authHandler.completePairing(session);
+    return true;
+  }
+
+  public PairingSession currentPairing() {
+    PairingSession session = pairingSession.get();
+    if (session != null && (session.isExpired() || !session.conn().isOpen())) {
+      pairingSession.compareAndSet(session, null);
+      return null;
+    }
+    return session;
+  }
+
+  private void clearPairingIf(WebSocket conn) {
+    PairingSession session = pairingSession.get();
+    if (session != null && session.conn() == conn) {
+      pairingSession.compareAndSet(session, null);
+    }
+  }
+
   public void resetQrTimer() {
     qrDisplayStartTime = System.currentTimeMillis();
     hasEverConnected.set(false);
@@ -320,42 +617,7 @@ public class WebSocketServerHandler {
 
   private boolean isIpAddressAllowed(InetAddress addr) {
     return com.chenweikeng.monkeycraft.utils.NetworkUtils.isConnectionAllowed(
-        ModConfig.getInstance().getNetworkScope(),
-        ModConfig.getInstance().getTailscaleAccess(),
-        com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning(),
-        addr);
-  }
-
-  // True for IPv4 in 100.64.0.0/10 (RFC 6598 CGNAT; the range Tailscale uses).
-  private static boolean isTailscaleRange(InetAddress addr) {
-    byte[] bytes = addr.getAddress();
-    return bytes.length == 4
-        && (bytes[0] & 0xFF) == 100
-        && (bytes[1] & 0xFF) >= 64
-        && (bytes[1] & 0xFF) <= 127;
-  }
-
-  private void maybeNotifyPossiblyTailscaleRejected(java.net.InetAddress clientAddr) {
-    if (clientAddr == null || !isTailscaleRange(clientAddr)) return;
-
-    // Only worth a hint when the user could fix it: Tailscale access is on the
-    // auto-detect default but no daemon was found. (ALWAYS wouldn't reject;
-    // NEVER and ANYONE are deliberate choices.)
-    if (ModConfig.getInstance().getTailscaleAccess() != TailscaleAccess.IF_DETECTED) return;
-    if (ModConfig.getInstance().getNetworkScope() == NetworkScope.ANYONE) return;
-    if (com.chenweikeng.monkeycraft.utils.NetworkUtils.isTailscaleRunning()) return;
-
-    long now = System.currentTimeMillis();
-    if (now - lastTailscaleHintAt < 60_000L) return;
-    lastTailscaleHintAt = now;
-
-    String ipStr = clientAddr.getHostAddress();
-    net.minecraft.client.Minecraft.getInstance()
-        .execute(
-            () ->
-                MonkeycraftClient.sendMonkeyMessage(
-                    net.minecraft.network.chat.Component.translatable(
-                        "monkeycraft.connection.rejected_possibly_tailscale", ipStr)));
+        ModConfig.getInstance().getNetworkScope(), addr);
   }
 
   public int getCurrentPort() {
@@ -630,13 +892,48 @@ public class WebSocketServerHandler {
 
   private class MonkeycraftWebSocketServer extends WebSocketServer {
     private volatile WebSocket authenticatedSession;
+    private final CountDownLatch startupLatch = new CountDownLatch(1);
+    private final CountDownLatch terminationLatch = new CountDownLatch(1);
+    private final AtomicReference<Exception> startupFailure = new AtomicReference<>();
+    private final AtomicBoolean startupComplete = new AtomicBoolean(false);
 
     public MonkeycraftWebSocketServer(int port) {
       super(new InetSocketAddress(port));
+      setWebSocketFactory(new HttpAwareWebSocketServerFactory());
+    }
+
+    @Override
+    public void run() {
+      try {
+        super.run();
+      } finally {
+        startupLatch.countDown();
+        terminationLatch.countDown();
+      }
+    }
+
+    private boolean awaitStartup(long timeout, TimeUnit unit) throws InterruptedException {
+      return startupLatch.await(timeout, unit);
+    }
+
+    private boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+      return terminationLatch.await(timeout, unit);
+    }
+
+    private Exception startupFailure() {
+      return startupFailure.get();
+    }
+
+    private boolean isStartupComplete() {
+      return startupComplete.get();
     }
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
+      if (!isAcceptingMessages()) {
+        conn.close(1001, SHUTDOWN_REASON);
+        return;
+      }
       InetSocketAddress remoteAddr = conn.getRemoteSocketAddress();
       if (remoteAddr != null) {
         InetAddress clientAddr = remoteAddr.getAddress();
@@ -649,7 +946,6 @@ public class WebSocketServerHandler {
           error.addProperty("message", "Connection not allowed from this address");
           conn.send(GSON.toJson(error));
           conn.close();
-          maybeNotifyPossiblyTailscaleRejected(clientAddr);
           return;
         }
       }
@@ -659,13 +955,17 @@ public class WebSocketServerHandler {
       JsonObject hello = new JsonObject();
       hello.addProperty("type", "HELLO");
       hello.addProperty("salt", serverSalt);
+      hello.addProperty("pairing", isPairingAllowed(clientAddrOf(conn)));
+      hello.addProperty("keyId", ModConfig.getInstance().getPasswordId());
       conn.send(GSON.toJson(hello));
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+      clearPairingIf(conn);
       if (conn == authenticatedSession) {
         authenticatedSession = null;
+        connectedDeviceName = "";
         isStreaming = false;
         isChatSubscribed = false;
         clientMode = ClientMode.STREAMING;
@@ -678,6 +978,10 @@ public class WebSocketServerHandler {
 
     @Override
     public void onMessage(WebSocket conn, String message) {
+      if (!isAcceptingMessages()) {
+        conn.close(1001, SHUTDOWN_REASON);
+        return;
+      }
       try {
         JsonObject json = GSON.fromJson(message, JsonObject.class);
         if (!json.has("type")) return;
@@ -748,6 +1052,9 @@ public class WebSocketServerHandler {
     }
 
     private void handleClientStatus(WebSocket conn, JsonObject json) {
+      if (!isAcceptingMessages()) {
+        return;
+      }
       String modeStr = json.has("mode") ? json.get("mode").getAsString() : "STREAMING";
       if ("CHAT".equals(modeStr)) {
         clientMode = ClientMode.CHAT;
@@ -784,26 +1091,8 @@ public class WebSocketServerHandler {
 
         boolean dataSaver = json.has("dataSaver") && json.get("dataSaver").getAsBoolean();
 
-        if (streamer == null
-            || streamConfig.width != targetWidth
-            || streamConfig.height != targetHeight
-            || streamConfig.colorMode != colorMode
-            || streamConfig.fps != fps
-            || streamConfig.dataSaver != dataSaver) {
-
-          if (streamer != null) streamer.close();
-
-          streamConfig.width = targetWidth;
-          streamConfig.height = targetHeight;
-          streamConfig.colorMode = colorMode;
-          streamConfig.fps = fps;
-          streamConfig.dataSaver = dataSaver;
-
-          streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps, dataSaver);
-        }
-
-        if (streamer != null) {
-          streamer.resetBackpressure();
+        if (!configureStreamer(targetWidth, targetHeight, colorMode, fps, dataSaver)) {
+          return;
         }
 
         isStreaming = !isHibernating;
@@ -824,21 +1113,12 @@ public class WebSocketServerHandler {
           targetHeight = (targetHeight / 2) * 2;
 
           boolean dataSaver = json.has("dataSaver") && json.get("dataSaver").getAsBoolean();
-          if (streamer == null
-              || streamConfig.width != targetWidth
-              || streamConfig.height != targetHeight
-              || streamConfig.colorMode != colorMode
-              || streamConfig.fps != fps
-              || streamConfig.dataSaver != dataSaver) {
-            if (streamer != null) streamer.close();
-            streamConfig.width = targetWidth;
-            streamConfig.height = targetHeight;
-            streamConfig.colorMode = colorMode;
-            streamConfig.fps = fps;
-            streamConfig.dataSaver = dataSaver;
-            streamer = new H264Streamer(targetWidth, targetHeight, colorMode, fps, dataSaver);
+          if (!configureStreamer(targetWidth, targetHeight, colorMode, fps, dataSaver)) {
+            return;
           }
-          if (streamer != null) streamer.resetBackpressure();
+        }
+        if (!isAcceptingMessages()) {
+          return;
         }
         isStreaming = true;
         mapDataHandler.reset();
@@ -847,6 +1127,43 @@ public class WebSocketServerHandler {
       }
 
       sendServerStatus(conn);
+    }
+
+    private boolean isAcceptingMessages() {
+      return !shutdownRequested.get() && lifecycleState == LifecycleState.RUNNING && server == this;
+    }
+
+    private boolean configureStreamer(
+        int width, int height, int colorMode, int fps, boolean dataSaver) {
+      H264Streamer previous = null;
+      H264Streamer configured;
+      synchronized (lifecycleLock) {
+        if (!isAcceptingMessages()) {
+          return false;
+        }
+        if (streamer == null
+            || streamConfig.width != width
+            || streamConfig.height != height
+            || streamConfig.colorMode != colorMode
+            || streamConfig.fps != fps
+            || streamConfig.dataSaver != dataSaver) {
+          previous = streamer;
+          streamConfig.width = width;
+          streamConfig.height = height;
+          streamConfig.colorMode = colorMode;
+          streamConfig.fps = fps;
+          streamConfig.dataSaver = dataSaver;
+          streamer = new H264Streamer(width, height, colorMode, fps, dataSaver);
+        }
+        configured = streamer;
+      }
+      if (previous != null) {
+        previous.close();
+      }
+      if (configured != null) {
+        configured.resetBackpressure();
+      }
+      return true;
     }
 
     private void sendError(WebSocket conn, String message) {
@@ -858,10 +1175,17 @@ public class WebSocketServerHandler {
 
     @Override
     public void onError(WebSocket conn, Exception ex) {
+      if (!startupComplete.get()) {
+        startupFailure.compareAndSet(null, ex);
+        startupLatch.countDown();
+      }
       MonkeycraftClient.LOGGER.error("WebSocket error", ex);
     }
 
     @Override
-    public void onStart() {}
+    public void onStart() {
+      startupComplete.set(true);
+      startupLatch.countDown();
+    }
   }
 }

@@ -19,6 +19,9 @@ import UserNotifications
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NotificationsPlugin") {
       NotificationsPlugin.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TailscaleTransportPlugin") {
+      TailscaleTransportPlugin.register(with: registrar)
+    }
 
     UNUserNotificationCenter.current().delegate = self
   }

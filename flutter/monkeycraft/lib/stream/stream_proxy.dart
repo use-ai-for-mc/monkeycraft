@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'package:monkeycraft_client/shared/protocol_models.dart';
+import 'package:monkeycraft_client/main.dart' show appSettings;
 import 'package:monkeycraft_client/notifications/notification_models.dart';
 import 'package:monkeycraft_client/chat/chat_models.dart';
 import 'package:monkeycraft_client/stream/h264_nal.dart';
@@ -14,16 +15,53 @@ import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/platform/page_visibility.dart';
 import 'package:monkeycraft_client/stream/proxy/video_relay.dart';
 import 'package:monkeycraft_client/stream/proxy/command_sender.dart';
+import 'package:monkeycraft_client/stream/transport/connection_transport.dart';
+import 'package:monkeycraft_client/stream/transport/direct_websocket_transport.dart';
+import 'package:monkeycraft_client/stream/transport/server_url.dart';
 
 class AuthFailureException implements Exception {
   final String message;
-  AuthFailureException([String? message])
+  final String? keyId;
+  AuthFailureException([String? message, this.keyId])
     : message = message ?? 'Authentication failed';
+  bool get isInvalidSignature =>
+      message.toLowerCase().contains('invalid signature');
   @override
   String toString() => 'AuthFailureException: $message';
 }
 
+class PairingCode {
+  const PairingCode({required this.code, required this.ttl});
+
+  final String code;
+  final Duration ttl;
+
+  String get displayCode {
+    if (code.length == 8) {
+      return '${code.substring(0, 4)}-${code.substring(4)}';
+    }
+    return code;
+  }
+}
+
+class PairingUnavailableException implements Exception {
+  const PairingUnavailableException([
+    this.message = 'This address requires a password',
+  ]);
+
+  final String message;
+
+  @override
+  String toString() => 'PairingUnavailableException: $message';
+}
+
 class StreamProxy {
+  StreamProxy({TransportFactory? transportFactory})
+    : _transportFactory =
+          transportFactory ?? const DirectWebSocketTransportFactory();
+
+  final TransportFactory _transportFactory;
+  ConnectionTransport? _transport;
   WebSocketChannel? _wsChannel;
   StreamSubscription? _wsSubscription;
   bool _authenticated = false;
@@ -223,33 +261,22 @@ class StreamProxy {
     }
   }
 
-  Uri _parseServerUrl(String server) {
-    server = server.trim();
-
-    if (server.startsWith('https://')) {
-      return Uri.parse(server.replaceFirst('https://', 'wss://'));
-    }
-    if (server.startsWith('http://')) {
-      return Uri.parse(server.replaceFirst('http://', 'ws://'));
-    }
-    if (server.startsWith('wss://') || server.startsWith('ws://')) {
-      return Uri.parse(server);
-    }
-
-    final hasPort = RegExp(r':\d+$').hasMatch(server);
-
-    if (hasPort) {
-      return Uri.parse('ws://$server');
-    } else {
-      return Uri.parse('wss://$server');
-    }
-  }
+  Uri _parseServerUrl(String server) => parseMonkeycraftServerUrl(server);
 
   static final Random _saltRandom = Random.secure();
 
   String _generateSalt() {
     final random = List<int>.generate(16, (_) => _saltRandom.nextInt(256));
     return base64Encode(random);
+  }
+
+  Map<String, dynamic> _deviceAuthFields() {
+    final name = appSettings.phoneName;
+    final model = appSettings.deviceModel;
+    return {
+      if (name.isNotEmpty) 'deviceName': name,
+      if (model.isNotEmpty) 'deviceModel': model,
+    };
   }
 
   String _computeHmac(String key, String data) {
@@ -263,6 +290,11 @@ class StreamProxy {
     String password, {
     Duration connectTimeout = const Duration(seconds: 5),
     Duration authTimeout = const Duration(seconds: 5),
+    bool pairIfNeeded = false,
+    void Function(PairingCode code)? onPairingCode,
+    void Function(String password)? onPairedPassword,
+    String? Function(String? keyId)? lookupPassword,
+    void Function(String keyId, String password)? onBoundPassword,
   }) async {
     if (_starting && _startCompleter != null) {
       try {
@@ -275,6 +307,7 @@ class StreamProxy {
 
     _starting = true;
     _startCompleter = Completer<void>();
+    unawaited(_startCompleter!.future.catchError((_) {}));
     try {
       await stop();
       _authenticated = false;
@@ -283,10 +316,12 @@ class StreamProxy {
       // Start video relay (local TCP server)
       await _videoRelay.start();
 
-      // Connect to WebSocket
       final wsUrl = _parseServerUrl(server);
-      _wsChannel = WebSocketChannel.connect(wsUrl);
-      await _wsChannel!.ready.timeout(connectTimeout);
+      _transport = await _transportFactory.connect(
+        wsUrl,
+        timeout: connectTimeout,
+      );
+      _wsChannel = _transport!.channel;
 
       // Attach command sender
       _commandSender.attach(_wsChannel!);
@@ -302,6 +337,11 @@ class StreamProxy {
       }
 
       String? serverSalt;
+      final auth = _AuthAttempt(
+        password: password,
+        lookupPassword: lookupPassword,
+        onBoundPassword: onBoundPassword,
+      );
       _wsSubscription = _wsChannel!.stream.listen(
         (message) {
           _lastServerMessageTime = DateTime.now();
@@ -312,7 +352,10 @@ class StreamProxy {
             _handleTextMessage(
               message,
               serverSalt: serverSalt,
-              password: password,
+              auth: auth,
+              pairIfNeeded: pairIfNeeded,
+              onPairingCode: onPairingCode,
+              onPairedPassword: onPairedPassword,
               onServerSalt: (salt) => serverSalt = salt,
               completeAuthError: completeAuthError,
               onAuthSuccess: () {
@@ -475,7 +518,10 @@ class StreamProxy {
   void _handleTextMessage(
     dynamic message, {
     required String? serverSalt,
-    required String password,
+    required _AuthAttempt auth,
+    bool pairIfNeeded = false,
+    void Function(PairingCode code)? onPairingCode,
+    void Function(String password)? onPairedPassword,
     required void Function(String) onServerSalt,
     required void Function(Object, [StackTrace?]) completeAuthError,
     required void Function() onAuthSuccess,
@@ -487,18 +533,79 @@ class StreamProxy {
         final salt = data['salt']?.toString();
         if (salt != null) {
           onServerSalt(salt);
-          final clientSalt = _generateSalt();
-          final signature = _computeHmac(password, '$salt$clientSalt');
-          final authMsg = jsonEncode({
+          final keyId = data['keyId']?.toString();
+          auth.keyId = (keyId != null && keyId.isNotEmpty) ? keyId : null;
+          final stored = auth.lookupPassword?.call(auth.keyId);
+          if (stored != null && stored.isNotEmpty) {
+            auth.password = stored;
+          }
+          final pairing = data['pairing'] == true;
+          if (pairIfNeeded && auth.password.isEmpty && pairing) {
+            _wsChannel!.sink.add(
+              jsonEncode({
+                'type': 'AUTH',
+                'mode': 'PAIR',
+                'protocolVersion': 2,
+                ..._deviceAuthFields(),
+              }),
+            );
+          } else if (auth.password.isEmpty) {
+            completeAuthError(const PairingUnavailableException());
+          } else {
+            final clientSalt = _generateSalt();
+            final signature = _computeHmac(auth.password, '$salt$clientSalt');
+            final authMsg = jsonEncode({
+              'type': 'AUTH',
+              'salt': clientSalt,
+              'signature': signature,
+              'protocolVersion': 2,
+              ..._deviceAuthFields(),
+            });
+            _wsChannel!.sink.add(authMsg);
+          }
+        } else {
+          completeAuthError(Exception('Server did not provide salt'));
+        }
+      } else if (data['type'] == 'PAIR_WAITING') {
+        final code = data['code']?.toString() ?? '';
+        final ttlMs = data['ttlMs'];
+        onPairingCode?.call(
+          PairingCode(
+            code: code,
+            ttl: Duration(milliseconds: ttlMs is num ? ttlMs.toInt() : 180000),
+          ),
+        );
+      } else if (data['type'] == 'PAIR_OK') {
+        final paired = data['password']?.toString() ?? '';
+        if (paired.isEmpty) {
+          completeAuthError(Exception('Pairing did not return a password'));
+          return;
+        }
+        auth.password = paired;
+        onPairedPassword?.call(paired);
+        final salt = serverSalt;
+        if (salt == null) {
+          completeAuthError(Exception('Missing server salt after pairing'));
+          return;
+        }
+        final clientSalt = _generateSalt();
+        final signature = _computeHmac(paired, '$salt$clientSalt');
+        _wsChannel!.sink.add(
+          jsonEncode({
             'type': 'AUTH',
             'salt': clientSalt,
             'signature': signature,
             'protocolVersion': 2,
-          });
-          _wsChannel!.sink.add(authMsg);
-        } else {
-          completeAuthError(Exception('Server did not provide salt'));
-        }
+            ..._deviceAuthFields(),
+          }),
+        );
+      } else if (data['type'] == 'PAIR_FAILED') {
+        completeAuthError(
+          AuthFailureException(
+            data['message']?.toString() ?? 'Pairing failed',
+            auth.keyId,
+          ),
+        );
       } else if (data['type'] == 'AUTH_OK') {
         final versionWarning = data['versionWarning'];
         if (versionWarning is String && versionWarning.isNotEmpty) {
@@ -508,6 +615,7 @@ class StreamProxy {
         _serverCapabilities = caps is List
             ? caps.map((e) => e.toString()).toSet()
             : <String>{};
+        _bindPassword(auth);
         _authenticated = true;
         _commandSender.setAuthenticated(true);
         _startHeartbeatTimer();
@@ -516,6 +624,7 @@ class StreamProxy {
       } else if (data['type'] == 'AUTH_RESPONSE') {
         final success = data['success'] == true;
         if (success) {
+          _bindPassword(auth);
           _authenticated = true;
           _commandSender.setAuthenticated(true);
           _startHeartbeatTimer();
@@ -526,6 +635,7 @@ class StreamProxy {
           completeAuthError(
             AuthFailureException(
               msg == null || msg.isEmpty ? null : msg,
+              auth.keyId,
             ),
           );
           _wsChannel?.sink.close(status.normalClosure);
@@ -646,6 +756,7 @@ class StreamProxy {
     _stopHeartbeatTimer();
     _wsSubscription = null;
     _wsChannel = null;
+    _transport = null;
     _authenticated = false;
     _serverCapabilities = {};
     _commandSender.detach();
@@ -746,13 +857,23 @@ class StreamProxy {
     _commandSender.detach();
     await _wsSubscription?.cancel();
     _wsSubscription = null;
-    final ws = _wsChannel;
-    if (ws != null) {
+    final transport = _transport;
+    _transport = null;
+    if (transport != null) {
       try {
-        await ws.sink
-            .close(status.normalClosure)
+        await transport
+            .close(code: status.normalClosure)
             .timeout(const Duration(seconds: 1));
       } catch (_) {}
+    } else {
+      final ws = _wsChannel;
+      if (ws != null) {
+        try {
+          await ws.sink
+              .close(status.normalClosure)
+              .timeout(const Duration(seconds: 1));
+        } catch (_) {}
+      }
     }
     _wsChannel = null;
     _authenticated = false;
@@ -820,4 +941,23 @@ class StreamProxy {
     _playerCount = 0;
     _serverCapabilities = {};
   }
+
+  void _bindPassword(_AuthAttempt auth) {
+    final keyId = auth.keyId;
+    if (keyId == null || keyId.isEmpty || auth.password.isEmpty) return;
+    auth.onBoundPassword?.call(keyId, auth.password);
+  }
+}
+
+class _AuthAttempt {
+  _AuthAttempt({
+    required this.password,
+    this.lookupPassword,
+    this.onBoundPassword,
+  });
+
+  String password;
+  String? keyId;
+  final String? Function(String? keyId)? lookupPassword;
+  final void Function(String keyId, String password)? onBoundPassword;
 }

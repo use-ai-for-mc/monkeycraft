@@ -24,13 +24,21 @@ public class H264Streamer {
   private static final int MAX_PENDING_FRAMES = 1;
   private static final int NAL_TYPE_IDR = 5;
   private static final int DATA_SAVER_GOP_SECONDS = 4;
+  private static final long STOP_TIMEOUT_SECONDS = 2;
 
   private final Picture picture;
   private volatile H264Encoder encoder;
   private volatile ByteBuffer buffer;
   private final int width;
   private final int height;
-  private final ExecutorService executor = Executors.newSingleThreadExecutor();
+  private final ExecutorService executor =
+      Executors.newSingleThreadExecutor(
+          runnable -> {
+            Thread thread = new Thread(runnable, "Monkeycraft-H264Encoder");
+            thread.setDaemon(true);
+            return thread;
+          });
+  private final AtomicBoolean closed = new AtomicBoolean(false);
   private final AtomicBoolean isEncoding = new AtomicBoolean(false);
   private final AtomicInteger pendingFrames = new AtomicInteger(0);
   private final int colorMode;
@@ -84,7 +92,7 @@ public class H264Streamer {
   }
 
   public void encodeAndSend(NativeImage image, WebSocket conn) {
-    if (!conn.isOpen()) {
+    if (closed.get() || !conn.isOpen()) {
       image.close();
       return;
     }
@@ -171,11 +179,20 @@ public class H264Streamer {
   }
 
   public void close() {
+    if (!closed.compareAndSet(false, true)) {
+      return;
+    }
     executor.shutdownNow();
     try {
-      executor.awaitTermination(2, TimeUnit.SECONDS);
+      if (!executor.awaitTermination(STOP_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        com.chenweikeng.monkeycraft.MonkeycraftClient.LOGGER.warn(
+            "H264 encoder did not stop within {} seconds; its daemon thread will not block JVM shutdown",
+            STOP_TIMEOUT_SECONDS);
+      }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
+      com.chenweikeng.monkeycraft.MonkeycraftClient.LOGGER.warn(
+          "Interrupted while waiting for H264 encoder shutdown");
     }
   }
 

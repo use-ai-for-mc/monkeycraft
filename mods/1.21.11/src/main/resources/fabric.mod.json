@@ -21,6 +21,9 @@
 		],
 		"modmenu": [
 			"com.chenweikeng.monkeycraft.integration.ModMenuIntegration"
+		],
+		"frex_flawless_frames": [
+			"com.chenweikeng.monkeycraft.integration.FlawlessFrames::register"
 		]
 	},
 	"mixins": [

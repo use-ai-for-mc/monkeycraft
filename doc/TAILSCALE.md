@@ -1,5 +1,11 @@
 # Using MonkeyCraft over Tailscale
 
+> **Current behavior:** this page documents the released, system-installed
+> Tailscale path. The proposed bundled helper, in-app iOS node, Android
+> feasibility work, and browser/WASM node are not implemented yet; their
+> staged development and test plan is in
+> [tailscale-integration/README.md](tailscale-integration/README.md).
+
 MonkeyCraft's WebSocket server is plaintext and authenticated by an HMAC
 challenge-response. That's fine on a LAN but uncomfortable on the open
 internet. [Tailscale](https://tailscale.com/) gives you a private,

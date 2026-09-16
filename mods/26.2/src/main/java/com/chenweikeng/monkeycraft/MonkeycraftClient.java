@@ -1,16 +1,20 @@
 package com.chenweikeng.monkeycraft;
 
-import com.chenweikeng.monkeycraft.config.ConfigScreenFactory;
 import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.config.ServerAutoStart;
+import com.chenweikeng.monkeycraft.integration.FlawlessFrames;
+import com.chenweikeng.monkeycraft.server.PairingSession;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
-import com.chenweikeng.monkeycraft.ui.PasswordQrOverlay;
+import com.chenweikeng.monkeycraft.ui.MonkeyPanelScreen;
+import com.chenweikeng.monkeycraft.ui.SetupWizardScreen;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.chenweikeng.monkeycraft.utils.ScreenHelper;
+import com.chenweikeng.monkeycraft.utils.TailnetHttps;
 import com.chenweikeng.monkeycraft_api.v1.MonkeycraftApiRegistration;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
@@ -20,6 +24,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
@@ -37,6 +43,8 @@ public class MonkeycraftClient implements ClientModInitializer {
   public static volatile int pendingMouseButton = 0;
   public static volatile long lastLocalKeyInputTime = 0;
   private static final long LOCAL_INPUT_GRACE_PERIOD_MS = 10000;
+  private static volatile Screen pairingPromptParent;
+  private static volatile ConfirmScreen activePairingPrompt;
 
   public static boolean hasRecentLocalKeyInput() {
     if (lastLocalKeyInputTime == 0) return false;
@@ -44,6 +52,7 @@ public class MonkeycraftClient implements ClientModInitializer {
   }
 
   private int rightPressHoldTicks = 0;
+  private boolean pendingSetupWizard;
   private static final int RELEASE_MOUSE_HOLD_TICKS = 8;
   private final FrameCaptureManager frameCaptureManager = new FrameCaptureManager();
   private final CameraController cameraController = new CameraController();
@@ -58,7 +67,6 @@ public class MonkeycraftClient implements ClientModInitializer {
     registerLifecycleEvents();
     registerConnectionEvents();
     registerTickEvents();
-    PasswordQrOverlay.register();
   }
 
   private void registerTickEvents() {
@@ -92,6 +100,9 @@ public class MonkeycraftClient implements ClientModInitializer {
             isConnectedToClient = false;
             automaticallyReleasedCursor = false;
           }
+          if (connectedNow != wasConnectedToClient) {
+            FlawlessFrames.setEnabled(connectedNow);
+          }
           wasConnectedToClient = connectedNow;
 
           if (connectedNow
@@ -123,6 +134,12 @@ public class MonkeycraftClient implements ClientModInitializer {
             frameCaptureManager.tick(client);
           }
 
+          if (pendingSetupWizard
+              && client.gui.screen() instanceof net.minecraft.client.gui.screens.TitleScreen) {
+            pendingSetupWizard = false;
+            client.setScreenAndShow(new SetupWizardScreen(client.gui.screen()));
+          }
+
           if (WebSocketServerHandler.getInstance().isMapMode()) {
             // Lock player facing north so WASD maps to cardinal directions
             if (client.player != null) {
@@ -136,9 +153,14 @@ public class MonkeycraftClient implements ClientModInitializer {
   }
 
   private void registerLifecycleEvents() {
+    ClientLifecycleEvents.CLIENT_STOPPING.register(
+        client -> WebSocketServerHandler.getInstance().shutdown());
     ClientLifecycleEvents.CLIENT_STARTED.register(
         client -> {
           ModConfig config = ModConfig.getInstance();
+          if (!config.isWizardDone()) {
+            pendingSetupWizard = true;
+          }
           if (config.isEnabled()
               && config.getServerAutoStart() == ServerAutoStart.AT_TITLE_SCREEN) {
             LOGGER.info("Starting Monkeycraft server at title screen...");
@@ -176,7 +198,7 @@ public class MonkeycraftClient implements ClientModInitializer {
           WebSocketServerHandler ws = WebSocketServerHandler.getInstance();
           if (ws.isRunning() && !ws.isPersistent()) {
             LOGGER.info("Stopping Monkeycraft server due to disconnection...");
-            stopServer();
+            ws.stopServer();
           }
         });
   }
@@ -188,26 +210,21 @@ public class MonkeycraftClient implements ClientModInitializer {
         ClientCommands.literal("monkey")
             .executes(
                 context -> {
-                  WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
-                  if (handler.isRunning()) {
-                    handler.resetQrTimer();
-                  }
-                  sendHelpMessage();
+                  openPanel();
                   return 1;
                 })
             .then(
                 ClientCommands.literal("config")
                     .executes(
                         context -> {
-                          Minecraft.getInstance()
-                              .execute(
-                                  () -> {
-                                    Minecraft.getInstance()
-                                        .gui
-                                        .setScreen(
-                                            ConfigScreenFactory.createConfigScreen(
-                                                Minecraft.getInstance().gui.screen()));
-                                  });
+                          openPanel();
+                          return 1;
+                        }))
+            .then(
+                ClientCommands.literal("setup")
+                    .executes(
+                        context -> {
+                          openSetupWizard();
                           return 1;
                         }))
             .then(
@@ -235,7 +252,88 @@ public class MonkeycraftClient implements ClientModInitializer {
                         context -> {
                           stopServer();
                           return 1;
-                        })));
+                        }))
+            .then(
+                ClientCommands.literal("accept")
+                    .then(
+                        ClientCommands.argument("code", StringArgumentType.word())
+                            .executes(
+                                context -> {
+                                  String code = StringArgumentType.getString(context, "code");
+                                  WebSocketServerHandler handler =
+                                      WebSocketServerHandler.getInstance();
+                                  if (handler.acceptPairing(code)) {
+                                    sendMonkeyMessage(
+                                        Component.literal(
+                                            "Paired. The phone now has the long-term password."));
+                                    return 1;
+                                  }
+                                  sendMonkeyMessage(
+                                      Component.literal(
+                                          "No matching pairing code. Check the phone and try again."));
+                                  return 0;
+                                }))));
+  }
+
+  public static void openPanel() {
+    Minecraft client = Minecraft.getInstance();
+    client.execute(() -> client.setScreenAndShow(new MonkeyPanelScreen(client.gui.screen())));
+  }
+
+  public static void openSetupWizard() {
+    Minecraft client = Minecraft.getInstance();
+    client.execute(() -> client.setScreenAndShow(new SetupWizardScreen(client.gui.screen())));
+  }
+
+  public static void openPairingPrompt(String code, String ip) {
+    openPairingPrompt(code, ip, "");
+  }
+
+  public static void openPairingPrompt(String code, String ip, String deviceName) {
+    Minecraft client = Minecraft.getInstance();
+    if (client == null) {
+      return;
+    }
+    client.execute(
+        () -> {
+          Screen current = client.gui.screen();
+          if (current != activePairingPrompt) {
+            pairingPromptParent = current;
+          }
+          Screen previous = pairingPromptParent;
+          String display = PairingSession.displayCode(code);
+          String who =
+              deviceName == null || deviceName.isEmpty()
+                  ? "A phone at " + ip
+                  : deviceName + " (" + ip + ")";
+          final ConfirmScreen[] self = new ConfirmScreen[1];
+          ConfirmScreen prompt =
+              new ConfirmScreen(
+                  accepted -> {
+                    if (accepted) {
+                      WebSocketServerHandler.getInstance().acceptPairing(code);
+                    } else {
+                      WebSocketServerHandler.getInstance().rejectPairing(code);
+                    }
+                    if (client.gui.screen() == self[0]) {
+                      if (activePairingPrompt == self[0]) {
+                        activePairingPrompt = null;
+                      }
+                      client.setScreenAndShow(previous);
+                    }
+                  },
+                  Component.literal("Allow this phone?"),
+                  Component.literal(
+                      who
+                          + " wants to pair ("
+                          + display
+                          + "). Allowing shares the MonkeyCraft password with that phone."),
+                  Component.literal("Allow"),
+                  Component.literal("Deny"));
+          self[0] = prompt;
+          activePairingPrompt = prompt;
+          client.setScreenAndShow(prompt);
+        });
   }
 
   public static int startServerWithPortRange(int preferredPort) {
@@ -256,6 +354,10 @@ public class MonkeycraftClient implements ClientModInitializer {
       for (String ip : ips) {
         sendMonkeyMessage(Component.literal("  " + ip));
       }
+    }
+    String httpsUrl = TailnetHttps.probeUrl();
+    if (!httpsUrl.isEmpty()) {
+      sendMonkeyMessage(Component.literal("HTTPS: " + httpsUrl));
     }
     sendMonkeyMessage(
         Component.literal("For remote connection, please refer to ")
@@ -328,6 +430,18 @@ public class MonkeycraftClient implements ClientModInitializer {
             .copy()
             .append(clickableCommand("/monkey config"))
             .append(Component.literal(" - Open settings").withStyle(ChatFormatting.WHITE)));
+    mc.player.sendSystemMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey setup"))
+            .append(Component.literal(" - First-time setup").withStyle(ChatFormatting.WHITE)));
+    mc.player.sendSystemMessage(
+        prefix
+            .copy()
+            .append(clickableCommand("/monkey accept"))
+            .append(
+                Component.literal(" - Confirm a phone pairing code")
+                    .withStyle(ChatFormatting.WHITE)));
 
     WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
     if (handler.isRunning()) {
