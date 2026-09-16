@@ -139,7 +139,7 @@ void main() {
           height: 300,
           child: LookPad(
             excludedRegions: const [],
-            onDelta: (_, __) {},
+            onDelta: (_, _) {},
             onClick: clicks.add,
           ),
         ),
@@ -168,7 +168,7 @@ void main() {
           height: 300,
           child: LookPad(
             excludedRegions: const [],
-            onDelta: (_, __) {},
+            onDelta: (_, _) {},
             onClick: clicks.add,
           ),
         ),
@@ -196,7 +196,7 @@ void main() {
           height: 300,
           child: LookPad(
             excludedRegions: const [],
-            onDelta: (_, __) {},
+            onDelta: (_, _) {},
             onClick: clicks.add,
           ),
         ),
