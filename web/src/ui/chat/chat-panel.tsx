@@ -137,8 +137,14 @@ export function ChatPanel({ ctx, onClose }: Props) {
         </button>
       </form>
       {showPlayers.value && (
-        <div class="sheet-backdrop" onClick={() => (showPlayers.value = false)}>
-          <div class="sheet" onClick={(e) => e.stopPropagation()}>
+        <div class="sheet-host">
+          <button
+            type="button"
+            class="sheet-backdrop"
+            aria-label="Close"
+            onClick={() => (showPlayers.value = false)}
+          />
+          <div class="sheet">
             <h3>Players online ({chat.value.playerCount ?? "?"})</h3>
             {chat.value.players ? (
               <ul>

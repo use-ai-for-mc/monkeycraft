@@ -336,8 +336,14 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
         </div>
       )}
       {ridePick.value && (
-        <div class="sheet-backdrop" onClick={() => (ridePick.value = null)}>
-          <div class="sheet" onClick={(e) => e.stopPropagation()} data-testid="ride-sheet">
+        <div class="sheet-host" onPointerDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            class="sheet-backdrop"
+            aria-label="Close"
+            onClick={() => (ridePick.value = null)}
+          />
+          <div class="sheet" data-testid="ride-sheet">
             <h3>{ridePick.value.name}</h3>
             <p class="muted">
               Position: {ridePick.value.x.toFixed(1)}, {ridePick.value.z.toFixed(1)}
