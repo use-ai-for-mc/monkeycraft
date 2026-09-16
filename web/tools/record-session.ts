@@ -53,12 +53,14 @@ function redact(raw: string): string {
   return raw;
 }
 
+let videoState = "";
 const session = await openSession({
   url,
   password,
   deviceName: "web-recorder",
-  onText(_msg, raw, t) {
+  onText(msg, raw, t) {
     counts.text++;
+    if (msg.type === "SERVER_STATUS") videoState = String(msg.videoState ?? "");
     line({ t, dir: "in", text: redact(raw) });
   },
   onSend(raw, t) {
@@ -90,9 +92,36 @@ const session = await openSession({
   },
 });
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// --waitActive N: send CLIENT_STATUS, then wait up to N seconds for
+// SERVER_STATUS.videoState == ACTIVE before the recording clock starts.
 const status = clientStatus(args);
 session.send(status);
-await new Promise((r) => setTimeout(r, seconds * 1000));
+const waitActive = Number(args.waitActive ?? 0);
+if (waitActive > 0) {
+  const deadline = Date.now() + waitActive * 1000;
+  while (videoState !== "ACTIVE" && Date.now() < deadline) {
+    await sleep(2000);
+    session.send({ type: "PING" });
+  }
+  console.log(`videoState=${videoState} after waiting`);
+}
+
+// --inventory: open the inventory with INPUT E after 3 s and close it with
+// SCREEN_KEY ESCAPE 2 s before the end, so the fixture has SCREEN_STATE transitions.
+const inventory = args.inventory === "true";
+if (inventory) {
+  await sleep(3000);
+  session.send({ type: "INPUT", key: "E", pressed: true });
+  session.send({ type: "INPUT", key: "E", pressed: false });
+  await sleep(Math.max(0, seconds * 1000 - 5000));
+  session.send({ type: "SCREEN_KEY", key: "ESCAPE", pressed: true });
+  session.send({ type: "SCREEN_KEY", key: "ESCAPE", pressed: false });
+  await sleep(2000);
+} else {
+  await sleep(seconds * 1000);
+}
 session.close();
 closeSync(jsonl);
 closeSync(bin);
