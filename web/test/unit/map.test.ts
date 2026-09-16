@@ -30,8 +30,6 @@ describe("map geometry", () => {
     const ny = 0.5 + 5 / (2 * halfH);
     expect(pickEntity(frame, 0.5, ny, 1)?.name).toBe("Boat");
     expect(pickEntity(frame, 0.5, 0.5, 1)).toBeNull();
-    expect(isRideable(frame.entities[0]!)).toBe(true);
-    expect(isRideable(frame.entities[1]!)).toBe(false);
-    expect(isRideable(frame.entities[2]!)).toBe(true);
+    expect(frame.entities.map(isRideable)).toEqual([true, false, true]);
   });
 });
