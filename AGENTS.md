@@ -27,6 +27,8 @@ narrow API adaptations.
 | File | Purpose |
 |------|---------|
 | `mods/<mc>/src/main/java/.../MonkeycraftClient.java` | Mod entry point, tick events, command registration |
+| `mods/<mc>/src/main/java/.../ui/MonkeyPanelScreen.java` | In-game settings panel (5 tabs) |
+| `mods/<mc>/src/main/java/.../ui/SetupWizardScreen.java` | First-run setup wizard (5 pages; writes enabled / embeddedTailscaleEnabled / tailscaleAccess / networkScope + wizardDone) |
 | `mods/<mc>/src/main/java/.../server/WebSocketServerHandler.java` | Protocol handling, all message types |
 | `mods/<mc>/src/main/java/.../server/H264Streamer.java` | Video encoding |
 | `mods/<mc>/src/main/java/.../MapDataHandler.java` | 2D map data frames |
@@ -47,10 +49,44 @@ cd mods/1.19     && ./gradlew build    # needs Java 17 (Gradle launcher needs 21
 ./gradlew spotlessApply                # Format code (REQUIRED before commit)
 
 # Flutter App
+# NOTE: flutter is NOT on PATH — the SDK lives at /Users/cusgadmin/if-local/flutter/bin/flutter
 cd flutter/monkeycraft
-flutter build ios            # Build iOS
-flutter build apk            # Build Android
+/Users/cusgadmin/if-local/flutter/bin/flutter build ios            # Build iOS
+/Users/cusgadmin/if-local/flutter/bin/flutter build apk            # Build Android
+/Users/cusgadmin/if-local/flutter/bin/flutter analyze              # Static analysis
 ```
+
+## Deploy
+
+Each mod tree has `build-and-deploy.sh` (spotless + clean build + atomic rename into a
+PrismLauncher instance's mods dir):
+
+| Tree | Target instance |
+|------|-----------------|
+| `mods/26.2` | `ImagineFun Add-Ons` |
+| `mods/26.1` | `26.1` |
+| `mods/1.21.11` | `ImagineFun` |
+| `mods/1.19` | `Fabric 1.19` |
+
+The script refuses to deploy unless the target is a real PrismLauncher instance
+(has `mmc-pack.json`). Never point `TARGET_DIR` at a bare version-named folder —
+`instances/26.2/` was a fake directory created by `mkdir -p` and has been deleted.
+
+Deploying the Flutter app to the phone (iPhone connects wirelessly; never kill
+the running app manually — `flutter install` replaces it):
+
+```bash
+cd flutter/monkeycraft
+/Users/cusgadmin/if-local/flutter/bin/flutter devices          # find device id
+/Users/cusgadmin/if-local/flutter/bin/flutter build ios --release
+/Users/cusgadmin/if-local/flutter/bin/flutter install -d <device-id>
+# verify version on device:
+xcrun devicectl device info apps --device <coredevice-uuid> | grep monkeycraft
+```
+
+Note: `flutter install` output may end at "Uninstalling old version..." — verify
+with devicectl instead of trusting stdout. `flutter devices` and `devicectl`
+show different UUIDs for the same phone; use each tool's own id.
 
 ## Code Style
 
@@ -103,12 +139,16 @@ When adding new protocol messages:
 1. Add handler in `WebSocketServerHandler.java:onMessage()`
 2. Add sender in Flutter `stream_proxy.dart`
 3. Update protocol documentation in `doc/FLUTTER_CLIENT.md`
-4. If the message is an optional/feature-gated capability, add a token to `AuthenticationHandler.CAPABILITIES` (advertised in `AUTH_OK`) and gate the client with `proxy.serverSupports("TOKEN")` so older mods degrade gracefully
+4. If the message is an optional/feature-gated capability, add a token to `AuthenticationHandler.CAPABILITIES` (advertised in `AUTH_OK`) and gate the client with `proxy.serverSupports("TOKEN")` so older mods degrade gracefully. Pairing uses capability `PAIRING`.
 
 ## Testing
 
 - Java: Run `./gradlew build` - compilation errors indicate issues
 - Flutter: Run `flutter analyze` for static analysis
+- Flaky test: `HelperTailscaleServiceTest.ensureRunningThenStop` races its fake-helper
+  subprocess (`assertTrue(st.listening)`). If a build fails only there, just re-run the
+  build once before investigating — it passes on retry unless you actually touched
+  `tailscale/`.
 
 ## Important Constraints
 

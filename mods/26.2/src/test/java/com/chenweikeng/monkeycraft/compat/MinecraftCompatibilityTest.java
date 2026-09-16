@@ -69,7 +69,6 @@ class MinecraftCompatibilityTest {
           "com/mojang/authlib/",
           "com/mojang/brigadier/",
           "com/chenweikeng/monkeycraft_api/",
-          "me/shedaniel/clothconfig2/",
           "org/java_websocket/",
           "org/jcodec/",
           "com/google/gson/",
@@ -124,8 +123,7 @@ class MinecraftCompatibilityTest {
     JsonObject metadata = readJson("fabric.mod.json");
     assertTrue(metadata.getAsJsonObject("suggests").has("modmenu"));
     assertFalse(metadata.getAsJsonObject("depends").has("modmenu"));
-    assertEquals(
-        ">=26.2.155", metadata.getAsJsonObject("depends").get("cloth-config").getAsString());
+    assertFalse(metadata.getAsJsonObject("depends").has("cloth-config"));
     assertNull(
         LOADER.getResource("com/terraformersmc/modmenu/api/ModMenuApi.class"),
         "The optional ModMenu API unexpectedly leaked onto test runtime classpath");

@@ -4,13 +4,20 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${SCRIPT_DIR}"
-TARGET_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/26.2/minecraft/mods/"
+TARGET_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/mods/"
 
 MOD_VERSION=$(grep '^mod_version=' "${PROJECT_DIR}/gradle.properties" | cut -d'=' -f2)
 JAR_NAME="monkeycraft-${MOD_VERSION}.jar"
 SOURCE_JAR="${PROJECT_DIR}/build/libs/${JAR_NAME}"
 TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 STAGING_JAR="${TARGET_JAR}.new"
+
+FLUTTER="${FLUTTER:-/Users/cusgadmin/if-local/flutter/bin/flutter}"
+FLUTTER_APP="${SCRIPT_DIR}/../../flutter/monkeycraft"
+
+echo "Building Flutter web..."
+cd "${FLUTTER_APP}"
+"${FLUTTER}" build web --release --base-href=/
 
 echo "Building Monkeycraft mod (26.2)..."
 cd "${PROJECT_DIR}"
@@ -22,8 +29,12 @@ if [ ! -f "${SOURCE_JAR}" ]; then
     exit 1
 fi
 
-echo "Creating target directory if it doesn't exist..."
-mkdir -p "${TARGET_DIR}"
+INSTANCE_DIR="$(dirname "$(dirname "${TARGET_DIR%/}")")"
+if [ ! -f "${INSTANCE_DIR}/mmc-pack.json" ]; then
+    echo "Error: ${INSTANCE_DIR} is not a PrismLauncher instance (mmc-pack.json missing)."
+    echo "Refusing to deploy — check TARGET_DIR in this script."
+    exit 1
+fi
 
 # Atomic deploy: stage as <target>.new on the same filesystem, verify, retry on
 # failure, then rename(2) into place. The rename preserves the old inode for

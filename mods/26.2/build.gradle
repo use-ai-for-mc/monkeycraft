@@ -40,9 +40,6 @@ dependencies {
 
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	implementation("me.shedaniel.cloth:cloth-config-fabric:${project.cloth_config_version}") {
-		exclude(group: "net.fabricmc.fabric-api")
-	}
 	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 
 	implementation "org.java-websocket:Java-WebSocket:${project.websocket_version}"
@@ -65,8 +62,16 @@ dependencies {
 	include "com.github.weikengchen:monkeycraft-api:1.0.0-mc26.2"
 }
 
+def flutterWeb = file("${rootProject.projectDir}/../../flutter/monkeycraft/build/web")
+
 processResources {
 	inputs.property "version", project.version
+	if (flutterWeb.directory) {
+		inputs.dir flutterWeb
+		from(flutterWeb) {
+			into "web"
+		}
+	}
 
 	filesMatching("fabric.mod.json") {
 		expand "version": inputs.properties.version

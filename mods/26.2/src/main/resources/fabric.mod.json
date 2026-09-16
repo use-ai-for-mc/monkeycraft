@@ -21,6 +21,9 @@
 		],
 		"modmenu": [
 			"com.chenweikeng.monkeycraft.integration.ModMenuIntegration"
+		],
+		"frex_flawless_frames": [
+			"com.chenweikeng.monkeycraft.integration.FlawlessFrames::register"
 		]
 	},
 	"mixins": [
@@ -30,8 +33,7 @@
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.2",
 		"java": ">=25",
-		"fabric-api": "*",
-		"cloth-config": ">=26.2.155"
+		"fabric-api": "*"
 	},
 	"suggests": {
 		"modmenu": "*"

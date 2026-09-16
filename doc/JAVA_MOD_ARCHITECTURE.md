@@ -244,7 +244,7 @@ Creates Cloth Config UI for in-game configuration.
 ## User Interface
 
 ### PasswordQrOverlay.java
-Renders QR code on HUD when server is running but no client connected.
+Legacy QR overlay class. Pairing now uses `/monkey accept CODE` after the phone shows an 8-character code; the overlay is no longer registered.
 
 **Behavior:**
 - Generates QR code from password using ZXing
@@ -342,6 +342,7 @@ Fabric mod metadata.
 - `environment`: `client`
 - `entrypoints.client`: `MonkeycraftClient`
 - `entrypoints.modmenu`: `ModMenuIntegration`
+- `entrypoints.frex_flawless_frames`: `FlawlessFrames::register` (disables Dynamic FPS / Sodium chunk-skip while a phone is connected)
 - `depends`: fabricloader, the target Minecraft version, its Java level, fabric-api
 - `suggests`: modmenu
 

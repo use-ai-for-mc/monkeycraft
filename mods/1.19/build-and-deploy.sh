@@ -22,8 +22,12 @@ if [ ! -f "${SOURCE_JAR}" ]; then
     exit 1
 fi
 
-echo "Creating target directory if it doesn't exist..."
-mkdir -p "${TARGET_DIR}"
+INSTANCE_DIR="$(dirname "$(dirname "${TARGET_DIR%/}")")"
+if [ ! -f "${INSTANCE_DIR}/mmc-pack.json" ]; then
+    echo "Error: ${INSTANCE_DIR} is not a PrismLauncher instance (mmc-pack.json missing)."
+    echo "Refusing to deploy — check TARGET_DIR in this script."
+    exit 1
+fi
 
 # Atomic deploy: stage as <target>.new on the same filesystem, verify, retry on
 # failure, then rename(2) into place. The rename preserves the old inode for

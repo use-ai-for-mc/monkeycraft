@@ -126,6 +126,21 @@ public final class PasswordQrOverlay {
     graphics.text(mc.font, text, rightX - width, y, 0xFFFFFFFF, true);
   }
 
+  public static boolean blitAt(GuiGraphicsExtractor graphics, String password, int x, int y) {
+    if (password == null || password.isBlank()) {
+      return false;
+    }
+    if (!ensureTexture(password.trim())) {
+      return false;
+    }
+    graphics.blit(TEXTURE_ID, x, y, x + QR_SIZE_PX, y + QR_SIZE_PX, 0f, 1.0f, 0f, 1.0f);
+    return true;
+  }
+
+  public static int sizePx() {
+    return QR_SIZE_PX;
+  }
+
   private static boolean ensureTexture(String password) {
     if (texture != null && password.equals(lastPassword)) {
       return true;

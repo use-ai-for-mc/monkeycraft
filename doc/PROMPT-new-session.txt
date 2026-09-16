@@ -1,0 +1,13 @@
+@skill:ardot-design-core @skill:ardot-ui-design
+
+继续 MonkeyCraft 的设计工作。上一会话已完成游戏内控制面板的 Ardot 视觉稿，本会话任务是补画「设置向导（Setup Wizard）」视觉稿。
+
+【第一步，必做】完整阅读交接文档：
+/Users/cusgadmin/if-local/monkeycraft/doc/HANDOFF-setup-wizard.md
+里面有：已完成工作与画布节点 ID（不要重做）、向导页面结构 P1→P2a/P2b/P2c→P3 的完整规格、平台硬约束（MC 26.2 vanilla 控件、extractRenderState、~420 GUI 宽基线）、视觉规范、参考文件路径、画布操作注意事项。
+
+【第二步】向用户确认交接文档 §2.4 的三个待拍板问题（向导入口方式 / P2b 第 4 步自动写配置还是给按钮 / Finish 是否强制手机已连上），确认后再动笔。
+
+【第三步】打开已有画布 https://ardot.tencent.com/file/720793256481329（若只能新建则新建并沿用同一视觉规范），新建向导分区块：P1 / P2a / P2b / P2c / P3 共 5 屏，以 427×240 GUI 小尺寸基线为主，风格与画布上已有的主面板视觉稿保持一致。
+
+【铁律】每条道路只见自己的配置；密码/QR/端口/命令表全程不进向导；向导只写 enabled + embeddedTailscaleEnabled + tailscaleAccess + networkScope 四个配置项；UI 文案英文，与 mods/26.2 的 MonkeyPanelScreen.java 文案风格逐字一致。
