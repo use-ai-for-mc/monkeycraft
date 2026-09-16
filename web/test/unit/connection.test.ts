@@ -5,7 +5,7 @@ import {
   ConnectionError,
   type ConnectionEvent,
 } from "../../src/transport/connection.ts";
-import { FakeSocket, settle } from "../helpers/fake-socket.ts";
+import { FakeSocket, waitFor } from "../helpers/fake-socket.ts";
 
 const password = "secret";
 const serverSalt = "c2VydmVyc2FsdHNlcnZlcnNhbA==";
@@ -48,7 +48,7 @@ async function authenticate(conn: Connection, socket: FakeSocket): Promise<void>
   const connected = conn.connect();
   socket.open();
   socket.receiveText({ type: "HELLO", salt: serverSalt, pairing: true, keyId: "k1" });
-  await settle();
+  await waitFor(() => socket.sent.length >= 1);
   const auth = socket.sentJson()[0];
   socket.receiveText({
     type: "AUTH_OK",
@@ -56,7 +56,7 @@ async function authenticate(conn: Connection, socket: FakeSocket): Promise<void>
     protocolVersion: 2,
     capabilities: ["PLAYER_LIST", "DATA_SAVER"],
   });
-  await settle();
+  await waitFor(() => conn.authenticated);
   await connected;
 }
 
@@ -151,9 +151,9 @@ describe("Connection", () => {
     connected.catch(() => {});
     socket.open();
     socket.receiveText({ type: "HELLO", salt: serverSalt, pairing: true, keyId: "k1" });
-    await settle();
+    await waitFor(() => socket.sent.length >= 1);
     socket.receiveText({ type: "AUTH_RESPONSE", success: false, message: "Invalid signature" });
-    await settle();
+    await waitFor(() => socket.readyState === 3);
     await expect(connected).rejects.toMatchObject({
       code: "handshake",
       failure: { code: "invalid-signature", keyId: "k1" },
@@ -173,13 +173,13 @@ describe("Connection", () => {
     const connected = conn.connect();
     socket.open();
     socket.receiveText({ type: "HELLO", salt: serverSalt, pairing: true, keyId: "k1" });
-    await settle();
+    await waitFor(() => socket.sent.length >= 1);
     expect(socket.sentJson()[0]).toMatchObject({ type: "AUTH", mode: "PAIR" });
     socket.receiveText({ type: "PAIR_WAITING", code: "ABCD2345", ttlMs: 180000 });
-    await settle();
+    await waitFor(() => events.some((e) => e.kind === "pairing"));
     expect(events.at(-1)).toEqual({ kind: "pairing", code: "ABCD2345", ttlMs: 180000 });
     socket.receiveText({ type: "PAIR_OK", password: "granted" });
-    await settle();
+    await waitFor(() => socket.sent.length >= 2);
     expect(events.at(-1)).toEqual({ kind: "paired", keyId: "k1", password: "granted" });
     const auth = socket.sentJson()[1];
     socket.receiveText({
@@ -188,7 +188,7 @@ describe("Connection", () => {
       protocolVersion: 2,
       capabilities: [],
     });
-    await settle();
+    await waitFor(() => conn.authenticated);
     await expect(connected).resolves.toBeUndefined();
     expect(conn.boundPassword).toBe("granted");
   });

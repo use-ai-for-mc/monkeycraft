@@ -68,3 +68,12 @@ export class FakeSocket implements SocketLike {
 export async function settle(rounds = 6): Promise<void> {
   for (let i = 0; i < rounds; i++) await new Promise((r) => setImmediate(r));
 }
+
+/** Poll `pred` between setImmediate rounds; throws if it never becomes true. */
+export async function waitFor(pred: () => boolean, maxRounds = 2000): Promise<void> {
+  for (let i = 0; i < maxRounds; i++) {
+    if (pred()) return;
+    await new Promise((r) => setImmediate(r));
+  }
+  throw new Error("waitFor: condition not met");
+}
