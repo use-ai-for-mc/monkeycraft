@@ -1,6 +1,7 @@
 # MonkeyCraft web client: engineering plan
 
-Status: in progress. M0 and M1 done, M2 started (2026-09-16); see `CHANGELOG.md`.
+Status: in progress. M0–M4 done except the 10-minute soak and the letterbox click
+check (2026-09-16); see `CHANGELOG.md`.
 Supersedes `web-client-handoff/` (Aug 2026), which planned Flutter-web reuse; that
 direction is abandoned.
 
@@ -198,7 +199,7 @@ least one recorded fixture with ≥ 200 access units.
 Acceptance: unit coverage on `protocol/` and `transport/` ≥ 90 % lines; probe
 runs against the Prism instance and reports ≥ 8 fps at the requested size.
 
-### M2. Video pipeline (2 sessions) — in progress
+### M2. Video pipeline (2 sessions) — done (10-minute soak pending: the test instance rides continuously)
 
 `src/video` plus a bare stream page (canvas only, no controls).
 
@@ -217,7 +218,7 @@ Acceptance: 10 minutes continuous video on the Prism instance in desktop Chrome
 via HTTPS Serve with no reconnect; window resize and browser zoom never blank
 the picture; console shows one decoder configure per SPS change.
 
-### M3. Stream screen and input (2–3 sessions)
+### M3. Stream screen and input (2–3 sessions) — done (letterbox click check on the pause menu pending)
 
 - Keyboard map, pointer lock mouse look (fallback to drag), click and right
   click, wheel to change hotbar slot, touch joystick / look pad / jump / shift /
@@ -235,7 +236,7 @@ Acceptance: both original bugs verified fixed on desktop Chrome and Android
 Chrome (ESC palette visible whenever a screen is open regardless of last input
 device; no reconnect loop during resize). Inventory drag-drop works.
 
-### M4. Login, pairing, chat, picker, settings, map (2–3 sessions)
+### M4. Login, pairing, chat, picker, settings, map (2–3 sessions) — done
 
 - Login: origin default with saved override, password/pair modes per
   `login_auth_policy`, QR scan (BarcodeDetector / jsqr), pairing code card with

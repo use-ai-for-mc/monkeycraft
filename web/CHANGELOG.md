@@ -1,5 +1,22 @@
 # Changelog
 
+## M2 close-out, M3, M4 (2026-09-16)
+
+- Replay server (`tools/replay-server.ts`): plays a fixture over ws:// with the real
+  handshake, ACK backpressure, per-connection `/log`, and `/replay` test controls, so
+  Playwright drives the whole app without Minecraft.
+- Resize-storm and browser-zoom regression tests (one decoder, ≤ 3 CLIENT_STATUS).
+- Input: keyboard via `KeyboardEvent.code` (WASD, Space, Shift, Q/E/F, arrows, digits,
+  Escape), release-all on blur/hide/hibernation/screen change; Pointer Lock mouse look
+  with drag fallback, clicks, wheel hotbar; touch drag look, tap, long-press right
+  click; joystick with hysteresis, jump/sneak hold buttons, hotbar grid.
+- Screen mode: SCREEN_CLICK/SCREEN_HOVER over the picture rect, ESC palette gated on
+  SCREEN_STATE only (regression test), shift modifier, click-mode chips for touch.
+  Verified live: E opens the inventory and the palette appears; Escape closes it.
+- Chat, settings (apply without reconnect), server picker, map mode with ride sheet,
+  QR scan (BarcodeDetector / bundled jsQR), pairing countdown, timed countdown,
+  Web Locks tab lock, Web Notifications while hidden, Wake Lock, fullscreen.
+
 ## M1 + first slice of M2 (2026-09-16)
 
 - Typed protocol messages and a tolerant codec (`src/protocol/messages.ts`, `codec.ts`),

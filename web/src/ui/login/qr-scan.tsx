@@ -72,7 +72,7 @@ export function QrScan({ onResult, onClose }: Props) {
   return (
     <div class="qr" data-testid="qr-scan">
       <header>
-        <button type="button" onClick={onClose} aria-label="Close scanner">
+        <button type="button" class="back" onClick={onClose} aria-label="Close scanner">
           ‹
         </button>
         <h2>Scan the QR code</h2>

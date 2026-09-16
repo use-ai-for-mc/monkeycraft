@@ -648,7 +648,7 @@ body {
   font-size: 18px;
 }
 
-.qr header button {
+.qr header .back {
   font: inherit;
   font-size: 18px;
   padding: 6px 12px;
