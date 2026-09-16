@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Rebuilt by scripts/sync_web_tailscale.sh from repo web-tailscale/dist
+/web/tailscale/main.wasm

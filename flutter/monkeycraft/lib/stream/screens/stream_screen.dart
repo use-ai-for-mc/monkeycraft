@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/main.dart';
@@ -15,11 +16,15 @@ import 'package:monkeycraft_client/stream/stream_resolution.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
 import 'package:monkeycraft_client/notifications/timed_notification_coordinator.dart';
 import 'package:monkeycraft_client/notifications/timed_notification_service.dart';
+import 'package:monkeycraft_client/stream/connection_endpoint.dart';
 import 'package:monkeycraft_client/stream/session_controller.dart';
+import 'package:monkeycraft_client/auth/credential_store.dart';
 import 'package:monkeycraft_client/stream/screens/stream_settings_screen.dart';
 import 'package:monkeycraft_client/chat/chat_screen.dart';
 import 'package:monkeycraft_client/stream/widgets/hotbar_selector.dart';
 import 'package:monkeycraft_client/stream/widgets/jump_button.dart';
+import 'package:monkeycraft_client/stream/pointer_kind.dart';
+import 'package:monkeycraft_client/stream/widgets/game_context_menu.dart';
 import 'package:monkeycraft_client/stream/widgets/look_pad.dart';
 import 'package:monkeycraft_client/stream/widgets/shift_button.dart';
 import 'package:monkeycraft_client/stream/widgets/virtual_joystick.dart';
@@ -33,12 +38,14 @@ class StreamScreen extends StatefulWidget {
   final StreamProxy proxy;
   final String server;
   final String password;
+  final ConnectionEndpoint? endpoint;
 
   const StreamScreen({
     super.key,
     required this.proxy,
     required this.server,
     required this.password,
+    this.endpoint,
   });
 
   @override
@@ -65,6 +72,7 @@ class _StreamScreenState extends State<StreamScreen>
   );
   ClickMode _clickMode = ClickMode.left;
   bool _shiftActive = false;
+  bool _autoPreferTouch = true;
 
   StreamSubscription<NudgeNotification>? _nudgeSub;
   StreamSubscription<DateTime>? _heartbeatAckSub;
@@ -117,7 +125,10 @@ class _StreamScreenState extends State<StreamScreen>
     _loadStreamSettings();
     _liveActivityService.init();
     _session.initialize();
-    _session.setCredentials(widget.server, widget.password);
+    _session.setEndpoint(
+      widget.endpoint ?? DirectEndpoint(widget.server),
+      widget.password,
+    );
     _attachProxyStreams();
     _attachSessionState();
 
@@ -407,6 +418,7 @@ class _StreamScreenState extends State<StreamScreen>
           proxy: widget.proxy,
           server: widget.server,
           password: widget.password,
+          endpoint: widget.endpoint,
         ),
       ),
     );
@@ -555,6 +567,15 @@ class _StreamScreenState extends State<StreamScreen>
     // Decoder stayed alive, just re-sync the mode
   }
 
+  void _handlePointerKind(PointerDeviceKind kind, bool down) {
+    if (_settings.controlLayout != ControlLayout.auto) return;
+    if (!platformCapabilities.isWeb) return;
+    if (down) return;
+    final preferTouch = isTouchLike(kind);
+    if (preferTouch == _autoPreferTouch) return;
+    setState(() => _autoPreferTouch = preferTouch);
+  }
+
   Future<void> _loadStreamSettings() async {
     final settings = await _settingsStore.load();
     if (!mounted) return;
@@ -666,6 +687,7 @@ class _StreamScreenState extends State<StreamScreen>
     _heartbeatAckSub = null;
     await _session.disposeDecoder();
     await widget.proxy.stop();
+    await widget.endpoint?.pause();
   }
 
   Future<void> _onConnectionRestored() async {
@@ -780,7 +802,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openSettings() async {
-    final next = await Navigator.of(context).push<StreamSettings>(
+    final next = await Navigator.of(context).push<StreamSettingsResult>(
       MaterialPageRoute(
         builder: (context) => StreamSettingsScreen(
           initial: _settings,
@@ -788,13 +810,22 @@ class _StreamScreenState extends State<StreamScreen>
         ),
       ),
     );
-    if (next == null || next == _settings) return;
-    await _settingsStore.save(next);
+    if (next == null) return;
+    if (next.logout) {
+      await CredentialStore.clearPassword();
+      if (!mounted) return;
+      await _closeScreenAndReturnToLogin();
+      return;
+    }
+    final settings = next.settings;
+    if (settings == null || settings == _settings) return;
+    await _settingsStore.save(settings);
     if (!mounted) return;
     setState(() {
-      _settings = next;
-      _session.updateSettings(next);
+      _settings = settings;
+      _session.updateSettings(settings);
     });
+    _input.releaseAll();
     await _pauseStreaming();
     if (mounted) {
       await _resumeIfNeeded();
@@ -984,7 +1015,11 @@ class _StreamScreenState extends State<StreamScreen>
           });
         }
 
-        final showTouchControls = platformCapabilities.supportsTouchControls;
+        final showTouchControls = shouldShowTouchOverlay(
+          layout: _settings.controlLayout,
+          supportsTouchControls: platformCapabilities.supportsTouchControls,
+          autoPreferTouch: _autoPreferTouch,
+        );
 
         return Focus(
           autofocus: true,
@@ -1027,39 +1062,43 @@ class _StreamScreenState extends State<StreamScreen>
                 ResolutionMismatchOverlay(
                   message: state.resolutionMismatchMessage,
                 ),
-              if (showTouchControls && state.shouldShowVideo && _isScreenOpen)
-                ScreenTouchHandler(
-                  proxy: widget.proxy,
-                  clickMode: _clickMode,
-                  shiftActive: _shiftActive,
-                  videoDisplayRect: videoDisplayRect,
+              if (state.shouldShowVideo && _isScreenOpen)
+                GameContextMenuGuard(
+                  child: ScreenTouchHandler(
+                    proxy: widget.proxy,
+                    clickMode: _clickMode,
+                    shiftActive: _shiftActive,
+                    videoDisplayRect: videoDisplayRect,
+                    onPointerKind: _handlePointerKind,
+                  ),
                 ),
-              if (showTouchControls && state.shouldShowVideo && !_isScreenOpen)
-                LookPad(
-                  excludedRegions: [
-                    ...safeAreaExclusions,
-                    joystickRect,
-                    jumpRect,
-                    shiftRect,
-                    hotbarToggleRect,
-                    if (_hotbarExpanded) hotbarPanelRect,
-                    closeRectSafe,
-                    settingsRectSafe,
-                    commandRectSafe,
-                    rotateRectSafe,
-                  ],
-                  invertY: _settings.invertLookY,
-                  onDelta: (yaw, pitch) => widget.proxy.sendCommand({
-                    'type': 'LOOK_DELTA',
-                    'yaw': yaw,
-                    'pitch': pitch,
-                  }),
-                  onTap: (pos) =>
-                      widget.proxy.sendCommand({'type': 'CLICK', 'button': 0}),
-                  onLongPress: (pos) {
-                    HapticFeedback.heavyImpact();
-                    widget.proxy.sendCommand({'type': 'CLICK', 'button': 1});
-                  },
+              if (state.shouldShowVideo && !_isScreenOpen)
+                GameContextMenuGuard(
+                  child: LookPad(
+                    excludedRegions: [
+                      ...safeAreaExclusions,
+                      if (showTouchControls) joystickRect,
+                      if (showTouchControls) jumpRect,
+                      if (showTouchControls) shiftRect,
+                      if (showTouchControls) hotbarToggleRect,
+                      if (showTouchControls && _hotbarExpanded) hotbarPanelRect,
+                      closeRectSafe,
+                      settingsRectSafe,
+                      commandRectSafe,
+                      rotateRectSafe,
+                    ],
+                    invertY: _settings.invertLookY,
+                    onDelta: (yaw, pitch) => widget.proxy.sendCommand({
+                      'type': 'LOOK_DELTA',
+                      'yaw': yaw,
+                      'pitch': pitch,
+                    }),
+                    onClick: (button) => widget.proxy.sendCommand({
+                      'type': 'CLICK',
+                      'button': button,
+                    }),
+                    onPointerKind: _handlePointerKind,
+                  ),
                 ),
               if (showTouchControls && state.shouldShowVideo)
                 Positioned(
@@ -1117,6 +1156,7 @@ class _StreamScreenState extends State<StreamScreen>
                 right: pad.right + 20,
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Disconnect',
                   onPressed: _closeScreen,
                 ),
               ),

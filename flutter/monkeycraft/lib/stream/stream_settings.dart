@@ -2,6 +2,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum ResolutionPreset { low, medium, high }
 
+enum ControlLayout { auto, touch, mouseKeyboard }
+
+bool shouldShowTouchOverlay({
+  required ControlLayout layout,
+  required bool supportsTouchControls,
+  required bool autoPreferTouch,
+}) {
+  if (!supportsTouchControls) return false;
+  switch (layout) {
+    case ControlLayout.touch:
+      return true;
+    case ControlLayout.mouseKeyboard:
+      return false;
+    case ControlLayout.auto:
+      return autoPreferTouch;
+  }
+}
+
 class StreamSettings {
   final int fps;
   final int colorMode;
@@ -10,6 +28,7 @@ class StreamSettings {
   final bool autoSwitchRideChat;
   final bool autoFaceMovement;
   final bool dataSaver;
+  final ControlLayout controlLayout;
 
   const StreamSettings({
     required this.fps,
@@ -19,6 +38,7 @@ class StreamSettings {
     required this.autoSwitchRideChat,
     required this.autoFaceMovement,
     required this.dataSaver,
+    this.controlLayout = ControlLayout.auto,
   });
 
   static const StreamSettings defaults = StreamSettings(
@@ -61,6 +81,7 @@ class StreamSettings {
     bool? autoSwitchRideChat,
     bool? autoFaceMovement,
     bool? dataSaver,
+    ControlLayout? controlLayout,
   }) {
     return StreamSettings(
       fps: fps ?? this.fps,
@@ -70,6 +91,7 @@ class StreamSettings {
       autoSwitchRideChat: autoSwitchRideChat ?? this.autoSwitchRideChat,
       autoFaceMovement: autoFaceMovement ?? this.autoFaceMovement,
       dataSaver: dataSaver ?? this.dataSaver,
+      controlLayout: controlLayout ?? this.controlLayout,
     );
   }
 }
@@ -82,6 +104,7 @@ class StreamSettingsStore {
   static const _kAutoSwitchRideChat = 'stream_auto_switch_ride_chat';
   static const _kAutoFaceMovement = 'stream_auto_face_movement';
   static const _kDataSaver = 'stream_data_saver';
+  static const _kControlLayout = 'stream_control_layout';
 
   Future<StreamSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -103,6 +126,11 @@ class StreamSettingsStore {
         StreamSettings.defaults.autoFaceMovement;
     final dataSaver =
         prefs.getBool(_kDataSaver) ?? StreamSettings.defaults.dataSaver;
+    final layoutName = prefs.getString(_kControlLayout);
+    final controlLayout = ControlLayout.values.firstWhere(
+      (v) => v.name == layoutName,
+      orElse: () => StreamSettings.defaults.controlLayout,
+    );
     return StreamSettings(
       fps: fps,
       colorMode: colorMode,
@@ -111,6 +139,7 @@ class StreamSettingsStore {
       autoSwitchRideChat: autoSwitchRideChat,
       autoFaceMovement: autoFaceMovement,
       dataSaver: dataSaver,
+      controlLayout: controlLayout,
     );
   }
 
@@ -123,5 +152,6 @@ class StreamSettingsStore {
     await prefs.setBool(_kAutoSwitchRideChat, settings.autoSwitchRideChat);
     await prefs.setBool(_kAutoFaceMovement, settings.autoFaceMovement);
     await prefs.setBool(_kDataSaver, settings.dataSaver);
+    await prefs.setString(_kControlLayout, settings.controlLayout.name);
   }
 }

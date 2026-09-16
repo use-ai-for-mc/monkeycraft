@@ -168,6 +168,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadCredentialsToSession() async {
+    if (widget.session == null) return;
+    if (widget.session!.hasEndpoint) return;
     final credentials = await CredentialStore.load();
     widget.session?.setCredentials(credentials.server, credentials.password);
   }

@@ -1,13 +1,20 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/auth/credential_store.dart';
+import 'package:monkeycraft_client/auth/login_auth_policy.dart';
+import 'package:monkeycraft_client/auth/pairing_eligibility.dart';
+import 'package:monkeycraft_client/auth/web_origin_server.dart';
 import 'package:monkeycraft_client/auth/qr_scan_screen.dart';
 import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
+import 'package:monkeycraft_client/stream/connection_endpoint.dart';
 import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
+import 'package:monkeycraft_client/stream/tailscale/tailscale_embedded.dart';
+import 'package:monkeycraft_client/stream/tailscale/tailscale_login_sheet.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,20 +23,60 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _serverController = TextEditingController();
   final _passController = TextEditingController();
+  final _passwordFocus = FocusNode();
   bool _isLoading = false;
   bool _connectInFlight = false;
   int _connectAttempt = 0;
   StreamProxy? _inFlightProxy;
   DateTime _lastConnectTapAt = DateTime.fromMillisecondsSinceEpoch(0);
+  String? _savedTailscaleNodeId;
+  String? _bridgeLeaseId;
+  bool _rememberCredentials = true;
+  LoginAuthMode _mode = LoginAuthMode.password;
+  bool _passwordVisible = false;
+  PairingCode? _pairingCode;
+  Timer? _clipboardClearTimer;
+  String? _copiedPassword;
+  final TailscaleEmbeddedClient _tailscale = TailscaleEmbeddedClient();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _serverController.addListener(_onFieldsChanged);
+    _passController.addListener(_onFieldsChanged);
+    _passwordFocus.addListener(_onPasswordFocusChanged);
     _loadCredentials();
+  }
+
+  void _onFieldsChanged() {
+    if (_passController.text.isNotEmpty) {
+      _mode = LoginAuthMode.password;
+    } else if (_mode == LoginAuthMode.pair && !_addressPairingEligible) {
+      _mode = LoginAuthMode.password;
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _onPasswordFocusChanged() {
+    if (!_passwordFocus.hasFocus && _passwordVisible && mounted) {
+      setState(() => _passwordVisible = false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_passwordVisible && mounted) {
+        setState(() => _passwordVisible = false);
+      }
+    }
   }
 
   @override
@@ -51,23 +98,65 @@ class _LoginScreenState extends State<LoginScreen> {
     final credentials = await CredentialStore.load();
     if (!mounted) return;
     setState(() {
-      _serverController.text = credentials.server;
+      _serverController.text =
+          kIsWeb ? webOriginServer(Uri.base) : credentials.server;
       _passController.text = credentials.password;
+      _savedTailscaleNodeId = credentials.tailscaleNodeId;
+      _rememberCredentials = credentials.rememberCredentials;
+      _mode = LoginAuthPolicy.defaultMode(
+        hasPassword: credentials.password.isNotEmpty,
+        addressPairingEligible: isPairingEligibleServer(credentials.server),
+      );
     });
   }
 
   Future<void> _saveCredentials() async {
-    await CredentialStore.save(_serverController.text, _passController.text);
+    await CredentialStore.saveRememberCredentials(_rememberCredentials);
+    if (_rememberCredentials) {
+      await CredentialStore.save(_serverController.text, _passController.text);
+    } else {
+      await CredentialStore.save(_serverController.text, '');
+      await CredentialStore.clearPassword();
+    }
   }
+
+  Future<void> _persistPairedPassword(String password) async {
+    _passController.text = password;
+    if (_rememberCredentials) {
+      await CredentialStore.save(_serverController.text, password);
+    }
+  }
+
+  bool get _hasPassword => _passController.text.isNotEmpty;
+
+  bool get _addressPairingEligible =>
+      isPairingEligibleServer(_serverController.text);
+
+  bool get _showPasswordField => LoginAuthPolicy.showPasswordField(
+    mode: _mode,
+    hasPassword: _hasPassword,
+  );
 
   void _cancelConnect() {
     _connectAttempt += 1;
     _connectInFlight = false;
-    setState(() => _isLoading = false);
+    setState(() {
+      _isLoading = false;
+      _pairingCode = null;
+    });
     final proxy = _inFlightProxy;
     _inFlightProxy = null;
     if (proxy != null) {
       unawaited(proxy.stop().catchError((_) {}));
+    }
+    _closeBridge();
+  }
+
+  void _closeBridge() {
+    final leaseId = _bridgeLeaseId;
+    _bridgeLeaseId = null;
+    if (leaseId != null) {
+      unawaited(_tailscale.closeBridge(leaseId).catchError((_) {}));
     }
   }
 
@@ -86,40 +175,137 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _connect() async {
+  Future<void> _scanPassword() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final scanned = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (context) => const QrScanScreen()),
+      );
+      if (!mounted) return;
+      if (scanned == null) return;
+      setState(() {
+        _passController.text = scanned;
+        _mode = LoginAuthMode.password;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Scan failed: $e')));
+    }
+  }
+
+  Widget _connectButton({required VoidCallback? onPressed, required bool expanded}) {
+    final child = _isLoading
+        ? const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 10),
+              Text('Cancel'),
+            ],
+          )
+        : const Text('Connect');
+    final button = ElevatedButton(
+      onPressed: onPressed,
+      child: child,
+    );
+    if (expanded) {
+      return SizedBox(width: double.infinity, child: button);
+    }
+    return button;
+  }
+
+  Future<void> _connect({
+    String? overrideServer,
+    bool saveServer = true,
+    bool tailscalePath = false,
+    ConnectionEndpoint? endpoint,
+    String? passwordOverride,
+  }) async {
     final now = DateTime.now();
     if (_connectInFlight) return;
     if (now.difference(_lastConnectTapAt) < const Duration(milliseconds: 800)) {
       return;
     }
     _lastConnectTapAt = now;
-    if (!_formKey.currentState!.validate()) return;
+    if (overrideServer == null && !_formKey.currentState!.validate()) return;
+    if (overrideServer == null &&
+        LoginAuthPolicy.requirePasswordBeforeConnect(
+          mode: _mode,
+          hasPassword: _hasPassword,
+          tailscalePath: tailscalePath,
+        )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the password or scan the QR code')),
+      );
+      return;
+    }
 
     _connectInFlight = true;
     _connectAttempt += 1;
     final attempt = _connectAttempt;
-    setState(() => _isLoading = true);
-    await _saveCredentials();
+    setState(() {
+      _isLoading = true;
+      _pairingCode = null;
+    });
+    if (saveServer) {
+      await _saveCredentials();
+    }
+    if (overrideServer == null) {
+      _closeBridge();
+    }
 
-    final proxy = StreamProxy();
+    final target = overrideServer ?? _serverController.text;
+    final password = passwordOverride ?? _passController.text;
+    final pairIfNeeded = LoginAuthPolicy.pairIfNeeded(
+      mode: _mode,
+      hasPassword: password.isNotEmpty,
+      tailscalePath: tailscalePath,
+    );
+    final snapshot = await CredentialStore.snapshot();
+    final proxy = StreamProxy(
+      transportFactory: tailscalePath ? _tailscale.gameTransportFactory : null,
+    );
     _inFlightProxy = proxy;
     try {
       await proxy
           .start(
-            _serverController.text,
-            _passController.text,
-            connectTimeout: const Duration(seconds: 5),
-            authTimeout: const Duration(seconds: 5),
+            target,
+            password,
+            connectTimeout: Duration(seconds: tailscalePath ? 20 : 5),
+            authTimeout: const Duration(minutes: 4),
+            pairIfNeeded: pairIfNeeded,
+            lookupPassword: snapshot.lookup,
+            onBoundPassword: (keyId, secret) {
+              if (_rememberCredentials) {
+                unawaited(
+                  CredentialStore.put(
+                    keyId: keyId,
+                    password: secret,
+                    lastServer: target,
+                  ),
+                );
+              }
+              if (mounted) _passController.text = secret;
+            },
+            onPairingCode: (code) {
+              if (!mounted) return;
+              setState(() => _pairingCode = code);
+            },
+            onPairedPassword: (password) {
+              unawaited(_persistPairedPassword(password));
+            },
           )
-          .timeout(const Duration(seconds: 7));
+          .timeout(const Duration(minutes: 4));
 
       if (attempt != _connectAttempt) {
         await proxy.stop();
         return;
       }
 
-      // The mod reports whether the client is already in a world. If it is at
-      // a menu, show the server picker instead of the stream screen.
       final worldState = await proxy.awaitWorldState(
         timeout: const Duration(seconds: 2),
       );
@@ -129,22 +315,75 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (mounted) {
+        setState(() {
+          _pairingCode = null;
+          _passwordVisible = false;
+        });
         final inWorld = worldState == null || worldState.isInWorld;
+        final resolvedEndpoint = endpoint ?? DirectEndpoint(target);
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => inWorld
                 ? StreamScreen(
                     proxy: proxy,
-                    server: _serverController.text,
+                    server: target,
                     password: _passController.text,
+                    endpoint: resolvedEndpoint,
                   )
                 : ServerPickerScreen(
                     proxy: proxy,
-                    server: _serverController.text,
+                    server: target,
                     password: _passController.text,
+                    endpoint: resolvedEndpoint,
                   ),
           ),
         );
+        if (mounted) await _loadCredentials();
+      }
+    } on PairingUnavailableException {
+      await proxy.stop();
+      if (attempt != _connectAttempt) return;
+      if (mounted) {
+        setState(() {
+          _mode = LoginAuthMode.password;
+          _pairingCode = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This address needs a password. Enter it or scan the QR code.'),
+          ),
+        );
+      }
+    } on AuthFailureException catch (e) {
+      await proxy.stop();
+      if (attempt != _connectAttempt) return;
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        if (e.isInvalidSignature) {
+          final keyId = e.keyId;
+          if (keyId != null && keyId.isNotEmpty) {
+            await CredentialStore.remove(keyId);
+          } else {
+            await CredentialStore.remove(CredentialStore.legacyKeyId);
+          }
+          if (!mounted) return;
+          _passController.clear();
+          setState(() {
+            _mode = LoginAuthMode.password;
+            _pairingCode = null;
+          });
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Saved password did not match this computer. Enter the current password or pair again.',
+              ),
+            ),
+          );
+        } else {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Authentication failed: ${e.message}')),
+          );
+        }
       }
     } catch (e) {
       await proxy.stop();
@@ -155,23 +394,99 @@ class _LoginScreenState extends State<LoginScreen> {
         final msg = e is TimeoutException
             ? 'Connection timed out. Check server address and try again.'
             : 'Connection failed: $e';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (attempt == _connectAttempt) {
         _connectInFlight = false;
         _inFlightProxy = null;
-        if (mounted) setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            if (_pairingCode != null && !_connectInFlight) {
+              _pairingCode = null;
+            }
+          });
+        }
       }
     }
   }
 
+  Future<void> _connectEmbeddedTailscale() async {
+    if (_isLoading) return;
+    try {
+      final picked = await TailscaleLoginSheet.show(
+        context,
+        client: _tailscale,
+        savedNodeId: _savedTailscaleNodeId,
+      );
+      if (picked == null || !mounted) return;
+      await CredentialStore.saveTailscaleNodeId(picked.nodeId);
+      setState(() => _savedTailscaleNodeId = picked.nodeId);
+      final lease = await _tailscale.openBridge(
+        nodeId: picked.nodeId,
+        port: picked.port,
+      );
+      _bridgeLeaseId = lease.leaseId;
+      await _connect(
+        overrideServer: lease.url,
+        saveServer: false,
+        tailscalePath: true,
+        passwordOverride: '',
+        endpoint: EmbeddedTailscaleEndpoint(
+          client: _tailscale,
+          nodeId: picked.nodeId,
+          port: picked.port,
+          leaseId: lease.leaseId,
+          lastLoopbackUrl: lease.url,
+        ),
+      );
+    } catch (e) {
+      _closeBridge();
+      if (!mounted) return;
+      final detail = e is PlatformException
+          ? [e.code, e.message]
+                .whereType<String>()
+                .where((s) => s.isNotEmpty)
+                .join(': ')
+          : '$e';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Built-in Tailscale failed: $detail')),
+      );
+    }
+  }
+
+  void _copyPassword() {
+    final text = _passController.text;
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    _copiedPassword = text;
+    _clipboardClearTimer?.cancel();
+    _clipboardClearTimer = Timer(const Duration(seconds: 45), () async {
+      final current = await Clipboard.getData(Clipboard.kTextPlain);
+      if (current?.text == _copiedPassword) {
+        await Clipboard.setData(const ClipboardData(text: ''));
+      }
+      _copiedPassword = null;
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Password copied. Clipboard clears in 45 seconds.'),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _clipboardClearTimer?.cancel();
+    _serverController.removeListener(_onFieldsChanged);
+    _passController.removeListener(_onFieldsChanged);
+    _passwordFocus.removeListener(_onPasswordFocusChanged);
     _serverController.dispose();
     _passController.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -187,83 +502,128 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Form(
             key: _formKey,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextFormField(
                   controller: _serverController,
                   decoration: const InputDecoration(
-                    labelText: 'Server',
+                    labelText: 'Server address',
                     hintText: '192.168.0.3:9600 or example.ngrok-free.app',
                   ),
                   validator: (v) => v!.isEmpty ? 'Required' : null,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passController,
-                  decoration: InputDecoration(
-                    labelText: 'Password (scan the QR code from the client)',
-                    suffixIcon: platformCapabilities.supportsQrScanner
-                        ? IconButton(
-                            onPressed: _isLoading
+                if (_showPasswordField) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passController,
+                    focusNode: _passwordFocus,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => setState(
+                              () => _passwordVisible = !_passwordVisible,
+                            ),
+                            icon: Icon(
+                              _passwordVisible
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            tooltip: _passwordVisible
+                                ? 'Hide password'
+                                : 'Show password',
+                          ),
+                          IconButton(
+                            onPressed: _passController.text.isEmpty
                                 ? null
-                                : () async {
-                                    final messenger = ScaffoldMessenger.of(
-                                      context,
-                                    );
-                                    try {
-                                      final scanned = await Navigator.of(
-                                        context,
-                                      ).push<String>(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const QrScanScreen(),
-                                        ),
-                                      );
-                                      if (!mounted) return;
-                                      if (scanned == null) return;
-                                      setState(
-                                        () => _passController.text = scanned,
-                                      );
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text('Scan failed: $e'),
-                                        ),
-                                      );
-                                    }
-                                  },
-                            icon: const Icon(Icons.qr_code_scanner),
-                            tooltip: 'Scan QR code',
-                          )
-                        : null,
+                                : _copyPassword,
+                            icon: const Icon(Icons.copy),
+                            tooltip: 'Copy password',
+                          ),
+                          if (platformCapabilities.supportsQrScanner)
+                            IconButton(
+                              onPressed: _isLoading ? null : _scanPassword,
+                              icon: const Icon(Icons.qr_code_scanner),
+                              tooltip: 'Scan QR code',
+                            ),
+                        ],
+                      ),
+                      suffixIconConstraints: const BoxConstraints(
+                        minWidth: 0,
+                        minHeight: 0,
+                      ),
+                    ),
+                    obscureText: !_passwordVisible,
                   ),
-                  obscureText: true,
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
+                  if (!_hasPassword) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => setState(() => _mode = LoginAuthMode.pair),
+                        child: const Text(
+                          'Pair instead (same Wi-Fi or Tailscale)',
+                        ),
+                      ),
+                    ),
+                  ],
+                ] else if (!_hasPassword) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () =>
+                                setState(() => _mode = LoginAuthMode.password),
+                      child: const Text('Use password or scan QR'),
+                    ),
+                  ),
+                ],
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _rememberCredentials,
+                  onChanged: _isLoading
+                      ? null
+                      : (value) {
+                          setState(() => _rememberCredentials = value ?? true);
+                        },
+                  title: const Text('Remember password on this phone'),
+                  controlAffinity: ListTileControlAffinity.leading,
                 ),
-                const SizedBox(height: 32),
+                if (_pairingCode != null) ...[
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'On the computer, Allow this phone',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Or run /monkey accept ${_pairingCode!.displayCode}',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
                 if (platformCapabilities.isAndroid)
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? _cancelConnect : _connect,
-                          child: _isLoading
-                              ? const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Text('Cancel'),
-                                  ],
-                                )
-                              : const Text('Connect'),
+                        child: _connectButton(
+                          expanded: false,
+                          onPressed: _isLoading ? _cancelConnect : () => _connect(),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -278,46 +638,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   )
-                else if (isPortrait)
-                  ElevatedButton(
-                    onPressed: _isLoading ? _cancelConnect : _connect,
-                    child: _isLoading
-                        ? const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Text('Cancel'),
-                            ],
-                          )
-                        : const Text('Connect'),
-                  )
                 else
-                  ElevatedButton(
-                    onPressed: _isLoading ? _cancelConnect : _connect,
-                    child: _isLoading
-                        ? const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Text('Cancel'),
-                            ],
-                          )
-                        : const Text('Connect'),
+                  _connectButton(
+                    expanded: isPortrait,
+                    onPressed: _isLoading ? _cancelConnect : () => _connect(),
                   ),
+                if (platformCapabilities.isIOS) ...[
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: _isLoading ? null : _connectEmbeddedTailscale,
+                    child: const Text('Connect with Tailscale'),
+                  ),
+                ],
               ],
             ),
           ),

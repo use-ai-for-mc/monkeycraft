@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:monkeycraft_client/stream/pointer_kind.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
+import 'package:monkeycraft_client/stream/widgets/look_pad.dart';
 
 enum ClickMode { left, right, hover }
 
@@ -9,6 +11,7 @@ class ScreenTouchHandler extends StatelessWidget {
   final ClickMode clickMode;
   final bool shiftActive;
   final Rect videoDisplayRect;
+  final PointerKindSender? onPointerKind;
 
   const ScreenTouchHandler({
     super.key,
@@ -16,10 +19,11 @@ class ScreenTouchHandler extends StatelessWidget {
     required this.clickMode,
     required this.shiftActive,
     required this.videoDisplayRect,
+    this.onPointerKind,
   });
 
-  void _handlePosition(Offset globalPos) {
-    if (videoDisplayRect == Rect.zero) return;
+  ({double x, double y})? _norm(Offset globalPos) {
+    if (videoDisplayRect == Rect.zero) return null;
 
     final localX = globalPos.dx - videoDisplayRect.left;
     final localY = globalPos.dy - videoDisplayRect.top;
@@ -28,28 +32,65 @@ class ScreenTouchHandler extends StatelessWidget {
         localX > videoDisplayRect.width ||
         localY < 0 ||
         localY > videoDisplayRect.height) {
+      return null;
+    }
+
+    return (
+      x: (localX / videoDisplayRect.width).clamp(0.0, 1.0),
+      y: (localY / videoDisplayRect.height).clamp(0.0, 1.0),
+    );
+  }
+
+  void _hover(Offset globalPos) {
+    final n = _norm(globalPos);
+    if (n == null) return;
+    proxy.sendScreenHover(n.x, n.y);
+  }
+
+  void _click(Offset globalPos, int button, {required bool haptic}) {
+    final n = _norm(globalPos);
+    if (n == null) return;
+    proxy.sendScreenClick(button, n.x, n.y);
+    if (haptic) HapticFeedback.lightImpact();
+  }
+
+  void _touchDown(Offset globalPos) {
+    if (clickMode == ClickMode.hover) {
+      _hover(globalPos);
       return;
     }
-
-    final normX = (localX / videoDisplayRect.width).clamp(0.0, 1.0);
-    final normY = (localY / videoDisplayRect.height).clamp(0.0, 1.0);
-
-    if (clickMode == ClickMode.hover) {
-      proxy.sendScreenHover(normX, normY);
-    } else {
-      proxy.sendScreenClick(clickMode == ClickMode.left ? 0 : 1, normX, normY);
-    }
-    HapticFeedback.lightImpact();
+    _click(globalPos, clickMode == ClickMode.left ? 0 : 1, haptic: true);
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.translucent,
-      onTapDown: (details) => _handlePosition(details.globalPosition),
-      onPanUpdate: (details) {
+      onPointerDown: (event) {
+        onPointerKind?.call(event.kind, true);
+        if (isMouseLike(event.kind)) {
+          final button = mouseButtonIndex(event.buttons) ?? 0;
+          _click(event.position, button, haptic: false);
+          return;
+        }
+        _touchDown(event.position);
+      },
+      onPointerUp: (event) {
+        onPointerKind?.call(event.kind, false);
+      },
+      onPointerCancel: (event) {
+        onPointerKind?.call(event.kind, false);
+      },
+      onPointerHover: (event) {
+        if (isMouseLike(event.kind)) _hover(event.position);
+      },
+      onPointerMove: (event) {
+        if (isMouseLike(event.kind)) {
+          _hover(event.position);
+          return;
+        }
         if (clickMode == ClickMode.hover) {
-          _handlePosition(details.globalPosition);
+          _hover(event.position);
         }
       },
       child: const SizedBox.expand(),

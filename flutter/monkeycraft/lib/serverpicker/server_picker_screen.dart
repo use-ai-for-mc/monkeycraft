@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:monkeycraft_client/shared/protocol_models.dart';
+import 'package:monkeycraft_client/stream/connection_endpoint.dart';
 import 'package:monkeycraft_client/stream/screens/stream_screen.dart';
 import 'package:monkeycraft_client/stream/stream_proxy.dart';
 
@@ -12,12 +13,14 @@ class ServerPickerScreen extends StatefulWidget {
   final StreamProxy proxy;
   final String server;
   final String password;
+  final ConnectionEndpoint? endpoint;
 
   const ServerPickerScreen({
     super.key,
     required this.proxy,
     required this.server,
     required this.password,
+    this.endpoint,
   });
 
   @override
@@ -124,6 +127,7 @@ class _ServerPickerScreenState extends State<ServerPickerScreen> {
           proxy: widget.proxy,
           server: widget.server,
           password: widget.password,
+          endpoint: widget.endpoint,
         ),
       ),
     );
