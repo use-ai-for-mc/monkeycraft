@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b0b0f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/Icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>MonkeyCraft</title>
+    <script>
+      // The previous Flutter build registered flutter_service_worker.js on this
+      // origin. Unregister anything that is still controlling the page and drop
+      // its caches, otherwise stale assets keep being served after a jar update.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const reg of regs) reg.unregister();
+        });
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            for (const key of keys) caches.delete(key);
+          });
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

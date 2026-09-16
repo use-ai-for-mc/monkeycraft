@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-09-16T12:48:57.012Z",
+  "seconds": 20,
+  "clientStatus": {
+    "type": "CLIENT_STATUS",
+    "mode": "STREAMING",
+    "width": 360,
+    "height": 640,
+    "colorMode": 0,
+    "fps": 10,
+    "dataSaver": true,
+    "autoFaceMovement": false
+  },
+  "capabilities": [
+    "PLAYER_LIST",
+    "DATA_SAVER",
+    "PAIRING",
+    "KEY_ID"
+  ],
+  "counts": {
+    "text": 81,
+    "video": 159,
+    "idr": 4,
+    "headers": 1,
+    "map": 0,
+    "out": 185
+  },
+  "binaryBytes": 2445670
+}

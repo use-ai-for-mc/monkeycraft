@@ -145,3 +145,42 @@ jobs:
         run: flutter test
       - name: build web
         run: flutter build web --release --base-href /monkeycraft/
+
+  web:
+    name: Web client
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - name: setup node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: lint
+        run: pnpm lint
+      - name: typecheck
+        run: pnpm typecheck
+      - name: unit tests
+        run: pnpm test
+      - name: build
+        run: pnpm build
+      - name: install playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: browser tests
+        run: pnpm test:browser
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist/

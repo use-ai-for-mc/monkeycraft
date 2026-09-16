@@ -1,0 +1,425 @@
+{"t":42,"dir":"in","text":"{\"type\":\"HELLO\",\"salt\":\"RWb6vEEHtxLt9JNESbN+bA\\u003d\\u003d\",\"pairing\":true,\"keyId\":\"1jKl6SV7Dk7zx-ID\"}"}
+{"t":45,"dir":"out","text":"{\"type\":\"AUTH\",\"salt\":\"pSmZz4PNSJrbkIDx1e0h6Q==\",\"signature\":\"qZNpsricHT3fRDc6gqnHrlQcvgbGRuGFvBB2a6WquZ8=\",\"protocolVersion\":2,\"deviceName\":\"web-recorder\"}"}
+{"t":46,"dir":"in","text":"{\"type\":\"AUTH_OK\",\"signature\":\"fwLXPGKsdd4vi8v9pFAJJfiCBsFWkqrO4ef9cNXBLug\\u003d\",\"protocolVersion\":2,\"capabilities\":[\"PLAYER_LIST\",\"DATA_SAVER\",\"PAIRING\",\"KEY_ID\"]}"}
+{"t":46,"dir":"in","text":"{\"type\":\"HIBERNATION_STATUS\",\"active\":true,\"message\":\"Riding Disneyland Railroad (95%)\\n48s left\"}"}
+{"t":47,"dir":"in","text":"{\"type\":\"TIMED_STATUS\",\"fireAtEpochMs\":1789562915960,\"title\":\"Ride finished\",\"body\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"sound\":true,\"countDownText\":\"Disneyland Railroad\"}"}
+{"t":47,"dir":"in","text":"{\"type\":\"SCREEN_STATE\",\"isOpen\":false}"}
+{"t":47,"dir":"out","text":"{\"type\":\"CLIENT_STATUS\",\"mode\":\"STREAMING\",\"width\":360,\"height\":640,\"colorMode\":0,\"fps\":10,\"dataSaver\":true,\"autoFaceMovement\":false}"}
+{"t":48,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n48s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":54,"dir":"in","text":"{\"type\":\"WORLD_STATE\",\"phase\":\"IN_WORLD\",\"serverName\":\"ImagineFun!\",\"serverAddress\":\"mp.imaginefun.net\",\"singleplayer\":false}"}
+{"t":89,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n47s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":1068,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n46s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":2048,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":2049,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n46s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":2063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n45s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":3060,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n44s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":4049,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":4050,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n44s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":4061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n43s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":5060,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n42s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":6051,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":6052,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n42s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":6067,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (95%)\\n41s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":7066,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n40s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":8053,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":8054,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n40s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":8061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n39s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":9063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n38s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":10054,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":10055,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n38s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":10071,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n37s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":11067,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n36s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":12055,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":12056,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n36s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":12071,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n35s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":13068,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n34s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":14057,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":14058,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n34s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":14061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n33s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":15064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n32s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":16059,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":16060,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n32s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":16063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (96%)\\n31s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":17060,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n30s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":18060,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":18061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n29s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":18061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n29s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":19067,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n28s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":20061,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":20062,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n28s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":20064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n27s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":21061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n26s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":22062,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":22063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n26s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":22066,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n25s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":23064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n24s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":24064,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":24064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n23s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":24064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n23s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":25065,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n22s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":26065,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":26066,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n22s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":26068,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (97%)\\n21s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":27065,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n20s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":28064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n19s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":28065,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":28066,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n19s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":29068,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n18s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":30067,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":30068,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n18s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":30078,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n17s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":31066,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n16s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":32063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n15s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":32069,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":32069,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n15s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":33065,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n14s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":34066,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n13s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":34069,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":34070,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n13s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":35061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n12s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":36069,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n11s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":36070,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":36070,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (98%)\\n11s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":37064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n10s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":38071,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":38072,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n9s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":38072,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n9s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":39063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n8s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":40063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n7s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":40073,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":40073,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n7s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":41069,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n6s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":42071,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n5s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":42074,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":42074,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n5s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":43061,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n4s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":44068,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n3s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":44074,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":44075,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n3s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":45064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n2s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":46063,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n1s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":46075,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":46076,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (99%)\\n1s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":47065,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"HIBERNATING\",\"message\":\"Riding Disneyland Railroad (100%)\\n0s left\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":48070,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"ACTIVE\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":48077,"dir":"out","text":"{\"type\":\"PING\"}"}
+{"t":48077,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"ACTIVE\",\"timedFireAtEpochMs\":1789562915960,\"timedTitle\":\"Ride finished\",\"timedBody\":\"Disneyland Railroad has finished (needs 66 more rides)\",\"timedSound\":true,\"timedCountDownText\":\"Disneyland Railroad\"}"}
+{"t":48224,"dir":"in","bin":{"offset":0,"length":41942,"kind":"video","idr":true,"header":[360,640]}}
+{"t":48228,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":48293,"dir":"in","bin":{"offset":41942,"length":17202,"kind":"video","idr":false}}
+{"t":48293,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":48371,"dir":"in","bin":{"offset":59144,"length":60166,"kind":"video","idr":false}}
+{"t":48371,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":48595,"dir":"in","bin":{"offset":119310,"length":55025,"kind":"video","idr":false}}
+{"t":48596,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":48653,"dir":"in","bin":{"offset":174335,"length":40647,"kind":"video","idr":false}}
+{"t":48653,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":48794,"dir":"in","bin":{"offset":214982,"length":27431,"kind":"video","idr":false}}
+{"t":48794,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":48943,"dir":"in","bin":{"offset":242413,"length":37324,"kind":"video","idr":false}}
+{"t":48943,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49047,"dir":"in","bin":{"offset":279737,"length":27639,"kind":"video","idr":false}}
+{"t":49047,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49192,"dir":"in","bin":{"offset":307376,"length":7052,"kind":"video","idr":false}}
+{"t":49192,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49348,"dir":"in","bin":{"offset":314428,"length":6271,"kind":"video","idr":false}}
+{"t":49348,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49485,"dir":"in","bin":{"offset":320699,"length":6632,"kind":"video","idr":false}}
+{"t":49485,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49644,"dir":"in","bin":{"offset":327331,"length":6762,"kind":"video","idr":false}}
+{"t":49644,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49791,"dir":"in","bin":{"offset":334093,"length":6625,"kind":"video","idr":false}}
+{"t":49791,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":49894,"dir":"in","bin":{"offset":340718,"length":6522,"kind":"video","idr":false}}
+{"t":49895,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50035,"dir":"in","bin":{"offset":347240,"length":6096,"kind":"video","idr":false}}
+{"t":50036,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50136,"dir":"in","bin":{"offset":353336,"length":6595,"kind":"video","idr":false}}
+{"t":50136,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50295,"dir":"in","bin":{"offset":359931,"length":6767,"kind":"video","idr":false}}
+{"t":50295,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50441,"dir":"in","bin":{"offset":366698,"length":6580,"kind":"video","idr":false}}
+{"t":50442,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50589,"dir":"in","bin":{"offset":373278,"length":6543,"kind":"video","idr":false}}
+{"t":50589,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50692,"dir":"in","bin":{"offset":379821,"length":6393,"kind":"video","idr":false}}
+{"t":50692,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50793,"dir":"in","bin":{"offset":386214,"length":6284,"kind":"video","idr":false}}
+{"t":50793,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":50945,"dir":"in","bin":{"offset":392498,"length":6554,"kind":"video","idr":false}}
+{"t":50945,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51064,"dir":"in","text":"{\"type\":\"SERVER_STATUS\",\"videoState\":\"ACTIVE\"}"}
+{"t":51091,"dir":"in","bin":{"offset":399052,"length":5510,"kind":"video","idr":false}}
+{"t":51091,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51195,"dir":"in","bin":{"offset":404562,"length":6140,"kind":"video","idr":false}}
+{"t":51195,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51348,"dir":"in","bin":{"offset":410702,"length":6222,"kind":"video","idr":false}}
+{"t":51348,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51490,"dir":"in","bin":{"offset":416924,"length":6081,"kind":"video","idr":false}}
+{"t":51491,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51594,"dir":"in","bin":{"offset":423005,"length":6099,"kind":"video","idr":false}}
+{"t":51594,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51692,"dir":"in","bin":{"offset":429104,"length":6001,"kind":"video","idr":false}}
+{"t":51693,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51794,"dir":"in","bin":{"offset":435105,"length":5441,"kind":"video","idr":false}}
+{"t":51794,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":51939,"dir":"in","bin":{"offset":440546,"length":6155,"kind":"video","idr":false}}
+{"t":51939,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52041,"dir":"in","bin":{"offset":446701,"length":5876,"kind":"video","idr":false}}
+{"t":52041,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52142,"dir":"in","bin":{"offset":452577,"length":5801,"kind":"video","idr":false}}
+{"t":52142,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52292,"dir":"in","bin":{"offset":458378,"length":5989,"kind":"video","idr":false}}
+{"t":52293,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52446,"dir":"in","bin":{"offset":464367,"length":50481,"kind":"video","idr":false}}
+{"t":52447,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52586,"dir":"in","bin":{"offset":514848,"length":38943,"kind":"video","idr":false}}
+{"t":52586,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52693,"dir":"in","bin":{"offset":553791,"length":28569,"kind":"video","idr":false}}
+{"t":52694,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52797,"dir":"in","bin":{"offset":582360,"length":21250,"kind":"video","idr":false}}
+{"t":52798,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":52934,"dir":"in","bin":{"offset":603610,"length":18035,"kind":"video","idr":false}}
+{"t":52934,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53035,"dir":"in","bin":{"offset":621645,"length":12976,"kind":"video","idr":false}}
+{"t":53035,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53134,"dir":"in","bin":{"offset":634621,"length":8927,"kind":"video","idr":false}}
+{"t":53135,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53243,"dir":"in","bin":{"offset":643548,"length":55671,"kind":"video","idr":true}}
+{"t":53245,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53385,"dir":"in","bin":{"offset":699219,"length":8973,"kind":"video","idr":false}}
+{"t":53385,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53488,"dir":"in","bin":{"offset":708192,"length":5940,"kind":"video","idr":false}}
+{"t":53489,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53635,"dir":"in","bin":{"offset":714132,"length":5542,"kind":"video","idr":false}}
+{"t":53636,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53783,"dir":"in","bin":{"offset":719674,"length":5474,"kind":"video","idr":false}}
+{"t":53783,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":53887,"dir":"in","bin":{"offset":725148,"length":4923,"kind":"video","idr":false}}
+{"t":53888,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54033,"dir":"in","bin":{"offset":730071,"length":5292,"kind":"video","idr":false}}
+{"t":54034,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54141,"dir":"in","bin":{"offset":735363,"length":5116,"kind":"video","idr":false}}
+{"t":54142,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54281,"dir":"in","bin":{"offset":740479,"length":5096,"kind":"video","idr":false}}
+{"t":54281,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54385,"dir":"in","bin":{"offset":745575,"length":5152,"kind":"video","idr":false}}
+{"t":54385,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54534,"dir":"in","bin":{"offset":750727,"length":8209,"kind":"video","idr":false}}
+{"t":54534,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54682,"dir":"in","bin":{"offset":758936,"length":5389,"kind":"video","idr":false}}
+{"t":54682,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54786,"dir":"in","bin":{"offset":764325,"length":5467,"kind":"video","idr":false}}
+{"t":54786,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":54939,"dir":"in","bin":{"offset":769792,"length":78416,"kind":"video","idr":false}}
+{"t":54941,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55036,"dir":"in","bin":{"offset":848208,"length":10459,"kind":"video","idr":false}}
+{"t":55037,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55140,"dir":"in","bin":{"offset":858667,"length":18842,"kind":"video","idr":false}}
+{"t":55140,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55243,"dir":"in","bin":{"offset":877509,"length":59249,"kind":"video","idr":false}}
+{"t":55244,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55342,"dir":"in","bin":{"offset":936758,"length":55866,"kind":"video","idr":false}}
+{"t":55342,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55450,"dir":"in","bin":{"offset":992624,"length":49191,"kind":"video","idr":false}}
+{"t":55451,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55588,"dir":"in","bin":{"offset":1041815,"length":45771,"kind":"video","idr":false}}
+{"t":55589,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55738,"dir":"in","bin":{"offset":1087586,"length":29824,"kind":"video","idr":false}}
+{"t":55738,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55837,"dir":"in","bin":{"offset":1117410,"length":17542,"kind":"video","idr":false}}
+{"t":55837,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":55939,"dir":"in","bin":{"offset":1134952,"length":7675,"kind":"video","idr":false}}
+{"t":55939,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56087,"dir":"in","bin":{"offset":1142627,"length":10116,"kind":"video","idr":false}}
+{"t":56087,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56196,"dir":"in","bin":{"offset":1152743,"length":14895,"kind":"video","idr":false}}
+{"t":56197,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56337,"dir":"in","bin":{"offset":1167638,"length":28996,"kind":"video","idr":false}}
+{"t":56338,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56440,"dir":"in","bin":{"offset":1196634,"length":32495,"kind":"video","idr":false}}
+{"t":56441,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56548,"dir":"in","bin":{"offset":1229129,"length":43043,"kind":"video","idr":false}}
+{"t":56549,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56689,"dir":"in","bin":{"offset":1272172,"length":59530,"kind":"video","idr":false}}
+{"t":56690,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56855,"dir":"in","bin":{"offset":1331702,"length":42251,"kind":"video","idr":false}}
+{"t":56855,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":56987,"dir":"in","bin":{"offset":1373953,"length":43099,"kind":"video","idr":false}}
+{"t":56988,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57150,"dir":"in","bin":{"offset":1417052,"length":34563,"kind":"video","idr":false}}
+{"t":57151,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57270,"dir":"in","bin":{"offset":1451615,"length":25544,"kind":"video","idr":false}}
+{"t":57271,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57399,"dir":"in","bin":{"offset":1477159,"length":28330,"kind":"video","idr":false}}
+{"t":57399,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57535,"dir":"in","bin":{"offset":1505489,"length":31986,"kind":"video","idr":false}}
+{"t":57535,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57648,"dir":"in","bin":{"offset":1537475,"length":28225,"kind":"video","idr":false}}
+{"t":57648,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57749,"dir":"in","bin":{"offset":1565700,"length":33114,"kind":"video","idr":false}}
+{"t":57750,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57886,"dir":"in","bin":{"offset":1598814,"length":57617,"kind":"video","idr":false}}
+{"t":57887,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":57985,"dir":"in","bin":{"offset":1656431,"length":12036,"kind":"video","idr":false}}
+{"t":57985,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58095,"dir":"in","bin":{"offset":1668467,"length":12155,"kind":"video","idr":false}}
+{"t":58096,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58238,"dir":"in","bin":{"offset":1680622,"length":14040,"kind":"video","idr":true}}
+{"t":58239,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58395,"dir":"in","bin":{"offset":1694662,"length":43798,"kind":"video","idr":false}}
+{"t":58395,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58487,"dir":"in","bin":{"offset":1738460,"length":23304,"kind":"video","idr":false}}
+{"t":58488,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58649,"dir":"in","bin":{"offset":1761764,"length":25884,"kind":"video","idr":false}}
+{"t":58649,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58754,"dir":"in","bin":{"offset":1787648,"length":54467,"kind":"video","idr":false}}
+{"t":58755,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58889,"dir":"in","bin":{"offset":1842115,"length":69018,"kind":"video","idr":false}}
+{"t":58890,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":58996,"dir":"in","bin":{"offset":1911133,"length":7572,"kind":"video","idr":false}}
+{"t":58996,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59156,"dir":"in","bin":{"offset":1918705,"length":7644,"kind":"video","idr":false}}
+{"t":59156,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59300,"dir":"in","bin":{"offset":1926349,"length":7644,"kind":"video","idr":false}}
+{"t":59301,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59435,"dir":"in","bin":{"offset":1933993,"length":7576,"kind":"video","idr":false}}
+{"t":59435,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59591,"dir":"in","bin":{"offset":1941569,"length":7221,"kind":"video","idr":false}}
+{"t":59592,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59692,"dir":"in","bin":{"offset":1948790,"length":7198,"kind":"video","idr":false}}
+{"t":59695,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59833,"dir":"in","bin":{"offset":1955988,"length":7098,"kind":"video","idr":false}}
+{"t":59833,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":59935,"dir":"in","bin":{"offset":1963086,"length":6965,"kind":"video","idr":false}}
+{"t":59936,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60038,"dir":"in","bin":{"offset":1970051,"length":6891,"kind":"video","idr":false}}
+{"t":60038,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60191,"dir":"in","bin":{"offset":1976942,"length":6961,"kind":"video","idr":false}}
+{"t":60191,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60335,"dir":"in","bin":{"offset":1983903,"length":7243,"kind":"video","idr":false}}
+{"t":60335,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60484,"dir":"in","bin":{"offset":1991146,"length":6863,"kind":"video","idr":false}}
+{"t":60484,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60597,"dir":"in","bin":{"offset":1998009,"length":6731,"kind":"video","idr":false}}
+{"t":60597,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60734,"dir":"in","bin":{"offset":2004740,"length":7350,"kind":"video","idr":false}}
+{"t":60734,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60840,"dir":"in","bin":{"offset":2012090,"length":6423,"kind":"video","idr":false}}
+{"t":60840,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":60990,"dir":"in","bin":{"offset":2018513,"length":7101,"kind":"video","idr":false}}
+{"t":60990,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61137,"dir":"in","bin":{"offset":2025614,"length":7459,"kind":"video","idr":false}}
+{"t":61138,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61284,"dir":"in","bin":{"offset":2033073,"length":7192,"kind":"video","idr":false}}
+{"t":61284,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61391,"dir":"in","bin":{"offset":2040265,"length":7075,"kind":"video","idr":false}}
+{"t":61392,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61491,"dir":"in","bin":{"offset":2047340,"length":7025,"kind":"video","idr":false}}
+{"t":61491,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61632,"dir":"in","bin":{"offset":2054365,"length":7473,"kind":"video","idr":false}}
+{"t":61632,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61734,"dir":"in","bin":{"offset":2061838,"length":6894,"kind":"video","idr":false}}
+{"t":61734,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61842,"dir":"in","bin":{"offset":2068732,"length":6789,"kind":"video","idr":false}}
+{"t":61842,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":61999,"dir":"in","bin":{"offset":2075521,"length":6980,"kind":"video","idr":false}}
+{"t":62000,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62143,"dir":"in","bin":{"offset":2082501,"length":7407,"kind":"video","idr":false}}
+{"t":62143,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62236,"dir":"in","bin":{"offset":2089908,"length":6501,"kind":"video","idr":false}}
+{"t":62237,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62383,"dir":"in","bin":{"offset":2096409,"length":7049,"kind":"video","idr":false}}
+{"t":62384,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62497,"dir":"in","bin":{"offset":2103458,"length":6779,"kind":"video","idr":false}}
+{"t":62497,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62588,"dir":"in","bin":{"offset":2110237,"length":6702,"kind":"video","idr":false}}
+{"t":62588,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62738,"dir":"in","bin":{"offset":2116939,"length":7088,"kind":"video","idr":false}}
+{"t":62738,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62839,"dir":"in","bin":{"offset":2124027,"length":6773,"kind":"video","idr":false}}
+{"t":62839,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":62989,"dir":"in","bin":{"offset":2130800,"length":6845,"kind":"video","idr":false}}
+{"t":62990,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63146,"dir":"in","bin":{"offset":2137645,"length":7657,"kind":"video","idr":false}}
+{"t":63147,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63283,"dir":"in","bin":{"offset":2145302,"length":6982,"kind":"video","idr":false}}
+{"t":63283,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63390,"dir":"in","bin":{"offset":2152284,"length":10817,"kind":"video","idr":true}}
+{"t":63391,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63493,"dir":"in","bin":{"offset":2163101,"length":8560,"kind":"video","idr":false}}
+{"t":63494,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63613,"dir":"in","bin":{"offset":2171661,"length":8022,"kind":"video","idr":false}}
+{"t":63613,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63738,"dir":"in","bin":{"offset":2179683,"length":10820,"kind":"video","idr":false}}
+{"t":63738,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63838,"dir":"in","bin":{"offset":2190503,"length":9896,"kind":"video","idr":false}}
+{"t":63838,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":63984,"dir":"in","bin":{"offset":2200399,"length":9576,"kind":"video","idr":false}}
+{"t":63984,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64088,"dir":"in","bin":{"offset":2209975,"length":9182,"kind":"video","idr":false}}
+{"t":64088,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64235,"dir":"in","bin":{"offset":2219157,"length":8105,"kind":"video","idr":false}}
+{"t":64236,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64343,"dir":"in","bin":{"offset":2227262,"length":6342,"kind":"video","idr":false}}
+{"t":64343,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64490,"dir":"in","bin":{"offset":2233604,"length":6930,"kind":"video","idr":false}}
+{"t":64490,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64587,"dir":"in","bin":{"offset":2240534,"length":7298,"kind":"video","idr":false}}
+{"t":64587,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64697,"dir":"in","bin":{"offset":2247832,"length":7073,"kind":"video","idr":false}}
+{"t":64697,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64836,"dir":"in","bin":{"offset":2254905,"length":7893,"kind":"video","idr":false}}
+{"t":64836,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":64934,"dir":"in","bin":{"offset":2262798,"length":7158,"kind":"video","idr":false}}
+{"t":64934,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65038,"dir":"in","bin":{"offset":2269956,"length":7088,"kind":"video","idr":false}}
+{"t":65038,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65188,"dir":"in","bin":{"offset":2277044,"length":7763,"kind":"video","idr":false}}
+{"t":65189,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65287,"dir":"in","bin":{"offset":2284807,"length":7098,"kind":"video","idr":false}}
+{"t":65287,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65448,"dir":"in","bin":{"offset":2291905,"length":7362,"kind":"video","idr":false}}
+{"t":65449,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65583,"dir":"in","bin":{"offset":2299267,"length":7637,"kind":"video","idr":false}}
+{"t":65583,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65702,"dir":"in","bin":{"offset":2306904,"length":7415,"kind":"video","idr":false}}
+{"t":65703,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65841,"dir":"in","bin":{"offset":2314319,"length":7391,"kind":"video","idr":false}}
+{"t":65842,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":65986,"dir":"in","bin":{"offset":2321710,"length":7305,"kind":"video","idr":false}}
+{"t":65986,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66103,"dir":"in","bin":{"offset":2329015,"length":6963,"kind":"video","idr":false}}
+{"t":66105,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66246,"dir":"in","bin":{"offset":2335978,"length":7614,"kind":"video","idr":false}}
+{"t":66246,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66337,"dir":"in","bin":{"offset":2343592,"length":7090,"kind":"video","idr":false}}
+{"t":66338,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66433,"dir":"in","bin":{"offset":2350682,"length":6464,"kind":"video","idr":false}}
+{"t":66433,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66533,"dir":"in","bin":{"offset":2357146,"length":6673,"kind":"video","idr":false}}
+{"t":66534,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66641,"dir":"in","bin":{"offset":2363819,"length":6607,"kind":"video","idr":false}}
+{"t":66642,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66788,"dir":"in","bin":{"offset":2370426,"length":6517,"kind":"video","idr":false}}
+{"t":66788,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":66942,"dir":"in","bin":{"offset":2376943,"length":6748,"kind":"video","idr":false}}
+{"t":66942,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67038,"dir":"in","bin":{"offset":2383691,"length":6640,"kind":"video","idr":false}}
+{"t":67038,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67187,"dir":"in","bin":{"offset":2390331,"length":6951,"kind":"video","idr":false}}
+{"t":67187,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67334,"dir":"in","bin":{"offset":2397282,"length":7272,"kind":"video","idr":false}}
+{"t":67334,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67483,"dir":"in","bin":{"offset":2404554,"length":7051,"kind":"video","idr":false}}
+{"t":67483,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67592,"dir":"in","bin":{"offset":2411605,"length":6681,"kind":"video","idr":false}}
+{"t":67592,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67685,"dir":"in","bin":{"offset":2418286,"length":7000,"kind":"video","idr":false}}
+{"t":67686,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67831,"dir":"in","bin":{"offset":2425286,"length":7104,"kind":"video","idr":false}}
+{"t":67832,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":67936,"dir":"in","bin":{"offset":2432390,"length":6755,"kind":"video","idr":false}}
+{"t":67936,"dir":"out","text":"{\"type\":\"ACK\"}"}
+{"t":68036,"dir":"in","bin":{"offset":2439145,"length":6525,"kind":"video","idr":false}}
+{"t":68036,"dir":"out","text":"{\"type\":\"ACK\"}"}
