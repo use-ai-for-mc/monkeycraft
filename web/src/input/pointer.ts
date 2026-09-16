@@ -23,6 +23,9 @@ export interface PointerHost {
   onHotbarStep?: (delta: number) => void;
   /** Whether to use Pointer Lock for mouse look (desktop). */
   usePointerLock?: () => boolean;
+  /** MAP mode: taps pick entities instead of looking/clicking. */
+  mapMode?: () => boolean;
+  onMapTap?: (nx: number, ny: number) => void;
 }
 
 const DRAG_THRESHOLD_PX = 8;
@@ -130,6 +133,16 @@ export class PointerController {
       return;
     }
 
+    if (this.host.mapMode?.()) {
+      const r = this.host.rect();
+      if (r.width > 0 && r.height > 0) {
+        const nx = (x - r.x) / r.width;
+        const ny = (y - r.y) / r.height;
+        if (nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1) this.host.onMapTap?.(nx, ny);
+      }
+      return;
+    }
+
     if (kind === "mouse") {
       if (this.host.usePointerLock?.() !== false && !this.locked) {
         this.host.element.requestPointerLock?.();
@@ -172,6 +185,7 @@ export class PointerController {
 
   private onMove(e: PointerEvent): void {
     const { x, y } = this.local(e);
+    if (this.host.mapMode?.()) return;
     if (this.host.screenOpen()) {
       if (e.pointerType !== "touch") {
         const msg = this.host.screenMode.mouseMove(this.host.rect(), x, y);

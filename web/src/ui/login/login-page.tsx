@@ -8,6 +8,7 @@ import {
 import { ConnectionError } from "../../transport/connection.ts";
 import { webOriginServer } from "../../transport/endpoint.ts";
 import type { AppContext } from "../app.tsx";
+import { QrScan } from "./qr-scan.tsx";
 
 interface Props {
   ctx: AppContext;
@@ -46,13 +47,44 @@ export function LoginPage({ ctx, notice, onConnected }: Props) {
   const busy = useSignal(false);
   const error = useSignal<string | null>(null);
   const pairingCode = useSignal<string | null>(null);
+  const pairingLeft = useSignal<number | null>(null);
+  const scanning = useSignal(false);
 
   useEffect(() => {
-    return ctx.controller.onEvent((ev) => {
-      if (ev.kind === "pairing") pairingCode.value = `${ev.code.slice(0, 4)}-${ev.code.slice(4)}`;
+    let expiresAt = 0;
+    const tick = setInterval(() => {
+      if (pairingCode.value && expiresAt > 0) {
+        pairingLeft.value = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+      }
+    }, 1000);
+    const off = ctx.controller.onEvent((ev) => {
+      if (ev.kind === "pairing") {
+        pairingCode.value = `${ev.code.slice(0, 4)}-${ev.code.slice(4)}`;
+        expiresAt = Date.now() + ev.ttlMs;
+        pairingLeft.value = Math.round(ev.ttlMs / 1000);
+      }
       if (ev.kind === "authenticated") pairingCode.value = null;
     });
-  }, [ctx]);
+    return () => {
+      clearInterval(tick);
+      off();
+    };
+  }, [ctx, pairingCode, pairingLeft]);
+
+  if (scanning.value) {
+    return (
+      <QrScan
+        onResult={(value) => {
+          password.value = value.trim();
+          mode.value = "password";
+          scanning.value = false;
+        }}
+        onClose={() => {
+          scanning.value = false;
+        }}
+      />
+    );
+  }
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -117,15 +149,29 @@ export function LoginPage({ ctx, notice, onConnected }: Props) {
         {mode.value === "password" && (
           <label>
             Password
-            <input
-              type="password"
-              value={password.value}
-              autocomplete="current-password"
-              onInput={(e) => {
-                password.value = (e.currentTarget as HTMLInputElement).value;
-              }}
-              disabled={busy.value}
-            />
+            <div class="password-row">
+              <input
+                type="password"
+                value={password.value}
+                autocomplete="current-password"
+                onInput={(e) => {
+                  password.value = (e.currentTarget as HTMLInputElement).value;
+                }}
+                disabled={busy.value}
+              />
+              <button
+                type="button"
+                class="icon"
+                title="Scan QR code"
+                aria-label="Scan QR code"
+                onClick={() => {
+                  scanning.value = true;
+                }}
+                disabled={busy.value}
+              >
+                ▣
+              </button>
+            </div>
           </label>
         )}
         <label class="row">
@@ -167,6 +213,12 @@ export function LoginPage({ ctx, notice, onConnected }: Props) {
             <p>
               Or run <code>/monkey accept {pairingCode.value}</code>
             </p>
+            {pairingLeft.value !== null && (
+              <p class="muted">
+                Expires in {Math.floor(pairingLeft.value / 60)}:
+                {String(pairingLeft.value % 60).padStart(2, "0")}
+              </p>
+            )}
           </div>
         )}
         {error.value && <p class="error">{error.value}</p>}

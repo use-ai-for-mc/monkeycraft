@@ -1,5 +1,7 @@
 import { effect, type Signal, signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
+import { ensureNotificationPermission, notifyIfHidden } from "../platform/notifications.ts";
+import { acquireTabLock } from "../platform/tab-lock.ts";
 import { listenVisibility } from "../platform/visibility.ts";
 import { SessionController } from "../session/controller.ts";
 import { loadSettings, type Settings, saveSettings } from "../session/settings.ts";
@@ -44,6 +46,25 @@ const loginNotice = signal<string | null>(null);
 
 export function App({ ctx }: { ctx: AppContext }) {
   useEffect(() => listenVisibility((hidden) => ctx.controller.setHidden(hidden)), [ctx]);
+
+  useEffect(() => {
+    void acquireTabLock().then((r) => {
+      if (r === "busy") loginNotice.value = "MonkeyCraft is already open in another tab.";
+    });
+    // The reducer runs before listeners, so track hibernation transitions here.
+    let wasHibernating = ctx.controller.snapshot.hibernating;
+    return ctx.controller.onEvent((ev) => {
+      if (ev.kind === "authenticated") void ensureNotificationPermission();
+      if (ev.kind === "message" && ev.msg.type === "NUDGE") {
+        notifyIfHidden(ev.msg.title ?? "MonkeyCraft", ev.msg.body);
+      }
+      if (ev.kind === "message" && ev.msg.type === "SERVER_STATUS") {
+        const hibernating = ev.msg.videoState === "HIBERNATING";
+        if (wasHibernating && !hibernating) notifyIfHidden("Ride finished", "Video is back.");
+        wasHibernating = hibernating;
+      }
+    });
+  }, [ctx]);
 
   useEffect(() => {
     return effect(() => {

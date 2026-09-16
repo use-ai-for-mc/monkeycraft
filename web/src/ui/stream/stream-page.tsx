@@ -7,7 +7,9 @@ import { PointerController, type PointerKind } from "../../input/pointer.ts";
 import { type ClickMode, ScreenMode } from "../../input/screen-mode.ts";
 import { isFullscreen, toggleFullscreen } from "../../platform/fullscreen.ts";
 import { WakeLock } from "../../platform/wake-lock.ts";
+import type { MapEntity, MapFrame } from "../../protocol/frames.ts";
 import type { ClientMessage } from "../../protocol/messages.ts";
+import { isRideable, pickEntity } from "../../session/map.ts";
 import { computeStreamSize, type StreamSize, shouldRenegotiate } from "../../session/resolution.ts";
 import { deriveView } from "../../session/session.ts";
 import { type DecoderStats, H264Decoder } from "../../video/decoder.ts";
@@ -39,6 +41,9 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
   const shiftActive = useSignal(false);
   const clickMode = useSignal<ClickMode>("left");
   const fullscreen = useSignal(isFullscreen());
+  const mapFrame = useSignal<MapFrame | null>(null);
+  const ridePick = useSignal<MapEntity | null>(null);
+  const timedLeft = useSignal<string | null>(null);
   const debug = new URLSearchParams(window.location.search).get("debug") === "1";
 
   const controller = ctx.controller;
@@ -103,6 +108,17 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
       },
       onHotbarStep: (delta) => selectSlot(hotbarSlot.value + delta),
       usePointerLock: () => ctx.settings.value.controlLayout !== "touch",
+      mapMode: () => controller.snapshot.mode === "MAP",
+      onMapTap: (nx, ny) => {
+        const frame = mapFrame.value;
+        const size = controller.snapshot.serverSize;
+        if (!frame || !size) return;
+        const hit = pickEntity(frame, nx, ny, size.width / size.height);
+        if (hit && isRideable(hit)) ridePick.value = hit;
+      },
+    });
+    const offMap = controller.onEvent((ev) => {
+      if (ev.kind === "map") mapFrame.value = ev.frame;
     });
     pointer.attach();
     pointerRef.current = pointer;
@@ -148,6 +164,7 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
       offVideo();
       offSettings();
       offLook();
+      offMap();
       observer.disconnect();
       if (timer !== null) clearTimeout(timer);
       clearInterval(fpsTimer);
@@ -157,7 +174,36 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
       decoder.close();
       renderer.destroy();
     };
-  }, [ctx, controller, send, selectSlot, hotbarSlot, lastPointer, measuredFps, stats, unsupported]);
+  }, [
+    ctx,
+    controller,
+    send,
+    selectSlot,
+    hotbarSlot,
+    lastPointer,
+    measuredFps,
+    stats,
+    unsupported,
+    mapFrame,
+    ridePick,
+  ]);
+
+  // Timed notification countdown (ride end).
+  useEffect(() => {
+    const tick = () => {
+      const timed = controller.snapshot.timed;
+      if (!timed) {
+        timedLeft.value = null;
+        return;
+      }
+      const left = Math.max(0, Math.round((timed.fireAtEpochMs - Date.now()) / 1000));
+      timedLeft.value =
+        `${timed.countDownText ?? timed.title ?? ""} ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`.trim();
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [controller, timedLeft]);
 
   // Keyboard, focus loss, screen-state transitions.
   useEffect(() => {
@@ -243,8 +289,13 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
     lastPointer.value,
     hasCoarsePointer(),
   );
-  const showPads = touch && view.showVideo && !state.screenOpen;
-  const showPalette = view.showVideo && state.screenOpen;
+  const mapMode = state.mode === "MAP";
+  const showPads = (touch || mapMode) && view.showVideo && !state.screenOpen;
+  const showPalette = view.showVideo && state.screenOpen && !mapMode;
+  const toggleMap = () => {
+    ridePick.value = null;
+    controller.setMode(mapMode ? "STREAMING" : "MAP");
+  };
 
   return (
     <main class="stream" ref={pageRef}>
@@ -278,9 +329,45 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
           {state.nudge.body}
         </button>
       )}
+      {timedLeft.value && <div class="timed">{timedLeft.value}</div>}
+      {mapMode && mapFrame.value && (
+        <div class="coords">
+          X: {mapFrame.value.playerX.toFixed(1)} Z: {mapFrame.value.playerZ.toFixed(1)}
+        </div>
+      )}
+      {ridePick.value && (
+        <div class="sheet-backdrop" onClick={() => (ridePick.value = null)}>
+          <div class="sheet" onClick={(e) => e.stopPropagation()} data-testid="ride-sheet">
+            <h3>{ridePick.value.name}</h3>
+            <p class="muted">
+              Position: {ridePick.value.x.toFixed(1)}, {ridePick.value.z.toFixed(1)}
+            </p>
+            <button
+              type="button"
+              class="ride"
+              onClick={() => {
+                const id = ridePick.value?.entityId;
+                if (id !== undefined) send({ type: "MAP_INTERACT", entityId: id });
+                ridePick.value = null;
+              }}
+            >
+              Ride
+            </button>
+          </div>
+        </div>
+      )}
       <div class="toolbar" onPointerDown={(e) => e.stopPropagation()}>
         <button type="button" onClick={onOpenChat} title="Chat" aria-label="Chat">
           💬
+        </button>
+        <button
+          type="button"
+          onClick={toggleMap}
+          title="Map"
+          aria-label="Map"
+          class={mapMode ? "active" : ""}
+        >
+          🗺
         </button>
         <button type="button" onClick={onOpenSettings} title="Settings" aria-label="Settings">
           ⚙

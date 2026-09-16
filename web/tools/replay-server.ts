@@ -280,6 +280,42 @@ class Client {
           singleplayer: false,
         });
         break;
+      case "map": {
+        // One synthetic MM frame: player at (100, 200), a boat 5 blocks south.
+        const name = Buffer.from("Boat", "utf8");
+        const uuid = Buffer.from("abcd", "utf8");
+        const buf = Buffer.alloc(
+          2 + 8 + 8 + 4 + 2 + uuid.length + 2 + (1 + 8 + 8 + 4 + 2 + name.length),
+        );
+        let off = 0;
+        buf.write("MM", off, "ascii");
+        off += 2;
+        buf.writeDoubleBE(100, off);
+        off += 8;
+        buf.writeDoubleBE(200, off);
+        off += 8;
+        buf.writeFloatBE(180, off);
+        off += 4;
+        buf.writeInt16BE(uuid.length, off);
+        off += 2;
+        uuid.copy(buf, off);
+        off += uuid.length;
+        buf.writeInt16BE(1, off);
+        off += 2;
+        buf.writeUInt8(0, off);
+        off += 1;
+        buf.writeDoubleBE(100, off);
+        off += 8;
+        buf.writeDoubleBE(205, off);
+        off += 8;
+        buf.writeInt32BE(4242, off);
+        off += 4;
+        buf.writeInt16BE(name.length, off);
+        off += 2;
+        name.copy(buf, off);
+        this.ws.send(buf);
+        break;
+      }
       case "nudge":
         this.send({ type: "NUDGE", title: "Replay", body: rest.join(" ") || "nudge", sound: true });
         break;
