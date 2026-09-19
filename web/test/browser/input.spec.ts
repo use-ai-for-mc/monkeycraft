@@ -71,6 +71,7 @@ test("physical Escape and clicks are routed to the GUI while a screen is open", 
   await waitForDecoded(page, 3);
   await replayControl(page, "/replay screen open");
   await expect(page.getByTestId("screen-palette")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.pointerLockElement === null)).toBe(true);
   await drainServerLog(page, tag);
 
   // The 360x640 picture is pillarboxed in 800x600: it spans x in [231, 569].
@@ -96,6 +97,327 @@ test("physical Escape and clicks are routed to the GUI while a screen is open", 
     { type: "SCREEN_KEY", key: "ESCAPE", pressed: false },
   ]);
   expect(log.some((m) => m.type === "CLICK")).toBe(false);
+});
+
+test("pointer lock failures fall back to drag look without page errors", async ({ page }) => {
+  const tag = await loginToReplay(page);
+  await waitForDecoded(page, 3);
+  const pageErrors: string[] = [];
+  const onPageError = (error: Error) => pageErrors.push(`${error.name}: ${error.message}`);
+  page.on("pageerror", onPageError);
+  const host = page.locator(".video-host");
+  await host.evaluate((element) => {
+    const state = globalThis as typeof globalThis & { __pointerLockCalls?: number };
+    state.__pointerLockCalls = 0;
+    Object.defineProperty(element, "requestPointerLock", {
+      configurable: true,
+      value: () => {
+        state.__pointerLockCalls = (state.__pointerLockCalls ?? 0) + 1;
+        if (state.__pointerLockCalls === 1) {
+          throw new DOMException("sync pointer lock failure", "InvalidStateError");
+        }
+        if (state.__pointerLockCalls === 2) {
+          return Promise.reject(new DOMException("async pointer lock failure", "NotAllowedError"));
+        }
+      },
+    });
+  });
+  const box = await host.boundingBox();
+  if (!box) throw new Error("expected video host");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.click(x, y);
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockCalls?: number }).__pointerLockCalls ??
+          0,
+      ),
+    )
+    .toBe(2);
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockCalls?: number }).__pointerLockCalls ??
+          0,
+      ),
+    )
+    .toBe(3);
+  await page.evaluate(() => document.dispatchEvent(new Event("pointerlockerror")));
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockCalls?: number }).__pointerLockCalls ??
+          0,
+      ),
+    )
+    .toBe(4);
+  await page.evaluate(() => document.dispatchEvent(new Event("pointerlockerror")));
+  await settle(page);
+  await drainServerLog(page, tag);
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 20, y);
+  await page.mouse.move(x + 40, y);
+  await page.mouse.up();
+  await settle(page);
+  const log = await drainServerLog(page, tag);
+
+  expect(log.some((message) => message.type === "LOOK_DELTA")).toBe(true);
+  expect(pageErrors).toEqual([]);
+  page.off("pageerror", onPageError);
+});
+
+test("late promise pointer lock completion releases after screen open and detach", async ({
+  page,
+}) => {
+  await loginToReplay(page);
+  await waitForDecoded(page, 3);
+  const pageErrors: string[] = [];
+  const onPageError = (error: Error) => pageErrors.push(`${error.name}: ${error.message}`);
+  page.on("pageerror", onPageError);
+  const host = page.locator(".video-host");
+  await host.evaluate((element) => {
+    type PointerLockState = typeof globalThis & {
+      __pointerLockExitCount?: number;
+      __pointerLockRequestCount?: number;
+      __resolveNextPointerLock?: () => void;
+    };
+    const state = globalThis as PointerLockState;
+    const pending: Array<() => void> = [];
+    let lockedElement: Element | null = null;
+    state.__pointerLockExitCount = 0;
+    state.__pointerLockRequestCount = 0;
+    state.__resolveNextPointerLock = () => pending.shift()?.();
+    Object.defineProperty(document, "pointerLockElement", {
+      configurable: true,
+      get: () => lockedElement,
+    });
+    Object.defineProperty(document, "exitPointerLock", {
+      configurable: true,
+      value: () => {
+        state.__pointerLockExitCount = (state.__pointerLockExitCount ?? 0) + 1;
+        lockedElement = null;
+        document.dispatchEvent(new Event("pointerlockchange"));
+      },
+    });
+    Object.defineProperty(element, "requestPointerLock", {
+      configurable: true,
+      value: () => {
+        state.__pointerLockRequestCount = (state.__pointerLockRequestCount ?? 0) + 1;
+        return new Promise<void>((resolve) => {
+          pending.push(() => {
+            lockedElement = element;
+            document.dispatchEvent(new Event("pointerlockchange"));
+            resolve();
+          });
+        });
+      },
+    });
+  });
+  const box = await host.boundingBox();
+  if (!box) throw new Error("expected video host");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockRequestCount?: number })
+            .__pointerLockRequestCount ?? 0,
+      ),
+    )
+    .toBe(1);
+  await replayControl(page, "/replay screen open");
+  await expect(page.getByTestId("screen-palette")).toBeVisible();
+  await page.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { __resolveNextPointerLock?: () => void }
+    ).__resolveNextPointerLock?.(),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockExitCount?: number })
+            .__pointerLockExitCount ?? 0,
+      ),
+    )
+    .toBe(1);
+  await expect.poll(() => page.evaluate(() => document.pointerLockElement === null)).toBe(true);
+
+  await replayControl(page, "/replay screen close");
+  await expect(page.getByTestId("screen-palette")).toHaveCount(0);
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockRequestCount?: number })
+            .__pointerLockRequestCount ?? 0,
+      ),
+    )
+    .toBe(2);
+  await page.getByTitle("Disconnect").click();
+  await expect(page.getByLabel("Server address")).toBeVisible();
+  await page.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { __resolveNextPointerLock?: () => void }
+    ).__resolveNextPointerLock?.(),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockExitCount?: number })
+            .__pointerLockExitCount ?? 0,
+      ),
+    )
+    .toBe(2);
+  await expect.poll(() => page.evaluate(() => document.pointerLockElement === null)).toBe(true);
+
+  expect(pageErrors).toEqual([]);
+  page.off("pageerror", onPageError);
+});
+
+test("late void pointer lock completion releases after screen open and detach", async ({
+  page,
+}) => {
+  await loginToReplay(page);
+  await waitForDecoded(page, 3);
+  const pageErrors: string[] = [];
+  const onPageError = (error: Error) => pageErrors.push(`${error.name}: ${error.message}`);
+  page.on("pageerror", onPageError);
+  const host = page.locator(".video-host");
+  await host.evaluate((element) => {
+    type PointerLockState = typeof globalThis & {
+      __pointerLockExitCount?: number;
+      __pointerLockRequestCount?: number;
+      __resolveNextPointerLock?: () => void;
+    };
+    const state = globalThis as PointerLockState;
+    const pending: Array<() => void> = [];
+    let lockedElement: Element | null = null;
+    state.__pointerLockExitCount = 0;
+    state.__pointerLockRequestCount = 0;
+    state.__resolveNextPointerLock = () => pending.shift()?.();
+    Object.defineProperty(document, "pointerLockElement", {
+      configurable: true,
+      get: () => lockedElement,
+    });
+    Object.defineProperty(document, "exitPointerLock", {
+      configurable: true,
+      value: () => {
+        state.__pointerLockExitCount = (state.__pointerLockExitCount ?? 0) + 1;
+        lockedElement = null;
+        document.dispatchEvent(new Event("pointerlockchange"));
+      },
+    });
+    Object.defineProperty(element, "requestPointerLock", {
+      configurable: true,
+      value: () => {
+        state.__pointerLockRequestCount = (state.__pointerLockRequestCount ?? 0) + 1;
+        pending.push(() => {
+          lockedElement = element;
+          document.dispatchEvent(new Event("pointerlockchange"));
+        });
+      },
+    });
+  });
+  const box = await host.boundingBox();
+  if (!box) throw new Error("expected video host");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockRequestCount?: number })
+            .__pointerLockRequestCount ?? 0,
+      ),
+    )
+    .toBe(1);
+  await replayControl(page, "/replay screen open");
+  await expect(page.getByTestId("screen-palette")).toBeVisible();
+  await page.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { __resolveNextPointerLock?: () => void }
+    ).__resolveNextPointerLock?.(),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockExitCount?: number })
+            .__pointerLockExitCount ?? 0,
+      ),
+    )
+    .toBe(1);
+  await expect.poll(() => page.evaluate(() => document.pointerLockElement === null)).toBe(true);
+
+  await replayControl(page, "/replay screen close");
+  await expect(page.getByTestId("screen-palette")).toHaveCount(0);
+  await page.mouse.click(x, y);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockRequestCount?: number })
+            .__pointerLockRequestCount ?? 0,
+      ),
+    )
+    .toBe(2);
+  await page.getByTitle("Disconnect").click();
+  await expect(page.getByLabel("Server address")).toBeVisible();
+  await page.evaluate(() =>
+    (
+      globalThis as typeof globalThis & { __resolveNextPointerLock?: () => void }
+    ).__resolveNextPointerLock?.(),
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (globalThis as typeof globalThis & { __pointerLockExitCount?: number })
+            .__pointerLockExitCount ?? 0,
+      ),
+    )
+    .toBe(2);
+  await expect.poll(() => page.evaluate(() => document.pointerLockElement === null)).toBe(true);
+
+  expect(pageErrors).toEqual([]);
+  page.off("pageerror", onPageError);
+});
+
+test("letterbox margins do not send screen clicks", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 600 });
+  const tag = await loginToReplay(page);
+  await waitForDecoded(page, 3);
+  await replayControl(page, "/replay screen open");
+  await expect(page.getByTestId("screen-palette")).toBeVisible();
+  await drainServerLog(page, tag);
+
+  const host = await page.locator(".video-host").boundingBox();
+  const canvas = await page.locator(".video-host canvas").boundingBox();
+  if (!host || !canvas || canvas.x <= host.x) throw new Error("expected a pillarboxed video");
+  await page.mouse.click(host.x + 5, host.y + host.height / 2);
+  await page.mouse.click(canvas.x + canvas.width / 2, canvas.y + canvas.height / 2);
+  await settle(page);
+  const clicks = (await drainServerLog(page, tag)).filter((m) => m.type === "SCREEN_CLICK");
+  expect(clicks).toHaveLength(1);
+  expect(clicks[0]).toMatchObject({ button: 0, normalizedX: 0.5, normalizedY: 0.5 });
 });
 
 test("mouse clicks in world mode are CLICK messages and the wheel changes the slot", async ({
@@ -169,6 +491,12 @@ test("touch drag looks, tap clicks, joystick moves", async ({ browser }) => {
   log = await drainServerLog(page, tag);
   expect(log.filter((m) => m.type === "INPUT")).toEqual([
     { type: "INPUT", key: "W", pressed: true },
+  ]);
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await settle(page);
+  log = await drainServerLog(page, tag);
+  expect(log.filter((m) => m.type === "INPUT")).toEqual([
+    { type: "INPUT", key: "W", pressed: false },
   ]);
   await context.close();
 });

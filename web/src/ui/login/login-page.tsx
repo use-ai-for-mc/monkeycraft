@@ -6,7 +6,7 @@ import {
   type LoginMode,
 } from "../../session/pairing.ts";
 import { ConnectionError } from "../../transport/connection.ts";
-import { webOriginServer } from "../../transport/endpoint.ts";
+import { insecureWebSocketMessage, webOriginServer } from "../../transport/endpoint.ts";
 import type { AppContext } from "../app.tsx";
 import { QrScan } from "./qr-scan.tsx";
 
@@ -39,8 +39,8 @@ function describeError(err: unknown): string {
 
 export function LoginPage({ ctx, notice, onConnected }: Props) {
   const origin = webOriginServer(new URL(window.location.href));
-  const latest = ctx.credentials.latest();
   const server = useSignal(ctx.credentials.server ?? origin);
+  const latest = ctx.credentials.latest(server.value);
   const password = useSignal(latest?.password ?? "");
   const remember = useSignal(ctx.credentials.remember);
   const mode = useSignal<LoginMode>(defaultLoginMode(password.value !== "", server.value));
@@ -49,6 +49,13 @@ export function LoginPage({ ctx, notice, onConnected }: Props) {
   const pairingCode = useSignal<string | null>(null);
   const pairingLeft = useSignal<number | null>(null);
   const scanning = useSignal(false);
+
+  const selectServer = (value: string) => {
+    server.value = value;
+    const saved = ctx.credentials.latest(value);
+    password.value = saved?.password ?? "";
+    mode.value = defaultLoginMode(password.value !== "", value);
+  };
 
   useEffect(() => {
     let expiresAt = 0;
@@ -93,6 +100,11 @@ export function LoginPage({ ctx, notice, onConnected }: Props) {
     const target = server.value.trim();
     if (target === "") {
       error.value = "Server address is required.";
+      return;
+    }
+    const insecureMessage = insecureWebSocketMessage(new URL(window.location.href), target);
+    if (insecureMessage) {
+      error.value = insecureMessage;
       return;
     }
     if (mode.value === "password" && password.value === "") {
@@ -141,7 +153,7 @@ export function LoginPage({ ctx, notice, onConnected }: Props) {
             autocorrect="off"
             spellcheck={false}
             onInput={(e) => {
-              server.value = (e.currentTarget as HTMLInputElement).value;
+              selectServer((e.currentTarget as HTMLInputElement).value);
             }}
             disabled={busy.value}
           />

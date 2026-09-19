@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { serverHost, serverToWsUrl, webOriginServer } from "../../src/transport/endpoint.ts";
+import {
+  insecureWebSocketMessage,
+  serverHost,
+  serverToWsUrl,
+  webOriginServer,
+} from "../../src/transport/endpoint.ts";
 
 describe("serverToWsUrl", () => {
   it("maps https to wss and http to ws", () => {
@@ -32,6 +37,30 @@ describe("webOriginServer", () => {
 
   it("is empty without a host", () => {
     expect(webOriginServer(new URL("file:///index.html"))).toBe("");
+  });
+
+  it("does not infer a Minecraft server from a hosted page", () => {
+    expect(webOriginServer(new URL("https://use-ai-for-mc.github.io/monkeycraft/"), true)).toBe("");
+  });
+});
+
+describe("hosted HTTPS connection rules", () => {
+  it("explains why a bare websocket target cannot be used", () => {
+    expect(
+      insecureWebSocketMessage(
+        new URL("https://use-ai-for-mc.github.io/monkeycraft/"),
+        "100.64.1.2:9600",
+      ),
+    ).toContain("cannot connect to a bare ws:// server");
+  });
+
+  it("allows an explicit secure target", () => {
+    expect(
+      insecureWebSocketMessage(
+        new URL("https://use-ai-for-mc.github.io/monkeycraft/"),
+        "https://pc.tailnet.ts.net:10800",
+      ),
+    ).toBeNull();
   });
 });
 

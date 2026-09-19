@@ -12,18 +12,14 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>MonkeyCraft</title>
     <script>
-      // The previous Flutter build registered flutter_service_worker.js on this
-      // origin. Unregister anything that is still controlling the page and drop
-      // its caches, otherwise stale assets keep being served after a jar update.
       if ("serviceWorker" in navigator) {
+        const legacyWorker = new URL("%BASE_URL%flutter_service_worker.js", location.origin).href;
         navigator.serviceWorker.getRegistrations().then((regs) => {
-          for (const reg of regs) reg.unregister();
+          for (const reg of regs) {
+            const scripts = [reg.active, reg.installing, reg.waiting].map((worker) => worker?.scriptURL);
+            if (scripts.includes(legacyWorker)) reg.unregister();
+          }
         });
-        if ("caches" in window) {
-          caches.keys().then((keys) => {
-            for (const key of keys) caches.delete(key);
-          });
-        }
       }
     </script>
   </head>

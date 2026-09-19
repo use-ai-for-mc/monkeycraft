@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "MonkeyCraft browser client, served from the 26.2 mod jar",
+  "description": "MonkeyCraft browser client, served from supported Fabric mod jars",
   "license": "CC0-1.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:pages": "MONKEYCRAFT_PAGES=1 vite build && node tools/write-pages-provenance.mjs dist-pages",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
@@ -16,7 +17,8 @@
     "test:watch": "vitest",
     "test:browser": "playwright test",
     "probe": "node tools/probe.ts",
-    "record": "node tools/record-session.ts"
+    "record": "node tools/record-session.ts",
+    "test:pages-provenance": "node --test tools/write-pages-provenance.test.mjs"
   },
   "dependencies": {
     "@preact/signals": "^2.11.2",

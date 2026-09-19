@@ -1,7 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+test.skip(
+  process.env.MONKEYCRAFT_PAGES === "1",
+  "the Pages bundle requires a manual server target",
+);
+
 test("login page renders with the page origin as the default server", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("./");
   await expect(page.getByRole("heading", { name: "MonkeyCraft" })).toBeVisible();
   await expect(page.getByLabel("Server address")).toHaveValue("http://127.0.0.1:4173");
   // 127.0.0.1 is pairing-eligible and nothing is saved, so the default mode is pair.
@@ -11,7 +16,7 @@ test("login page renders with the page origin as the default server", async ({ p
 });
 
 test("WebCodecs H.264 baseline is decodable in this browser", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("./");
   const supported = await page.evaluate(async () => {
     if (!("VideoDecoder" in window)) return "no-webcodecs";
     const r = await VideoDecoder.isConfigSupported({

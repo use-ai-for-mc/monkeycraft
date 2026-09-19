@@ -14,6 +14,7 @@ const COLOR_MODES = ["Normal", "High performance (12-bit)", "Retro (6-bit)", "Gr
 export function SettingsPanel({ ctx, onClose, onLogout }: Props) {
   const draft = useSignal<Settings>({ ...ctx.settings.value });
   const confirmLogout = useSignal(false);
+  const reminderStatus = useSignal<string | null>(null);
   const dataSaverSupported = ctx.controller.serverSupports("DATA_SAVER");
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     draft.value = { ...draft.value, [key]: value };
@@ -131,6 +132,11 @@ export function SettingsPanel({ ctx, onClose, onLogout }: Props) {
           onChange={(v) => set("autoFaceMovement", v)}
         />
         <Toggle
+          label="Play page reminder sounds"
+          value={d.reminderSound}
+          onChange={(v) => set("reminderSound", v)}
+        />
+        <Toggle
           label={
             dataSaverSupported
               ? "Data saver (fewer keyframes)"
@@ -140,6 +146,33 @@ export function SettingsPanel({ ctx, onClose, onLogout }: Props) {
           disabled={!dataSaverSupported}
           onChange={(v) => set("dataSaver", v)}
         />
+        <div class="reminders">
+          <span>Browser reminders</span>
+          <button
+            type="button"
+            onClick={() => {
+              void ctx.alerts.enable().then((status) => {
+                reminderStatus.value =
+                  status === "ready"
+                    ? "Sound and notifications are enabled where this browser allows them."
+                    : "The browser blocked sound and notifications. Check its site permissions.";
+              });
+            }}
+          >
+            Enable reminders
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              reminderStatus.value = ctx.alerts.test()
+                ? "Test sound played."
+                : "Enable reminders first, then try the test sound again.";
+            }}
+          >
+            Test sound
+          </button>
+          {reminderStatus.value && <small>{reminderStatus.value}</small>}
+        </div>
         <div class="logout">
           {confirmLogout.value ? (
             <>

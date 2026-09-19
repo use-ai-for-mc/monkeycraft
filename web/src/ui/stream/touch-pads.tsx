@@ -48,8 +48,11 @@ export function Joystick({ send, size = 150 }: SendProps & { size?: number }) {
     };
     const up = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
+      release();
+    };
+    const release = () => {
+      if (pointerId === null) return;
       pointerId = null;
-      e.stopPropagation();
       place(0, 0);
       for (const m of vector.release()) send(m);
     };
@@ -57,11 +60,15 @@ export function Joystick({ send, size = 150 }: SendProps & { size?: number }) {
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", up);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", release);
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", release);
       for (const m of vector.release()) send(m);
     };
   }, [send, size]);
@@ -101,8 +108,8 @@ export function HoldButton({
       el.classList.add("active");
       send({ type: "INPUT", key: keyName, pressed: true });
     };
-    const release = (e: PointerEvent) => {
-      e.stopPropagation();
+    const release = (e?: PointerEvent) => {
+      e?.stopPropagation();
       if (!held) return;
       held = false;
       el.classList.remove("active");
@@ -112,11 +119,16 @@ export function HoldButton({
     el.addEventListener("pointerup", release);
     el.addEventListener("pointercancel", release);
     el.addEventListener("pointerleave", release);
+    const releaseOnBlur = () => release();
+    window.addEventListener("blur", releaseOnBlur);
+    document.addEventListener("visibilitychange", releaseOnBlur);
     return () => {
       el.removeEventListener("pointerdown", press);
       el.removeEventListener("pointerup", release);
       el.removeEventListener("pointercancel", release);
       el.removeEventListener("pointerleave", release);
+      window.removeEventListener("blur", releaseOnBlur);
+      document.removeEventListener("visibilitychange", releaseOnBlur);
       if (held) send({ type: "INPUT", key: keyName, pressed: false });
     };
   }, [send, keyName]);

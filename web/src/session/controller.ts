@@ -2,14 +2,9 @@
 // and turns settings/mode/size into CLIENT_STATUS. Video access units are
 // fanned out to a listener (the stream page feeds them to the decoder).
 
-import { signal } from "@preact/signals";
+import { batch, signal } from "@preact/signals";
 import type { ClientMessage, ClientMode } from "../protocol/messages.ts";
-import {
-  Connection,
-  ConnectionError,
-  type ConnectionEvent,
-  type SocketLike,
-} from "../transport/connection.ts";
+import { Connection, type ConnectionEvent, type SocketLike } from "../transport/connection.ts";
 import { serverToWsUrl } from "../transport/endpoint.ts";
 import type { HandshakeFailure } from "../transport/handshake.ts";
 import { ReconnectPolicy } from "../transport/reconnect.ts";
@@ -41,6 +36,8 @@ export class SessionController {
   private intentionalClose = false;
   private reconnect = new ReconnectPolicy();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectPending = false;
+  private generation = 0;
   private readonly videoListeners = new Set<VideoListener>();
   private readonly messageListeners = new Set<(ev: ConnectionEvent) => void>();
   private readonly now: () => number;
@@ -73,29 +70,34 @@ export class SessionController {
   async connect(req: ConnectRequest): Promise<void> {
     this.disconnect();
     this.intentionalClose = false;
+    const generation = this.generation;
     this.server = req.server;
     this.password = req.password;
     this.reconnect.reset();
     this.dispatch({ type: "reset" });
     this.dispatch({ type: "connect" });
-    await this.open(req.pairIfNeeded);
+    await this.open(req.pairIfNeeded, generation, false);
   }
 
-  private async open(pairIfNeeded: boolean): Promise<void> {
+  private async open(
+    pairIfNeeded: boolean,
+    generation: number,
+    reconnecting: boolean,
+  ): Promise<void> {
     const settings = this.opts.settings();
     const conn = new Connection({
       url: `${serverToWsUrl(this.server)}`,
       handshake: {
         password: this.password,
         pairIfNeeded,
-        lookupPassword: (keyId) => this.opts.credentials.lookup(keyId),
+        lookupPassword: (keyId) => this.opts.credentials.lookup(this.server, keyId),
         deviceName: settings.deviceName || defaultDeviceName(),
       },
       ...(this.opts.createSocket ? { createSocket: this.opts.createSocket } : {}),
     });
     this.conn = conn;
     conn.setHidden(this.hidden);
-    conn.on((ev) => this.onConnectionEvent(conn, ev));
+    conn.on((ev) => this.onConnectionEvent(conn, ev, generation, reconnecting));
     try {
       await conn.connect();
     } catch (err) {
@@ -104,8 +106,30 @@ export class SessionController {
     }
   }
 
-  private onConnectionEvent(conn: Connection, ev: ConnectionEvent): void {
-    if (this.conn !== conn) return;
+  private onConnectionEvent(
+    conn: Connection,
+    ev: ConnectionEvent,
+    generation: number,
+    reconnecting: boolean,
+  ): void {
+    if (!this.isCurrent(generation) || this.conn !== conn) return;
+    if (
+      ev.kind === "closed" &&
+      !this.snapshot.disconnectReason &&
+      (ev.wasAuthenticated || reconnecting) &&
+      (!ev.failure || ev.failure.code === "server-signature")
+    ) {
+      batch(() => {
+        this.dispatch({ type: "connection", event: ev, now: this.now() });
+        this.conn = null;
+        if (ev.failure?.code === "invalid-signature") {
+          this.opts.credentials.forget(this.server, ev.failure.keyId);
+        }
+        this.scheduleReconnect(generation);
+      });
+      for (const l of this.messageListeners) l(ev);
+      return;
+    }
     this.dispatch({ type: "connection", event: ev, now: this.now() });
     switch (ev.kind) {
       case "authenticated": {
@@ -130,10 +154,7 @@ export class SessionController {
       case "closed":
         this.conn = null;
         if (ev.failure?.code === "invalid-signature") {
-          this.opts.credentials.forget(ev.failure.keyId);
-        }
-        if (!this.intentionalClose && ev.wasAuthenticated && !this.snapshot.disconnectReason) {
-          this.scheduleReconnect();
+          this.opts.credentials.forget(this.server, ev.failure.keyId);
         }
         break;
       default:
@@ -142,8 +163,9 @@ export class SessionController {
     for (const l of this.messageListeners) l(ev);
   }
 
-  private scheduleReconnect(): void {
-    const delay = this.reconnect.next();
+  private scheduleReconnect(generation: number): void {
+    if (!this.isCurrent(generation)) return;
+    const delay = this.reconnect.nextDelay();
     if (delay === null) {
       this.dispatch({
         type: "failed",
@@ -152,30 +174,38 @@ export class SessionController {
       });
       return;
     }
-    this.dispatch({ type: "reconnecting", attempt: this.reconnect.attempts });
+    this.dispatch({ type: "reconnecting", attempt: this.reconnect.attempts + 1 });
+    if (this.hidden) {
+      this.reconnectPending = true;
+      return;
+    }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.open(false).catch((err: unknown) => {
-        const failure = err instanceof ConnectionError ? err.failure : null;
-        if (failure && failure.code !== "server-signature") {
-          this.dispatch({ type: "failed", failure, message: failure.message });
-          return;
-        }
-        this.scheduleReconnect();
-      });
+      if (this.hidden) {
+        this.reconnectPending = true;
+        return;
+      }
+      if (!this.isCurrent(generation) || this.reconnect.next() === null) return;
+      void this.open(false, generation, true).catch(() => {});
     }, delay);
   }
 
   /** Close without reconnecting. */
   disconnect(): void {
+    this.generation += 1;
     this.intentionalClose = true;
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.reconnectPending = false;
     const conn = this.conn;
     this.conn = null;
     conn?.close();
+  }
+
+  private isCurrent(generation: number): boolean {
+    return this.generation === generation && !this.intentionalClose;
   }
 
   send(msg: ClientMessage): boolean {
@@ -183,8 +213,19 @@ export class SessionController {
   }
 
   setHidden(hidden: boolean): void {
+    if (this.hidden === hidden) return;
     this.hidden = hidden;
     this.conn?.setHidden(hidden);
+    if (hidden && this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+      this.reconnectPending = true;
+      return;
+    }
+    if (!hidden && this.reconnectPending && !this.intentionalClose) {
+      this.reconnectPending = false;
+      this.scheduleReconnect(this.generation);
+    }
   }
 
   setMode(mode: ClientMode): void {

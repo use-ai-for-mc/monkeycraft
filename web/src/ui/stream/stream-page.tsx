@@ -252,6 +252,7 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
 
     let wasOpen = controller.snapshot.screenOpen;
     let wasHibernating = controller.snapshot.hibernating;
+    let wasConnected = controller.snapshot.link.phase === "connected";
     const unsubscribe = controller.state.subscribe((s) => {
       if (s.screenOpen !== wasOpen) {
         wasOpen = s.screenOpen;
@@ -269,6 +270,11 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
         wasHibernating = s.hibernating;
         if (s.hibernating) releaseAll();
         else controller.requestKeyframe();
+      }
+      const connected = s.link.phase === "connected";
+      if (connected !== wasConnected) {
+        wasConnected = connected;
+        if (!connected) releaseAll();
       }
     });
     return () => {

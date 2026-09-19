@@ -220,7 +220,7 @@ body {
 /* controls */
 .banner {
   position: absolute;
-  top: max(8px, env(safe-area-inset-top));
+  top: calc(max(8px, env(safe-area-inset-top)) + 48px);
   left: 50%;
   transform: translateX(-50%);
   max-width: 70%;
@@ -581,6 +581,25 @@ body {
   gap: 8px;
   color: var(--fg);
   font-size: 14px;
+}
+
+.settings .reminders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.settings .reminders span {
+  width: 100%;
+  font-size: 14px;
+}
+
+.settings .reminders small {
+  width: 100%;
+  color: var(--muted);
 }
 
 .settings .logout {

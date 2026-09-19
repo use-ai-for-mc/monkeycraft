@@ -15,10 +15,15 @@ export class ReconnectPolicy {
     this.baseDelayMs = opts.baseDelayMs ?? 1000;
   }
 
+  nextDelay(): number | null {
+    if (this.attempts >= this.maxRetries) return null;
+    return this.baseDelayMs * 2 ** this.attempts;
+  }
+
   /** Delay before the next attempt, or null when retries are exhausted. */
   next(): number | null {
-    if (this.attempts >= this.maxRetries) return null;
-    const delay = this.baseDelayMs * 2 ** this.attempts;
+    const delay = this.nextDelay();
+    if (delay === null) return null;
     this.attempts += 1;
     return delay;
   }

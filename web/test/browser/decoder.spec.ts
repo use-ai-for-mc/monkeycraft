@@ -30,7 +30,7 @@ interface Result {
 }
 
 async function decodeInPage(page: import("@playwright/test").Page, aus: string[]): Promise<Result> {
-  await page.goto("/");
+  await page.goto("./");
   return page.evaluate(async (list) => {
     type Hook = {
       H264Decoder: new (
@@ -42,6 +42,7 @@ async function decodeInPage(page: import("@playwright/test").Page, aus: string[]
       ) => {
         start(): Promise<boolean>;
         push(au: Uint8Array): void;
+        drain(): Promise<void>;
         close(): void;
         stats: Omit<Result, "width" | "height">;
       };
@@ -69,7 +70,7 @@ async function decodeInPage(page: import("@playwright/test").Page, aus: string[]
       // Pace like a 20 fps stream so the queue policy sees realistic depth.
       await new Promise((r) => setTimeout(r, 50));
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await decoder.drain();
     const stats = decoder.stats;
     decoder.close();
     return { ...stats, width, height };

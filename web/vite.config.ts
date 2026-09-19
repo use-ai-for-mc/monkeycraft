@@ -5,15 +5,24 @@ import { defineConfig } from "vitest/config";
 // `${origin}/ws` and Vite forwards the upgrade to the running mod. Override the
 // target with MONKEYCRAFT_DEV_WS=ws://host:port when the mod is elsewhere.
 const devWsTarget = process.env.MONKEYCRAFT_DEV_WS ?? "ws://127.0.0.1:9600";
+const pagesBuild = process.env.MONKEYCRAFT_PAGES === "1";
+const pagesBase = process.env.MONKEYCRAFT_PAGES_BASE ?? "/monkeycraft/";
+
+if (pagesBuild && (!pagesBase.startsWith("/") || !pagesBase.endsWith("/"))) {
+  throw new Error("MONKEYCRAFT_PAGES_BASE must start and end with '/'");
+}
 
 export default defineConfig({
   plugins: [preact()],
-  base: "/",
+  base: pagesBuild ? pagesBase : "/",
   build: {
-    outDir: "dist",
+    outDir: pagesBuild ? "dist-pages" : "dist",
     emptyOutDir: true,
     sourcemap: true,
     target: "es2022",
+  },
+  define: {
+    "import.meta.env.VITE_MONKEYCRAFT_HOSTED": JSON.stringify(pagesBuild ? "true" : "false"),
   },
   server: {
     port: 5173,

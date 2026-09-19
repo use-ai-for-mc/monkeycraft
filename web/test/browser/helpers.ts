@@ -7,7 +7,7 @@ import { REPLAY_HTTP, REPLAY_PASSWORD, REPLAY_URL } from "../../playwright.confi
  */
 export async function loginToReplay(page: Page): Promise<string> {
   const tag = Math.random().toString(36).slice(2, 10);
-  await page.goto("/?debug=1");
+  await page.goto("./?debug=1");
   await page.getByLabel("Server address").fill(`${REPLAY_URL}/?tag=${tag}`);
   const usePassword = page.getByRole("button", { name: "Use password instead" });
   if (await usePassword.isVisible()) await usePassword.click();

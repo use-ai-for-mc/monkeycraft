@@ -1,6 +1,6 @@
 import { effect, type Signal, signal } from "@preact/signals";
 import { useEffect } from "preact/hooks";
-import { ensureNotificationPermission, notifyIfHidden } from "../platform/notifications.ts";
+import { ReminderAlerts } from "../platform/reminders.ts";
 import { acquireTabLock } from "../platform/tab-lock.ts";
 import { listenVisibility } from "../platform/visibility.ts";
 import { SessionController } from "../session/controller.ts";
@@ -16,6 +16,7 @@ export interface AppContext {
   controller: SessionController;
   credentials: CredentialStore;
   settings: Signal<Settings>;
+  alerts: ReminderAlerts;
   updateSettings: (patch: Partial<Settings>) => void;
 }
 
@@ -27,13 +28,17 @@ export function createAppContext(): AppContext {
     credentials,
     settings: () => settings.value,
   });
+  const alerts = new ReminderAlerts();
+  alerts.setSoundEnabled(settings.value.reminderSound);
   effect(() => saveSettings(storage, settings.value));
   return {
     controller,
     credentials,
     settings,
+    alerts,
     updateSettings: (patch) => {
       settings.value = { ...settings.value, ...patch };
+      alerts.setSoundEnabled(settings.value.reminderSound);
     },
   };
 }
@@ -45,7 +50,14 @@ const panel = signal<Panel>(null);
 const loginNotice = signal<string | null>(null);
 
 export function App({ ctx }: { ctx: AppContext }) {
-  useEffect(() => listenVisibility((hidden) => ctx.controller.setHidden(hidden)), [ctx]);
+  useEffect(
+    () =>
+      listenVisibility((hidden) => {
+        ctx.controller.setHidden(hidden);
+        if (!hidden) ctx.alerts.restore();
+      }),
+    [ctx],
+  );
 
   useEffect(() => {
     void acquireTabLock().then((r) => {
@@ -54,13 +66,21 @@ export function App({ ctx }: { ctx: AppContext }) {
     // The reducer runs before listeners, so track hibernation transitions here.
     let wasHibernating = ctx.controller.snapshot.hibernating;
     return ctx.controller.onEvent((ev) => {
-      if (ev.kind === "authenticated") void ensureNotificationPermission();
       if (ev.kind === "message" && ev.msg.type === "NUDGE") {
-        notifyIfHidden(ev.msg.title ?? "MonkeyCraft", ev.msg.body);
+        ctx.alerts.nudge(ev.msg);
+      }
+      if (
+        ev.kind === "message" &&
+        (ev.msg.type === "SERVER_STATUS" || ev.msg.type === "TIMED_STATUS")
+      ) {
+        ctx.alerts.setTimed(ev.msg.timed);
+      }
+      if (ev.kind === "authenticated") {
+        ctx.alerts.setTimed(ctx.controller.snapshot.timed);
       }
       if (ev.kind === "message" && ev.msg.type === "SERVER_STATUS") {
         const hibernating = ev.msg.videoState === "HIBERNATING";
-        if (wasHibernating && !hibernating) notifyIfHidden("Ride finished", "Video is back.");
+        if (wasHibernating && !hibernating) ctx.alerts.notice("Ride finished", "Video is back.");
         wasHibernating = hibernating;
       }
     });

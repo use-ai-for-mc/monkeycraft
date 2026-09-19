@@ -62,7 +62,7 @@ describe("SessionController", () => {
     await serverAuth(last(), "pw");
     await connected;
     expect(ctl.snapshot.link).toEqual({ phase: "connected" });
-    expect(store.lookup("k1")).toBe("pw");
+    expect(store.lookup("192.168.0.3:9600", "k1")).toBe("pw");
     // Without a requested size the status carries only mode + autoFaceMovement.
     expect(last().sentJson()[1]).toEqual({
       type: "CLIENT_STATUS",
@@ -167,7 +167,112 @@ describe("SessionController", () => {
     last().receiveText({ type: "AUTH_RESPONSE", success: false, message: "Invalid signature" });
     await waitFor(() => last().readyState === 3);
     await expect(connected).rejects.toMatchObject({ failure: { code: "invalid-signature" } });
-    expect(store.lookup("k1")).toBeNull();
+    expect(store.lookup("a:1", "k1")).toBeNull();
     expect(ctl.snapshot.link).toMatchObject({ phase: "failed" });
+  });
+  it("pauses a hidden reconnect without spending the retry budget", async () => {
+    const { ctl, sockets, last } = harness();
+    const connected = ctl.connect({ server: "a:1", password: "pw", pairIfNeeded: false });
+    await serverAuth(last(), "pw");
+    await connected;
+
+    ctl.setHidden(true);
+    last().serverClose(1006, "");
+    expect(ctl.snapshot.link).toEqual({ phase: "reconnecting", attempt: 1 });
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+
+    ctl.setHidden(false);
+    vi.advanceTimersByTime(999);
+    expect(sockets).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(sockets).toHaveLength(2);
+  });
+
+  it("restarts a pending delay when the page hides midway through reconnecting", async () => {
+    const { ctl, sockets, last } = harness();
+    const connected = ctl.connect({ server: "a:1", password: "pw", pairIfNeeded: false });
+    await serverAuth(last(), "pw");
+    await connected;
+
+    last().serverClose(1006, "");
+    vi.advanceTimersByTime(500);
+    ctl.setHidden(true);
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+
+    ctl.setHidden(false);
+    vi.advanceTimersByTime(999);
+    expect(sockets).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(sockets).toHaveLength(2);
+  });
+
+  it("does not resume a hidden reconnect after explicit disconnect", async () => {
+    const { ctl, sockets, last } = harness();
+    const connected = ctl.connect({ server: "a:1", password: "pw", pairIfNeeded: false });
+    await serverAuth(last(), "pw");
+    await connected;
+
+    ctl.setHidden(true);
+    last().serverClose(1006, "");
+    ctl.disconnect();
+    ctl.setHidden(false);
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(1);
+  });
+
+  it("keeps reconnecting when an in-flight retry closes while hidden", async () => {
+    const { ctl, sockets, last } = harness();
+    const connected = ctl.connect({ server: "a:1", password: "pw", pairIfNeeded: false });
+    await serverAuth(last(), "pw");
+    await connected;
+
+    last().serverClose(1006, "");
+    vi.advanceTimersByTime(1000);
+    expect(sockets).toHaveLength(2);
+    ctl.setHidden(true);
+    last().serverClose(1006, "");
+    expect(ctl.snapshot.link).toEqual({ phase: "reconnecting", attempt: 2 });
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(2);
+
+    ctl.setHidden(false);
+    vi.advanceTimersByTime(2000);
+    expect(sockets).toHaveLength(3);
+  });
+
+  it("does not schedule after disconnect during an in-flight retry", async () => {
+    const { ctl, sockets, last } = harness();
+    const connected = ctl.connect({ server: "a:1", password: "pw", pairIfNeeded: false });
+    await serverAuth(last(), "pw");
+    await connected;
+
+    last().serverClose(1006, "");
+    vi.advanceTimersByTime(1000);
+    expect(sockets).toHaveLength(2);
+    ctl.disconnect();
+    last().serverClose(1006, "");
+    vi.advanceTimersByTime(60_000);
+    expect(sockets).toHaveLength(2);
+  });
+
+  it("ignores a late retry close after connecting to a new target", async () => {
+    const { ctl, sockets, last } = harness();
+    const connected = ctl.connect({ server: "a:1", password: "pw", pairIfNeeded: false });
+    await serverAuth(last(), "pw");
+    await connected;
+
+    last().serverClose(1006, "");
+    vi.advanceTimersByTime(1000);
+    const stale = last();
+    const replacement = ctl.connect({ server: "b:2", password: "next", pairIfNeeded: false });
+    expect(sockets).toHaveLength(3);
+    stale.serverClose(1006, "");
+    await serverAuth(last(), "next");
+    await replacement;
+    vi.advanceTimersByTime(2000);
+    expect(sockets).toHaveLength(3);
+    expect(ctl.snapshot.link).toEqual({ phase: "connected" });
   });
 });

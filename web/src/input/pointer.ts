@@ -54,11 +54,15 @@ export class PointerController {
   private active: Active | null = null;
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private locked = false;
+  private attached = false;
+  private lockEpoch = 0;
+  private pendingLock: (() => void) | null = null;
   private readonly listeners: Array<[EventTarget, string, EventListener]> = [];
 
   constructor(private readonly host: PointerHost) {}
 
   attach(): void {
+    this.attached = true;
     const el = this.host.element;
     this.on(el, "pointerdown", (e) => this.onDown(e as PointerEvent));
     this.on(el, "pointermove", (e) => this.onMove(e as PointerEvent));
@@ -76,6 +80,8 @@ export class PointerController {
   }
 
   detach(): void {
+    this.attached = false;
+    this.lockEpoch += 1;
     for (const [target, type, fn] of this.listeners) target.removeEventListener(type, fn);
     this.listeners.length = 0;
     if (this.flushTimer !== null) clearInterval(this.flushTimer);
@@ -86,7 +92,10 @@ export class PointerController {
 
   /** Called when SCREEN_STATE changes: a GUI needs a free cursor. */
   setScreenOpen(open: boolean): void {
-    if (open) this.exitLock();
+    if (open) {
+      this.lockEpoch += 1;
+      this.exitLock();
+    }
     this.cancelActive();
     this.host.look.clear();
   }
@@ -96,9 +105,11 @@ export class PointerController {
   }
 
   exitLock(): void {
-    if (this.locked && document.pointerLockElement === this.host.element) {
-      document.exitPointerLock();
-    }
+    try {
+      if (document.pointerLockElement === this.host.element) {
+        document.exitPointerLock();
+      }
+    } catch {}
   }
 
   private on(
@@ -145,7 +156,7 @@ export class PointerController {
 
     if (kind === "mouse") {
       if (this.host.usePointerLock?.() !== false && !this.locked) {
-        this.host.element.requestPointerLock?.();
+        this.requestLock();
       }
       if (this.locked) {
         this.host.send({ type: "CLICK", button: e.button === 2 ? 1 : 0 });
@@ -166,6 +177,40 @@ export class PointerController {
     }, LONG_PRESS_MS);
     this.active = active;
     this.host.element.setPointerCapture?.(e.pointerId);
+  }
+
+  private requestLock(): void {
+    if (this.pendingLock) return;
+    const requestPointerLock = this.host.element.requestPointerLock;
+    if (!requestPointerLock) return;
+    const epoch = this.lockEpoch;
+    let finished = false;
+    const finish = (locked: boolean) => {
+      if (finished) return;
+      finished = true;
+      document.removeEventListener("pointerlockchange", onChange);
+      document.removeEventListener("pointerlockerror", onError);
+      if (this.pendingLock === cancel) this.pendingLock = null;
+      if (locked && (!this.attached || epoch !== this.lockEpoch || this.host.screenOpen())) {
+        this.exitLock();
+      }
+    };
+    const onChange = () => {
+      if (document.pointerLockElement === this.host.element) finish(true);
+    };
+    const onError = () => finish(false);
+    const cancel = () => finish(false);
+    this.pendingLock = cancel;
+    document.addEventListener("pointerlockchange", onChange);
+    document.addEventListener("pointerlockerror", onError);
+    try {
+      const request = requestPointerLock.call(this.host.element);
+      if (request) {
+        void request.then(() => finish(document.pointerLockElement === this.host.element), onError);
+      }
+    } catch {
+      onError();
+    }
   }
 
   private newActive(e: PointerEvent, kind: PointerKind, x: number, y: number): Active {

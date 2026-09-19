@@ -2,6 +2,7 @@
 // "Credential vault"). Keys are namespaced `monkeycraft.*`; nothing is read
 // from the old Flutter `flutter.*` keys.
 
+import { serverToWsUrl } from "../transport/endpoint.ts";
 import type { StorageLike } from "./settings.ts";
 
 export const VAULT_KEY = "monkeycraft.vault";
@@ -18,6 +19,19 @@ export interface VaultEntry {
 }
 
 export type Vault = Record<string, VaultEntry>;
+
+function vaultSlot(server: string, keyId: string | null): string {
+  return `${serverTarget(server)}\u0000${keyId || LEGACY_KEY_ID}`;
+}
+
+function serverTarget(server: string): string {
+  const trimmed = server.trim();
+  try {
+    return new URL(serverToWsUrl(trimmed)).toString();
+  } catch {
+    return trimmed;
+  }
+}
 
 export class CredentialStore {
   constructor(
@@ -49,30 +63,43 @@ export class CredentialStore {
       const raw = JSON.parse(this.storage.getItem(VAULT_KEY) ?? "{}") as unknown;
       if (typeof raw !== "object" || raw === null) return {};
       const out: Vault = {};
+      let migrated = false;
       for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
         if (typeof v !== "object" || v === null) continue;
         const e = v as Record<string, unknown>;
         if (typeof e.password !== "string" || e.password === "") continue;
-        out[k] = {
+        const entry = {
           password: e.password,
           lastServer: typeof e.lastServer === "string" ? e.lastServer : "",
           lastSeen: typeof e.lastSeen === "number" ? e.lastSeen : 0,
         };
+        if (!k.includes("\u0000") && entry.lastServer !== "") {
+          const slot = vaultSlot(entry.lastServer, k === LEGACY_KEY_ID ? null : k);
+          const current = out[slot];
+          if (!current || entry.lastSeen >= current.lastSeen) out[slot] = entry;
+          migrated = true;
+        } else {
+          const current = out[k];
+          if (!current || entry.lastSeen >= current.lastSeen) out[k] = entry;
+        }
       }
+      if (migrated) this.storage.setItem(VAULT_KEY, JSON.stringify(out));
       return out;
     } catch {
       return {};
     }
   }
 
-  lookup(keyId: string | null): string | null {
-    const entry = this.vault()[keyId || LEGACY_KEY_ID];
+  lookup(server: string, keyId: string | null): string | null {
+    const entry = this.vault()[vaultSlot(server, keyId)];
     return entry?.password ?? null;
   }
 
   /** The most recently used password, for pre-filling the login form. */
-  latest(): VaultEntry | null {
-    const entries = Object.values(this.vault());
+  latest(server: string): VaultEntry | null {
+    const entries = Object.entries(this.vault())
+      .filter(([slot]) => slot.startsWith(`${serverTarget(server)}\u0000`))
+      .map(([, entry]) => entry);
     if (entries.length === 0) return null;
     return entries.reduce((a, b) => (b.lastSeen > a.lastSeen ? b : a));
   }
@@ -81,16 +108,16 @@ export class CredentialStore {
   bind(keyId: string | null, password: string, server: string): void {
     if (!this.remember || password === "") return;
     const vault = this.vault();
-    vault[keyId || LEGACY_KEY_ID] = { password, lastServer: server, lastSeen: this.now() };
+    vault[vaultSlot(server, keyId)] = { password, lastServer: server, lastSeen: this.now() };
     const byRecency = Object.entries(vault).sort(([, a], [, b]) => b.lastSeen - a.lastSeen);
     for (const [k] of byRecency.slice(MAX_VAULT_ENTRIES)) delete vault[k];
     this.storage.setItem(VAULT_KEY, JSON.stringify(vault));
   }
 
   /** Drop a password the server rejected. */
-  forget(keyId: string | null): void {
+  forget(server: string, keyId: string | null): void {
     const vault = this.vault();
-    delete vault[keyId || LEGACY_KEY_ID];
+    delete vault[vaultSlot(server, keyId)];
     this.storage.setItem(VAULT_KEY, JSON.stringify(vault));
   }
 

@@ -12,6 +12,7 @@ export interface Settings {
   invertLookY: boolean;
   autoSwitchRideChat: boolean;
   autoFaceMovement: boolean;
+  reminderSound: boolean;
   dataSaver: boolean;
   controlLayout: ControlLayout;
   deviceName: string;
@@ -28,6 +29,7 @@ export const defaultSettings: Settings = {
   invertLookY: true,
   autoSwitchRideChat: false,
   autoFaceMovement: false,
+  reminderSound: true,
   dataSaver: false,
   controlLayout: "auto",
   deviceName: "",
@@ -69,6 +71,7 @@ export function sanitizeSettings(raw: unknown): Settings {
       typeof r.autoSwitchRideChat === "boolean" ? r.autoSwitchRideChat : d.autoSwitchRideChat,
     autoFaceMovement:
       typeof r.autoFaceMovement === "boolean" ? r.autoFaceMovement : d.autoFaceMovement,
+    reminderSound: typeof r.reminderSound === "boolean" ? r.reminderSound : d.reminderSound,
     dataSaver: typeof r.dataSaver === "boolean" ? r.dataSaver : d.dataSaver,
     controlLayout,
     deviceName: typeof r.deviceName === "string" ? r.deviceName.slice(0, 48) : d.deviceName,

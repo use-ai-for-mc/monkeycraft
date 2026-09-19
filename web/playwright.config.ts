@@ -5,6 +5,9 @@ import { defineConfig, devices } from "@playwright/test";
 export const REPLAY_URL = "ws://127.0.0.1:9601";
 export const REPLAY_HTTP = "http://127.0.0.1:9601";
 export const REPLAY_PASSWORD = "test";
+const browser = process.env.PLAYWRIGHT_BROWSER === "webkit" ? "webkit" : "chromium";
+const pagesBuild = process.env.MONKEYCRAFT_PAGES === "1";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4173";
 
 export default defineConfig({
   testDir: "test/browser",
@@ -12,13 +15,13 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL,
     trace: "retain-on-failure",
   },
   webServer: [
     {
-      command: "pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort",
-      url: "http://127.0.0.1:4173",
+      command: `${pagesBuild ? "MONKEYCRAFT_PAGES=1 " : ""}node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 4173 --strictPort`,
+      url: baseURL,
       reuseExistingServer: !process.env.CI,
     },
     {
@@ -28,5 +31,9 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
   ],
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    browser === "webkit"
+      ? { name: "webkit", use: { ...devices["Desktop Safari"] } }
+      : { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+  ],
 });

@@ -1,7 +1,8 @@
 # MonkeyCraft web client: engineering plan
 
-Status: in progress. M0–M4 done except the 10-minute soak and the letterbox click
-check (2026-09-16); see `CHANGELOG.md`.
+Status: active. The M0–M4 statements below are historical (2026-09-16), not current-run evidence.
+The current product authority is `../doc/PRODUCT_ROADMAP_2026-09.md`; results and
+remaining acceptance checks are tracked in `../doc/PRODUCT_ROADMAP_EXECUTION.md`.
 Supersedes `web-client-handoff/` (Aug 2026), which planned Flutter-web reuse; that
 direction is abandoned.
 
@@ -9,19 +10,19 @@ direction is abandoned.
 
 - The browser client is rewritten as a plain HTML5 / TypeScript application in
   `web/`. Flutter web is dropped from the build. The Flutter iOS/Android app in
-  `flutter/monkeycraft/` is **frozen**, not deleted: it stays as the behavioural
-  reference and the fallback for native-only features. Its fate is decided after
-  the web client reaches parity.
+  `flutter/monkeycraft/` remains a maintained first-class product, including native
+  notifications, lock-screen countdowns and park audio.
 - The 26.2 mod owns port 9600 and serves the client from the jar's `web/`
   resource directory. The new client ships as static files into the same place.
-  Web serving stays 26.2-only.
+  26.2 is validated first; P3 ports applicable serving features to the other three versions.
 - Protocol, pairing rules, single-session rule and the binary H.264 AU contract are
   frozen. See `docs/PROTOCOL.md`. The client must interoperate with the mod as it
   is in the current working tree.
 - Video stays WebCodecs `VideoDecoder` + canvas, secure context required. No WASM
   H.264, no in-page Tailscale.
-- Out of scope: MCParks audio, Live Activity, OS-scheduled timed notifications,
-  the other three mod trees, any server protocol change.
+- Browser limitations: native Live Activity and reliable OS-scheduled reminders are
+  App capabilities. Retain available park-audio browser links. Optional protocol
+  additions require capability gating; version ports follow roadmap P3.
 
 Reference documents in this directory:
 
@@ -30,10 +31,8 @@ Reference documents in this directory:
 
 ## 1. Facts that shape the plan
 
-1. **The server-side contract is uncommitted.** The 9600 mux
-   (`HttpOrWebSocketChannel`, `WebAssetServer`), pairing (`PairingSession`,
-   `PasswordKey`), and the related 26.2 changes exist only in the working tree;
-   the last commit is 2026-08-30. Milestone 0 starts by committing them.
+1. **The working tree is the implementation reference.** Protect existing user
+   changes. Do not commit, push or deploy publicly unless explicitly requested.
 2. **No protocol spec existed.** The Flutter code was the only description.
    `docs/PROTOCOL.md` now is; it must be kept authoritative.
 3. **The two live bugs are design bugs, not typos.** Resolution is renegotiated
@@ -158,10 +157,8 @@ in `web/CHANGELOG.md`. Effort is an estimate in focused sessions.
 
 ### M0. Baseline and contract (1 session) — done
 
-1. User commits the current 26.2 server tree and related working-tree changes
-   (the contract the client targets). Recommended: one commit for `mods/`, one
-   for `flutter/`, one for docs; nothing else in this plan depends on how they
-   are split.
+1. Record the branch, working-tree changes and protocol baseline without committing
+   user work. Preserve an inspectable diff.
 2. Scaffold `web/` (Vite + TS + Preact + Vitest + Playwright + Biome), empty
    app that renders "MonkeyCraft" and passes lint/test/build.
 3. `tools/record-session.ts`: connects to the Prism instance, authenticates with
@@ -257,13 +254,12 @@ Android Chrome; Safari desktop for login/chat at least.
 ### M5. Packaging, switch-over, cleanup (1 session)
 
 - `mods/26.2/build.gradle`: copy `web/dist` instead of
-  `flutter/monkeycraft/build/web`; keep the copy conditional.
+  `flutter/monkeycraft/build/web`; require a built browser bundle for distributable JARs.
 - `mods/26.2/build-and-deploy.sh`: replace `flutter build web` with
   `pnpm --dir web install --frozen-lockfile && pnpm --dir web build`.
 - `.github/workflows/build.yml`: the 26.2 job builds `web` before Gradle so the
   released jar contains the client. `release.yml` likewise.
-- `.github/workflows/pages.yml` is deleted (done in the plan PR); the jar is
-  the only deployment target.
+- A historical plan deleted `.github/workflows/pages.yml`; the current roadmap P4 adds a manual-only Pages workflow. It builds and verifies the project-path artifact by default, and deploys only with explicit `publish=true`. The Mod JAR keeps its default web artifact; this round’s Pages artifact is not published.
 - `index.html` unregisters `flutter_service_worker.js` and clears caches once.
 - Server change, non-protocol, approved: send `Cache-Control: no-cache` for
   `index.html` in `HttpOrWebSocketChannel` so a cached index never points at
@@ -281,7 +277,7 @@ on the Prism instance; `curl -sI https://<serve-url>/` shows the new index.
 Per `doc/WEB_TAILNET_PLAN.md` step 6: iPhone Safari and home-screen app,
 Android Chrome and home-screen app, over Tailscale Serve. Measure fps at the
 medium preset, background/lock resume, 30 minutes without reconnect. Record
-findings in `web/docs/MOBILE_RESULTS.md`. This gates the native-app decision.
+findings in `web/docs/MOBILE_RESULTS.md`. This gates browser acceptance and roadmap P4; native apps continue to be maintained.
 
 Estimated total: 11–14 sessions.
 

@@ -141,6 +141,17 @@ export class H264Decoder {
     this.destroyDecoder();
   }
 
+  async drain(): Promise<void> {
+    const decoder = this.decoder;
+    if (decoder?.state !== "configured") return;
+    try {
+      await decoder.flush();
+    } catch (err) {
+      if (!this.closed) this.onError(err);
+    }
+    this.report();
+  }
+
   private config(codec: string): VideoDecoderConfig {
     return { codec, optimizeForLatency: true, hardwareAcceleration: "no-preference" };
   }

@@ -74,7 +74,9 @@ defects it must not. File references are to `flutter/monkeycraft/lib/`.
 16. **`flutter_service_worker.js`** may still control the origin after the switch.
     The new `index.html` must unregister any service worker and clear caches once.
 
-## Dead or unused surface (skip)
+## Legacy Flutter Web surface (not native App deprecation)
+
+This historical list applies only to the abandoned Flutter Web target. Native iOS/Android Tailscale, park audio, MPEG-TS relay, Live Activity and notifications remain maintained product capabilities under `doc/PRODUCT_ROADMAP_2026-09.md`. Do not delete them using this list.
 
 `SCREEN_TAP`, `ENTER_CHAT`/`EXIT_CHAT`, `LEAVE_WORLD` (no UI), `PLAYER_POSE`
 (parsed, unused), `HIBERNATION_STATUS` model, in-page Tailscale transports
