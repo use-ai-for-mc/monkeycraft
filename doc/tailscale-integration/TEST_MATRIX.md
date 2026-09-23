@@ -16,7 +16,7 @@
 | Android基本游戏/音频 | 模拟器主要路径已有通过结果 | 实体手机内网连接已由用户确认成功；Android验收完成，无追加测试 |
 | PC/iPhone内嵌Tailscale | 真实双端主要连接已有证据 | 不重新展开系统/内嵌、版本、网络组合矩阵 |
 | Windows/Linux helper | 沿用既有正常使用及验证结论；本轮未发现具体联网回归依据 | 无，不安排原生联网复测 |
-| GitHub Pages | 配置与本地候选已准备 | 同步修复、取得本次发布范围授权后部署；只确认公开页面可打开并能连进游戏 |
+| GitHub Pages | **2026-09-24已上线d4b3e0a；公开页面及资源核对通过** | 仅剩一次公开入口连接游戏；不重复Safari功能验收 |
 
 ## 发布前只保留
 
@@ -33,4 +33,4 @@
 - [原生音频修复](evidence/2026-09-19-ios-audio-resume.md)、[Android既有结果](evidence/2026-09-21-android-acceptance.md)。
 - [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)保存命令、失败、修复和产物；[旧矩阵](evidence/2026-09-23-test-matrix-before-simplification.md)仅供追溯，不恢复为待办。
 
-结论沿用已有证据与代码核对，不把取消的检查写成实测通过。普通Safari锁屏期间准时投递和Live Activity挂起时00:00等已知产品边界保留说明，不新增对应验收。用户已授权提交到master并将其余改动分组commit；网页6a67a9e已推送。尚未触发Pages生产部署。
+结论沿用已有证据与代码核对，不把取消的检查写成实测通过。普通Safari锁屏期间准时投递和Live Activity挂起时00:00等已知产品边界保留说明，不新增对应验收。用户已授权提交到master并将其余改动分组commit；网页6a67a9e已推送。Pages已按用户明确授权上线，发布运行35898773720成功；公开入口连接游戏尚未实测。

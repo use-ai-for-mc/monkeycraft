@@ -1038,3 +1038,11 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 ### 2026-09-24 用户确认新版浏览器入口
 
 用户自行重启26.2后确认，手机Safari刷新网页会自动进入游戏；随后自行尝试未登录情形并反馈成功。将本次自动连接入口记为用户实际验收通过，不增加重复声音、后台或跨版本检查。只读核对：83bdb01的CI运行35843379962已成功；Pages配置为workflow发布、HTTPS开启、无自定义域名，最近部署仍是2026-08-30的1c333679。剩余Pages步骤为发布当前Flutter候选、核对公开来源文件与资源，以及一次公开入口到可达HTTPS/WSS游戏电脑的连接确认。Pages与Mod页面不同源，不复用其浏览器凭证，首次仍需设置目标并认证；未将Mod入口验收冒充Pages线上验收。本轮没有触发部署。
+
+### 2026-09-24 GitHub Pages 正式发布
+
+用户明确要求发布线上。首次运行35898537298在依赖安装失败，未执行部署：手动按提交浅克隆Flutter但未取release tag，Flutter自身版本识别为0.0.0-unknown。核对SDK的version.dart、官方远端3.41.2标签和本地SDK，确认标签对应原固定提交90673a4eef275d1a6692c26ac80d6d746d41a73a。修复d4b3e0a让流程同时获取release tag，并在构建前强制验证tag解析出的提交等于原固定SHA；保留锁文件、静态分析和来源检查，没有改依赖版本或绕过失败。actionlint与diff检查通过，修复已推送master。
+
+第二次Pages运行[35898773720](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35898773720)的build及deploy均成功，公开地址 https://use-ai-for-mc.github.io/monkeycraft/ 已更新为共享Flutter客户端。线上build-provenance.json的source为d4b3e0a00716dca31b99f98ef9a9c8860623c435、dirty=false、run为35898773720、Flutter为3.41.2、base为/monkeycraft/。从公开网址实际下载index.html、main.dart.js、flutter_bootstrap.js和manifest.json，其SHA256均匹配发布来源清单；main.dart.js为f1dc25d7e3523a786f2e19e43d8f1c91eab2287f72e7c9aec8d5a807cef74d26，与用户已验收的Mod自动连接版一致。
+
+用无头Chromium直接打开公开页面，Flutter连接表单加载成功，标题MonkeyCraft、Server address首次为空、Connect和Remember and connect automatically可见，无页面异常或资源请求失败。这只计公开页面加载验证，没有连接用户游戏，也没有操作当前Minecraft、手机或系统Tailscale。剩余仅一次Pages入口到可达HTTPS/WSS游戏电脑的连接确认，不重测声音、倒计时、后台或旧Safari矩阵。Pages保持HTTPS、无自定义域名。证据位于outputs/pages-publish-2026-09-24/（首次失败日志、成功运行记录、线上来源清单、公开资源哈希、浏览器结果和截图）。

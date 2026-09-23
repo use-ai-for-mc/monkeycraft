@@ -4,6 +4,8 @@ MonkeyCraft's production browser client is built from `flutter/monkeycraft/` and
 
 The Pages entry is https://use-ai-for-mc.github.io/monkeycraft/. Use a reachable HTTPS/WSS endpoint for your Minecraft computer, such as its Tailscale Serve address. Pages does not relay game traffic or embed a Tailscale node; the device uses its existing network or system Tailscale connection. Only one controlling client can connect at a time.
 
+Published on 2026-09-24 from source `d4b3e0a00716dca31b99f98ef9a9c8860623c435` via [Pages run 35898773720](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35898773720). The public [build provenance](https://use-ai-for-mc.github.io/monkeycraft/build-provenance.json) identifies the source, toolchain and file hashes. Public page loading and the main resource hashes were verified after deployment; a connection from Pages to a game computer remains to be confirmed.
+
 ## Saved connection
 
 On first use, enter your game computer's address on Pages, then enter its password or pair. A page served by the Mod defaults to that computer's address. An explicitly changed, remembered target takes precedence. Once the address is known, it is shown as a summary with a Change button.
