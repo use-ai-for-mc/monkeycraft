@@ -1,0 +1,215 @@
+{
+  "environment": "physical iPhone, signed Release, existing app identity preserved",
+  "installedRunnerSHA256": "f9168d502c77fd22054f23d1a1d6416448f0145e4e06268615804ac05c6c074e",
+  "installedDiagnosticArchiveSHA256": "5594077ad3c8de9bde63f3c6d401d7435e718989804562cefe0bdfa48308d2df",
+  "userReportedSecondsApproximately": 8,
+  "nodeStartMs": 34,
+  "firstRegisterHttpStatus": 200,
+  "firstRegisterDoMs": 3944,
+  "authURLObservedFromNativeStartMs": 5068,
+  "systemOpenCompleteFromNativeStartMs": 5125,
+  "systemOpenMs": 56,
+  "observed502": false,
+  "explicitLoginCalls": 0,
+  "limits": [
+    "systemOpen complete does not measure browser page rendering or authentication",
+    "Go monotonicMs is Swift collection time; offsetMs is native event time relative to reset",
+    "request duration includes network and server processing; these are not separated",
+    "attempt 2 begins after first successful AuthURL response; it is not a retry caused by 502",
+    "subjective 8-second report and instrumented 5.125 seconds have different boundaries; remaining difference is unmeasured"
+  ],
+  "events": [
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473316345,
+      "phase": "stopped",
+      "stage": "start.entry"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473316355,
+      "phase": "starting",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 1,
+      "monotonicMs": 473316361,
+      "stage": "tailscale_new"
+    },
+    {
+      "elapsedMs": 28,
+      "monotonicMs": 473316391,
+      "stage": "tailscale_start"
+    },
+    {
+      "elapsedMs": 34,
+      "monotonicMs": 473316392,
+      "stage": "start.return"
+    },
+    {
+      "elapsedMs": 3,
+      "monotonicMs": 473316397,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "elapsedMs": 4,
+      "monotonicMs": 473316398,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473316399,
+      "phase": "needsLogin",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 1,
+      "monotonicMs": 473317401,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "attempt": 1,
+      "elapsedMs": 0,
+      "monotonicMs": 473317406,
+      "offsetMs": 650,
+      "stage": "register.do",
+      "status": 0
+    },
+    {
+      "elapsedMs": 7,
+      "monotonicMs": 473317408,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473317410,
+      "phase": "needsLogin",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473318401,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "elapsedMs": 3,
+      "monotonicMs": 473318404,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473318405,
+      "phase": "needsLogin",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 1,
+      "monotonicMs": 473319401,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "elapsedMs": 4,
+      "monotonicMs": 473319405,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473319408,
+      "phase": "needsLogin",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 1,
+      "monotonicMs": 473320402,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "elapsedMs": 5,
+      "monotonicMs": 473320405,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473320408,
+      "phase": "needsLogin",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 1,
+      "monotonicMs": 473321401,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "attempt": 1,
+      "elapsedMs": 3944,
+      "monotonicMs": 473321405,
+      "offsetMs": 4595,
+      "stage": "register.response",
+      "status": 200
+    },
+    {
+      "attempt": 1,
+      "elapsedMs": 0,
+      "monotonicMs": 473321408,
+      "offsetMs": 4595,
+      "stage": "register.decode",
+      "status": 200
+    },
+    {
+      "attempt": 2,
+      "elapsedMs": 0,
+      "monotonicMs": 473321409,
+      "offsetMs": 4597,
+      "stage": "register.do",
+      "status": 0
+    },
+    {
+      "elapsedMs": 10,
+      "monotonicMs": 473321411,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473321413,
+      "phase": "needsLogin",
+      "stage": "authURL.first"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473321414,
+      "stage": "systemOpen.entry"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473321415,
+      "phase": "needsLogin",
+      "stage": "phase"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473321470,
+      "stage": "systemOpen.complete"
+    },
+    {
+      "elapsedMs": 57,
+      "monotonicMs": 473321472,
+      "stage": "presentAuthURL"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473322400,
+      "stage": "tailscale_status_json"
+    },
+    {
+      "elapsedMs": 2,
+      "monotonicMs": 473322402,
+      "stage": "statusJSON"
+    },
+    {
+      "elapsedMs": 0,
+      "monotonicMs": 473322404,
+      "phase": "needsLogin",
+      "stage": "phase"
+    }
+  ]
+}

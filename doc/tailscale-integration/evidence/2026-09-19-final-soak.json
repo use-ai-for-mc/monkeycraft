@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-19",
+  "version": "26.2",
+  "jarSha256": "6fabc18716455b4e5cc7c9fe965d89c2c360995a894dc5a0ad2498c98fa10b09",
+  "environment": "macOS ARM64; actual ImagineFun Add-Ons / mp.imaginefun.net; Playwright Chromium; existing system Tailscale HTTPS/WSS",
+  "result": "2 passed",
+  "durationMs": 600032,
+  "samples": [
+    {
+      "elapsedMs": 1,
+      "viewport": {
+        "width": 1000,
+        "height": 700
+      },
+      "debug": "fps 8  recv 23  dec 22  drop 0  wait 0\nerr 0  cfg 1  kf 0  q 0  avc1.420028\nserver 750x524  req 750x524  link connected  screen closed  ptr -"
+    },
+    {
+      "elapsedMs": 140004,
+      "viewport": {
+        "width": 1000,
+        "height": 700
+      },
+      "debug": "fps 7  recv 1140  dec 1139  drop 0  wait 0\nerr 0  cfg 1  kf 0  q 0  avc1.420028\nserver 750x524  req 750x524  link connected  screen closed  ptr -"
+    },
+    {
+      "elapsedMs": 280011,
+      "viewport": {
+        "width": 800,
+        "height": 600
+      },
+      "debug": "fps 9  recv 2245  dec 2244  drop 0  wait 0\nerr 0  cfg 2  kf 0  q 0  avc1.420028\nserver 600x450  req 600x450  link connected  screen closed  ptr -"
+    },
+    {
+      "elapsedMs": 420018,
+      "viewport": {
+        "width": 1200,
+        "height": 700
+      },
+      "debug": "fps 8  recv 3357  dec 3356  drop 0  wait 0\nerr 0  cfg 3  kf 0  q 0  avc1.420028\nserver 900x524  req 900x524  link connected  screen closed  ptr -"
+    },
+    {
+      "elapsedMs": 560025,
+      "viewport": {
+        "width": 700,
+        "height": 900
+      },
+      "debug": "fps 8  recv 4468  dec 4467  drop 0  wait 0\nerr 0  cfg 4  kf 0  q 0  avc1.420028\nserver 524x674  req 524x674  link connected  screen closed  ptr -"
+    },
+    {
+      "elapsedMs": 600032,
+      "viewport": {
+        "width": 1000,
+        "height": 700
+      },
+      "debug": "fps 9  recv 4787  dec 4786  drop 0  wait 0\nerr 0  cfg 5  kf 0  q 0  avc1.420028\nserver 750x524  req 750x524  link connected  screen closed  ptr -"
+    }
+  ],
+  "initialAttempt": "Browser unexpectedly closed after approximately 3.4 minutes; possible concurrent test cleanup interference; not counted as completed soak."
+}

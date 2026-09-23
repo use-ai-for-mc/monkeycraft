@@ -1,5 +1,7 @@
 # MonkeyCraft Mod / 桌面端内嵌 Tailscale 方案
 
+> 2026-09-18：本文件包含早期实施建议与历史阶段编号；产品优先级以 [产品路线](../PRODUCT_ROADMAP_2026-09.md) 为准，当前证据见 [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)。Flutter iOS/Android 与 `web/` 均长期维护；移动双端内嵌是已确认目标，Android 技术门槛不是取消产品目标。当前浏览器正式路径为 LAN/系统 Tailscale；WASM 属于 P4 候选探索，未经选择不自动产品化。
+
 ## 1. 目标、范围与结论
 
 本方案让运行 Minecraft 的电脑在**未安装 Tailscale 桌面 App、未安装任何 SDK**的前提下，随 MonkeyCraft Mod 启动一个预编译的原生 helper。helper 在用户态运行 Tailscale 节点，只把 MonkeyCraft WebSocket 端口代理到 Tailnet；用户从 Mod 的设置页发起登录，系统浏览器完成 Tailscale 授权。首个交付目标是：现有已开启系统 Tailscale VPN 的手机 MonkeyCraft App，能够以 helper 报告的 Tailnet 地址和端口连接 Minecraft。

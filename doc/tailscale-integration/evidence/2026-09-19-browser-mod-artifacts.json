@@ -1,0 +1,269 @@
+{
+  "date": "2026-09-19",
+  "scope": "Fresh local Gradle build and existing test tasks after the frozen banner CSS bundle. Build scripts consumed prebuilt web/dist and did not invoke a web build.",
+  "commands": [
+    "JAVA_HOME=<JDK25> ./gradlew spotlessApply --max-workers=2, then ./gradlew build --max-workers=2 (26.2, 26.1)",
+    "JAVA_HOME=<JDK21> ./gradlew spotlessApply --max-workers=2, then ./gradlew build --max-workers=2 (1.21.11, 1.19; 1.19 Gradle launcher runs on 21 and compiles with its configured Java 17 toolchain)"
+  ],
+  "logs": "outputs/roadmap-2026-09-19-android-browser/mod-<version>.log",
+  "fixtureCorrection": {
+    "initialFailure": "1.21.11 HelperTailscaleServiceTest.immediateShutdownCancelsAQueuedStart failed once because the fixture did not hold the control executor, so its start task could run before shutdown.",
+    "rootCause": "All four trees had identical service and fixture sources. The existing latch-backed lifecycle test already demonstrates generation cancellation for a genuinely queued task.",
+    "change": "The same test fixture in all four trees now blocks the injected single-thread control executor before ensureRunning and shutdown, then releases it and verifies no helper process starts. Production shutdown behavior was unchanged.",
+    "retest": "All four full build test tasks executed and passed after the fixture update; the first failure log is retained separately."
+  },
+  "mods": [
+    {
+      "minecraft": "26.2",
+      "javaRelease": 25,
+      "jar": "mods/26.2/build/libs/monkeycraft-1.4.2-26.2.jar",
+      "sha256": "6fabc18716455b4e5cc7c9fe965d89c2c360995a894dc5a0ad2498c98fa10b09",
+      "junit": {
+        "tests": 62,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testTask": "Executed after the deterministic queued-shutdown fixture update.",
+      "web": {
+        "sourceFileCount": 11,
+        "embeddedMatchingFileCount": 11,
+        "missing": [],
+        "mismatched": [],
+        "notificationWorkerSha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+      },
+      "helpers": {
+        "entriesAndManifestVerified": true,
+        "licenseByteEqual": true,
+        "platforms": [
+          {
+            "platform": "darwin-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "sidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+            "embeddedManifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "embeddedSidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5"
+          },
+          {
+            "platform": "darwin-arm64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "sidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+            "embeddedManifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "embeddedSidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c"
+          },
+          {
+            "platform": "linux-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "sidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+            "embeddedManifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "embeddedSidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61"
+          },
+          {
+            "platform": "windows-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "sidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+            "embeddedManifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "embeddedSidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51"
+          }
+        ]
+      },
+      "deployment": "Not deployed or started; local build and artifact verification only."
+    },
+    {
+      "minecraft": "26.1",
+      "javaRelease": 25,
+      "jar": "mods/26.1/build/libs/monkeycraft-1.4.2-26.1.jar",
+      "sha256": "74720852f918a4daa0e8c902c8c24f1fcc3e6a3fd85efe221a54bff63333c8db",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testTask": "Executed after the deterministic queued-shutdown fixture update.",
+      "web": {
+        "sourceFileCount": 11,
+        "embeddedMatchingFileCount": 11,
+        "missing": [],
+        "mismatched": [],
+        "notificationWorkerSha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+      },
+      "helpers": {
+        "entriesAndManifestVerified": true,
+        "licenseByteEqual": true,
+        "platforms": [
+          {
+            "platform": "darwin-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "sidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+            "embeddedManifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "embeddedSidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5"
+          },
+          {
+            "platform": "darwin-arm64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "sidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+            "embeddedManifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "embeddedSidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c"
+          },
+          {
+            "platform": "linux-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "sidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+            "embeddedManifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "embeddedSidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61"
+          },
+          {
+            "platform": "windows-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "sidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+            "embeddedManifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "embeddedSidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51"
+          }
+        ]
+      },
+      "deployment": "Not deployed or started; local build and artifact verification only."
+    },
+    {
+      "minecraft": "1.21.11",
+      "javaRelease": 21,
+      "jar": "mods/1.21.11/build/libs/monkeycraft-1.4.2-1.21.11.jar",
+      "sha256": "500105bac88d5a50d4e2f20a1e73f2281ebe7d859fc113eb2d48eea73bd07dde",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testTask": "Executed after the deterministic queued-shutdown fixture update.",
+      "web": {
+        "sourceFileCount": 11,
+        "embeddedMatchingFileCount": 11,
+        "missing": [],
+        "mismatched": [],
+        "notificationWorkerSha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+      },
+      "helpers": {
+        "entriesAndManifestVerified": true,
+        "licenseByteEqual": true,
+        "platforms": [
+          {
+            "platform": "darwin-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "sidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+            "embeddedManifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "embeddedSidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5"
+          },
+          {
+            "platform": "darwin-arm64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "sidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+            "embeddedManifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "embeddedSidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c"
+          },
+          {
+            "platform": "linux-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "sidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+            "embeddedManifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "embeddedSidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61"
+          },
+          {
+            "platform": "windows-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "sidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+            "embeddedManifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "embeddedSidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51"
+          }
+        ]
+      },
+      "deployment": "Not deployed or started; local build and artifact verification only."
+    },
+    {
+      "minecraft": "1.19",
+      "javaRelease": 17,
+      "jar": "mods/1.19/build/libs/monkeycraft-1.4.2-1.19.jar",
+      "sha256": "a64bd937045ee626845cd60f183206ab7231a63c459b2842f6c7082e361248ec",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testTask": "Executed after the deterministic queued-shutdown fixture update.",
+      "web": {
+        "sourceFileCount": 11,
+        "embeddedMatchingFileCount": 11,
+        "missing": [],
+        "mismatched": [],
+        "notificationWorkerSha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+      },
+      "helpers": {
+        "entriesAndManifestVerified": true,
+        "licenseByteEqual": true,
+        "platforms": [
+          {
+            "platform": "darwin-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "sidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+            "embeddedManifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+            "embeddedSidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5"
+          },
+          {
+            "platform": "darwin-arm64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "sidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+            "embeddedManifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+            "embeddedSidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c"
+          },
+          {
+            "platform": "linux-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "sidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+            "embeddedManifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+            "embeddedSidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61"
+          },
+          {
+            "platform": "windows-amd64",
+            "sourceEntriesByteEqual": true,
+            "manifestDigestSizeValid": true,
+            "manifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "sidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+            "embeddedManifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+            "embeddedSidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51"
+          }
+        ]
+      },
+      "deployment": "Not deployed or started; local build and artifact verification only."
+    }
+  ]
+}

@@ -1,0 +1,1238 @@
+{
+  "date": "2026-09-18",
+  "limits": "macOS native Go comparison and iOS simulator are not physical iPhone validation; auth URLs, keys, request headers/bodies are excluded. One auto-only sample does not establish causation.",
+  "iosPinnedCore": {
+    "module": "tailscale.com v1.94.1",
+    "platform": "macOS arm64",
+    "withExplicitLogin": [
+      {
+        "elapsedMs": 25,
+        "failed": false,
+        "run": 1,
+        "stage": "start"
+      },
+      {
+        "elapsedMs": 25,
+        "failed": false,
+        "run": 1,
+        "stage": "localClient"
+      },
+      {
+        "elapsedMs": 61,
+        "failed": false,
+        "run": 1,
+        "stage": "initialStatus"
+      },
+      {
+        "elapsedMs": 93,
+        "failed": false,
+        "run": 1,
+        "stage": "loginInteractive"
+      },
+      {
+        "elapsedMs": 33770,
+        "failed": false,
+        "run": 1,
+        "stage": "authURLReceived"
+      },
+      {
+        "elapsedMs": 20,
+        "failed": false,
+        "run": 2,
+        "stage": "start"
+      },
+      {
+        "elapsedMs": 21,
+        "failed": false,
+        "run": 2,
+        "stage": "localClient"
+      },
+      {
+        "elapsedMs": 56,
+        "failed": false,
+        "run": 2,
+        "stage": "initialStatus"
+      },
+      {
+        "elapsedMs": 90,
+        "failed": false,
+        "run": 2,
+        "stage": "loginInteractive"
+      },
+      {
+        "elapsedMs": 8391,
+        "failed": false,
+        "run": 2,
+        "stage": "authURLReceived"
+      },
+      {
+        "elapsedMs": 21,
+        "failed": false,
+        "run": 3,
+        "stage": "start"
+      },
+      {
+        "elapsedMs": 21,
+        "failed": false,
+        "run": 3,
+        "stage": "localClient"
+      },
+      {
+        "elapsedMs": 56,
+        "failed": false,
+        "run": 3,
+        "stage": "initialStatus"
+      },
+      {
+        "elapsedMs": 90,
+        "failed": false,
+        "run": 3,
+        "stage": "loginInteractive"
+      },
+      {
+        "elapsedMs": 1890,
+        "failed": false,
+        "run": 3,
+        "stage": "authURLReceived"
+      }
+    ],
+    "controlRequestTiming": [
+      {
+        "elapsedMs": 18,
+        "logTemplate": "[v1] using fake (no-op) DNS configurator",
+        "run": 1
+      },
+      {
+        "elapsedMs": 18,
+        "logTemplate": "dns: using %T",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] HostInfo: %s",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; goal=nil paused=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] mapRoutine: loggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "wgengine: Reconfig: configuring DNS",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "dns: Set: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "dns: Resolvercfg: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "dns: OScfg: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: client.Login(%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "failed": false,
+        "run": 1,
+        "stage": "start"
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] mapRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] authRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] mapRoutine: loggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; wantLoggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: [v1] direct.TryLogin(flags=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 40,
+        "failed": false,
+        "run": 1,
+        "stage": "localClient"
+      },
+      {
+        "elapsedMs": 40,
+        "logTemplate": "control: LoginInteractive -> regen=true",
+        "run": 1
+      },
+      {
+        "elapsedMs": 41,
+        "logTemplate": "control: doLogin(regen=%v, hasUrl=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 75,
+        "failed": false,
+        "run": 1,
+        "stage": "initialStatus"
+      },
+      {
+        "elapsedMs": 108,
+        "logTemplate": "control: client.Login(%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 108,
+        "failed": false,
+        "run": 1,
+        "stage": "loginInteractive"
+      },
+      {
+        "elapsedMs": 109,
+        "logTemplate": "control: [v1] mapRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 109,
+        "logTemplate": "control: [v1] mapRoutine: loggedIn=%v",
+        "run": 1
+      },
+      {
+        "cancelled": false,
+        "deadline": false,
+        "elapsedMs": 109,
+        "error": "fetch control key: Get \"<redacted>\": context canceled",
+        "errorType": "*errors.errorString",
+        "logTemplate": "control: [v1] %s: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 109,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; wantLoggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 109,
+        "logTemplate": "control: [v1] direct.TryLogin(flags=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 109,
+        "logTemplate": "control: LoginInteractive -> regen=true",
+        "run": 1
+      },
+      {
+        "elapsedMs": 109,
+        "logTemplate": "control: doLogin(regen=%v, hasUrl=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 537,
+        "logTemplate": "control: control server key from %s: ts2021=%s, legacy=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 537,
+        "logTemplate": "control: Generating a new nodekey.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 538,
+        "logTemplate": "control: RegisterReq: onode=%v node=%v fup=%v nks=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 538,
+        "logTemplate": "control: [v1] creating new noise client",
+        "run": 1
+      },
+      {
+        "elapsedMs": 538,
+        "logTemplate": "control: trying noise dial (%v, %v) ...",
+        "requestPath": "/ts2021",
+        "requestScheme": "http",
+        "run": 1
+      },
+      {
+        "elapsedMs": 864,
+        "logTemplate": "control: noise dial (%v, %v) = (%v, %v)",
+        "requestPath": "/ts2021",
+        "requestScheme": "http",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32172,
+        "logTemplate": "control: RegisterReq: got response; nodeKeyExpired=%v, machineAuthorized=%v; authURL=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32172,
+        "logTemplate": "control: AuthURL is %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32172,
+        "logTemplate": "control: [v1] sendStatus: %s: loggedIn=%v inMapPoll=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; wantLoggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "control: [v1] direct.WaitLoginURL",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "control: doLogin(regen=%v, hasUrl=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "control: RegisterReq: onode=%v node=%v fup=%v nks=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "Received auth URL: %.20v...",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "popBrowserAuthNow(%q): url=%v, key-expired=%v, seamless-key-renewal=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32173,
+        "logTemplate": "[v1] authReconfig: blocked, skipping.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32251,
+        "failed": false,
+        "run": 1,
+        "stage": "authURLReceived"
+      },
+      {
+        "elapsedMs": 32252,
+        "logTemplate": "control: client.Shutdown ...",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32252,
+        "logTemplate": "control: updateRoutine: exiting",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32252,
+        "logTemplate": "control: [v1] mapRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32252,
+        "logTemplate": "control: mapRoutine: exiting",
+        "run": 1
+      },
+      {
+        "cancelled": true,
+        "deadline": false,
+        "elapsedMs": 32252,
+        "error": "register request: Post \"<redacted>\": context canceled",
+        "errorType": "*fmt.wrapError",
+        "logTemplate": "control: [v1] %s: %v",
+        "netTimeout": false,
+        "run": 1
+      },
+      {
+        "elapsedMs": 32252,
+        "logTemplate": "control: authRoutine: exiting",
+        "run": 1
+      },
+      {
+        "elapsedMs": 32253,
+        "logTemplate": "control: Client.Shutdown done.",
+        "run": 1
+      }
+    ],
+    "automaticLoginOnlySingleSample": [
+      {
+        "elapsedMs": 13,
+        "logTemplate": "[v1] using fake (no-op) DNS configurator",
+        "run": 1
+      },
+      {
+        "elapsedMs": 13,
+        "logTemplate": "dns: using %T",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "control: [v1] HostInfo: %s",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; goal=nil paused=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "control: [v1] mapRoutine: loggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "wgengine: Reconfig: configuring DNS",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "dns: Set: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "dns: Resolvercfg: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "dns: OScfg: %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "logTemplate": "control: client.Login(%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 27,
+        "failed": false,
+        "run": 1,
+        "stage": "start"
+      },
+      {
+        "elapsedMs": 28,
+        "failed": false,
+        "run": 1,
+        "stage": "localClient"
+      },
+      {
+        "elapsedMs": 28,
+        "logTemplate": "control: [v1] authRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 28,
+        "logTemplate": "control: [v1] mapRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 28,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; wantLoggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 28,
+        "logTemplate": "control: [v1] direct.TryLogin(flags=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 28,
+        "logTemplate": "control: [v1] mapRoutine: loggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 28,
+        "logTemplate": "control: LoginInteractive -> regen=true",
+        "run": 1
+      },
+      {
+        "elapsedMs": 34,
+        "logTemplate": "control: doLogin(regen=%v, hasUrl=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 62,
+        "failed": false,
+        "run": 1,
+        "stage": "initialStatus"
+      },
+      {
+        "elapsedMs": 62,
+        "failed": false,
+        "run": 1,
+        "stage": "loginAutomaticOnly"
+      },
+      {
+        "elapsedMs": 571,
+        "logTemplate": "control: control server key from %s: ts2021=%s, legacy=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 571,
+        "logTemplate": "control: Generating a new nodekey.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 572,
+        "logTemplate": "control: RegisterReq: onode=%v node=%v fup=%v nks=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 572,
+        "logTemplate": "control: [v1] creating new noise client",
+        "run": 1
+      },
+      {
+        "elapsedMs": 572,
+        "logTemplate": "control: trying noise dial (%v, %v) ...",
+        "requestPath": "/ts2021",
+        "requestScheme": "http",
+        "run": 1
+      },
+      {
+        "elapsedMs": 895,
+        "logTemplate": "control: noise dial (%v, %v) = (%v, %v)",
+        "requestPath": "/ts2021",
+        "requestScheme": "http",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: RegisterReq: got response; nodeKeyExpired=%v, machineAuthorized=%v; authURL=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: AuthURL is %v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: [v1] sendStatus: %s: loggedIn=%v inMapPoll=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: [v1] authRoutine: loggedIn=%v; wantLoggedIn=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: [v1] direct.WaitLoginURL",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: doLogin(regen=%v, hasUrl=%v)",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1717,
+        "logTemplate": "control: RegisterReq: onode=%v node=%v fup=%v nks=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1718,
+        "logTemplate": "Received auth URL: %.20v...",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1718,
+        "logTemplate": "popBrowserAuthNow(%q): url=%v, key-expired=%v, seamless-key-renewal=%v",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1718,
+        "logTemplate": "[v1] authReconfig: blocked, skipping.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1732,
+        "failed": false,
+        "run": 1,
+        "stage": "authURLReceived"
+      },
+      {
+        "elapsedMs": 1732,
+        "logTemplate": "control: client.Shutdown ...",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1732,
+        "logTemplate": "control: updateRoutine: exiting",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1732,
+        "logTemplate": "control: [v1] mapRoutine: context done.",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1732,
+        "logTemplate": "control: mapRoutine: exiting",
+        "run": 1
+      },
+      {
+        "cancelled": true,
+        "deadline": false,
+        "elapsedMs": 1732,
+        "error": "register request: Post \"<redacted>\": context canceled",
+        "errorType": "*fmt.wrapError",
+        "logTemplate": "control: [v1] %s: %v",
+        "netTimeout": false,
+        "run": 1
+      },
+      {
+        "elapsedMs": 1732,
+        "logTemplate": "control: authRoutine: exiting",
+        "run": 1
+      },
+      {
+        "elapsedMs": 1732,
+        "logTemplate": "control: Client.Shutdown done.",
+        "run": 1
+      }
+    ]
+  },
+  "pcHelperComparison": {
+    "module": "tailscale.com v1.102.3",
+    "platform": "macOS arm64",
+    "results": [
+      {
+        "run": 1,
+        "timeline": [
+          {
+            "elapsedSeconds": 0.022,
+            "event": "ready",
+            "state": "stopped",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 0.087,
+            "event": "stateChanged",
+            "state": "starting",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 0.157,
+            "event": "stateChanged",
+            "state": "needsLogin",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 4.197,
+            "event": "authRequired",
+            "state": "needsLogin",
+            "hasAuthURL": true,
+            "errorCode": null
+          }
+        ],
+        "exitCode": 0
+      },
+      {
+        "run": 2,
+        "timeline": [
+          {
+            "elapsedSeconds": 0.009,
+            "event": "ready",
+            "state": "stopped",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 0.082,
+            "event": "stateChanged",
+            "state": "starting",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 0.15,
+            "event": "stateChanged",
+            "state": "needsLogin",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 1.134,
+            "event": "authRequired",
+            "state": "needsLogin",
+            "hasAuthURL": true,
+            "errorCode": null
+          }
+        ],
+        "exitCode": 0
+      },
+      {
+        "run": 3,
+        "timeline": [
+          {
+            "elapsedSeconds": 0.009,
+            "event": "ready",
+            "state": "stopped",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 0.068,
+            "event": "stateChanged",
+            "state": "starting",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 0.14,
+            "event": "stateChanged",
+            "state": "needsLogin",
+            "hasAuthURL": false,
+            "errorCode": null
+          },
+          {
+            "elapsedSeconds": 1.439,
+            "event": "authRequired",
+            "state": "needsLogin",
+            "hasAuthURL": true,
+            "errorCode": null
+          }
+        ],
+        "exitCode": 0
+      }
+    ]
+  },
+  "iosSimulator": {
+    "platform": "iOS Simulator arm64",
+    "startMs": 78,
+    "localApiRequestMs": 71,
+    "firstAuthURLMs": 20689,
+    "realIPhone": false
+  },
+  "serialComparisons": [
+    {
+      "variant": "old-auto",
+      "repeat": 1,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 39,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 39,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 81,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 81,
+          "failed": false,
+          "run": 1,
+          "stage": "loginAutomaticOnly"
+        },
+        {
+          "elapsedMs": 45086,
+          "failed": true,
+          "run": 1,
+          "stage": "deadline"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 45.854
+    },
+    {
+      "variant": "old-explicit",
+      "repeat": 1,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 44,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 44,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 77,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 109,
+          "failed": false,
+          "run": 1,
+          "stage": "loginInteractive"
+        },
+        {
+          "elapsedMs": 24275,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 24.338
+    },
+    {
+      "variant": "old-explicit-443",
+      "repeat": 1,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 33,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 33,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 67,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 100,
+          "failed": false,
+          "run": 1,
+          "stage": "loginInteractive"
+        },
+        {
+          "elapsedMs": 28818,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 1234,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-20260918150149ced85b1564263bc7",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 1470,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-20260918150149738115b9df33082b",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 1741,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-2026091815015067e68ed8937be8ef",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 2011,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-20260918150150cab7feaf628c2551",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 2504,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-202609181501505b0f580d033132f6",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 3067,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-2026091815015191bbb520a8b3e808",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 3885,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-202609181501527c624a973f06d326",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 4594,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-20260918150152c7854e9b8c530c7c",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 5661,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-20260918150153ab906c1aa8927adf",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 6387,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-2026091815015404b03789271a00e1",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 7534,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-2026091815015547b2276c6f28c9a2",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 9247,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-202609181501578f29bc483deb9c75",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 10503,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-202609181501582a471d5a07c27838",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        },
+        {
+          "cancelled": false,
+          "deadline": false,
+          "elapsedMs": 13658,
+          "error": "register request: http 502: backend not found or not available; reqType=noise-register/machine-pubkey; saw 43/44; tn=0\nREQ-202609181502012d58ee982dd29b70",
+          "errorType": "*errors.errorString",
+          "logTemplate": "control: [v1] %s: %v",
+          "run": 1
+        }
+      ],
+      "wallSeconds": 28.845
+    },
+    {
+      "variant": "new-explicit",
+      "repeat": 1,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 38,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 38,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 74,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 110,
+          "failed": false,
+          "run": 1,
+          "stage": "loginInteractive"
+        },
+        {
+          "elapsedMs": 10343,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 11.0
+    },
+    {
+      "variant": "old-auto",
+      "repeat": 2,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 24,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 24,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 61,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 61,
+          "failed": false,
+          "run": 1,
+          "stage": "loginAutomaticOnly"
+        },
+        {
+          "elapsedMs": 9717,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 9.77
+    },
+    {
+      "variant": "old-explicit",
+      "repeat": 2,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 30,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 30,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 64,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 97,
+          "failed": false,
+          "run": 1,
+          "stage": "loginInteractive"
+        },
+        {
+          "elapsedMs": 8658,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 8.726
+    },
+    {
+      "variant": "old-explicit-443",
+      "repeat": 2,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 21,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 21,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 56,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 88,
+          "failed": false,
+          "run": 1,
+          "stage": "loginInteractive"
+        },
+        {
+          "elapsedMs": 1340,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 1.356
+    },
+    {
+      "variant": "new-explicit",
+      "repeat": 2,
+      "exitCode": 0,
+      "stages": [
+        {
+          "elapsedMs": 18,
+          "failed": false,
+          "run": 1,
+          "stage": "start"
+        },
+        {
+          "elapsedMs": 18,
+          "failed": false,
+          "run": 1,
+          "stage": "localClient"
+        },
+        {
+          "elapsedMs": 52,
+          "failed": false,
+          "run": 1,
+          "stage": "initialStatus"
+        },
+        {
+          "elapsedMs": 86,
+          "failed": false,
+          "run": 1,
+          "stage": "loginInteractive"
+        },
+        {
+          "elapsedMs": 8783,
+          "failed": false,
+          "run": 1,
+          "stage": "authURLReceived"
+        }
+      ],
+      "errors": [],
+      "wallSeconds": 8.812
+    }
+  ],
+  "findings": {
+    "provenSample": "old-explicit-443 repeat1 received fourteen HTTP502 backend unavailable responses; client retried and AuthURL appeared at28.818s",
+    "notEstablished": [
+      "server-internal reason for unavailable backend",
+      "identical failure on physical iPhone",
+      "upgrade or443 orremoving explicit login as a stable fix"
+    ]
+  },
+  "physicalPhoneDiagnostic": {
+    "status": "physical phone measurement captured; first register HTTP200, no502 in this sample",
+    "configuration": "Release",
+    "bundleIdentifier": "com.chenweikeng.monkeycraft",
+    "version": "1.4.2",
+    "build": "11",
+    "runnerSHA256": "f9168d502c77fd22054f23d1a1d6416448f0145e4e06268615804ac05c6c074e",
+    "diagnosticArchiveSHA256": "5594077ad3c8de9bde63f3c6d401d7435e718989804562cefe0bdfa48308d2df",
+    "goVersion": "go1.26.3",
+    "tailscaleModule": "v1.94.1",
+    "controlPatchSHA256": "8bc242d1f222460bffa331423a2b19efd727c5f7d6ee0a86d629a4135e22638b",
+    "libPatchSHA256": "e8813718ea098b77969f0149f94be6f475ad4c682620a3d13d44e8ed5303eb8f",
+    "deviceDataPreserved": true,
+    "podTargetsVerifiedWithoutGoArchive": 25,
+    "authURLTiming": {
+      "observedMs": 5068,
+      "systemOpenCompleteMs": 5125,
+      "nodeStartMs": 34,
+      "registerDoMs": 3944,
+      "httpStatus": 200
+    },
+    "evidence": "2026-09-18-ios-phone-login.json"
+  },
+  "finalDiagnosticCandidate": {
+    "installed": false,
+    "archiveSHA256": "e999dccbd9d09d1362f09f6b07492bace524edd542775e89d11f39d623083aed",
+    "runnerSHA256": "8eddcf065867d6a929949273a88d44170870c209cdccb80168192117baec3762",
+    "signedReleaseBuildPassed": true,
+    "actualRunnerRelinkVerified": true,
+    "codesignVerificationPassed": true,
+    "offlineRaceTest": "TestMonkeycraftDiagnosticBoundedConcurrentReset passed in1.620s",
+    "physicalPhoneAuthURLTiming": null
+  },
+  "spinnerRelease": {
+    "installed": true,
+    "installedLocalDate": "2026-09-19",
+    "configuration": "Release",
+    "archiveSHA256": "e999dccbd9d09d1362f09f6b07492bace524edd542775e89d11f39d623083aed",
+    "runnerSHA256": "8644417dd6d0e950eefa1137214887876687b7bdd2ac02c714c951fc6e89359b",
+    "dartFrameworkSHA256": "3fb0a64f93217d3c1f9d117c02b337cd425350c11cf418178768b14a1cdebc55",
+    "widgetTestsPassed": 7,
+    "analyzePassed": true,
+    "cleanSignedBuildPassed": true,
+    "codesignDeepStrictPassed": true,
+    "deviceInstallPassed": true,
+    "physicalSpinnerVisualVerification": "not yet observed",
+    "originalIdentityPreserved": true
+  }
+}

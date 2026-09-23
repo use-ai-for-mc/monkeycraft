@@ -1,0 +1,21 @@
+{
+  "environment": "Android API36 ARM64 emulator, no audio page or real phone",
+  "stages": {
+    "started": {
+      "serviceExists": true,
+      "foreground": true,
+      "foregroundIdMatches": true,
+      "mediaPlaybackType": true,
+      "notificationRecordCount": 1
+    },
+    "stopped": {
+      "serviceExists": false,
+      "foreground": false,
+      "foregroundIdMatches": false,
+      "mediaPlaybackType": false,
+      "notificationRecordCount": 0
+    }
+  },
+  "testExitCode": 0,
+  "passed": true
+}

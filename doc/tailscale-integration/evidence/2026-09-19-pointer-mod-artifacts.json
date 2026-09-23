@@ -1,0 +1,78 @@
+{
+  "date": "2026-09-19",
+  "scope": "Sequential final Mod builds after Pointer Lock handling and the 1.21.11 WindowMixin limit-frame change. No deployment or runtime launch.",
+  "commands": "For each Mod: ./gradlew --no-daemon --max-workers=2 spotlessCheck build",
+  "logs": "outputs/roadmap-2026-09-19-version-soak/<version>-final-build.log",
+  "web": {
+    "sourceFileCount": 11,
+    "indexJs": "assets/index-CBIfgtxc.js",
+    "indexJsSha256": "1f1667301a239eba17b882d1a5bcefb954d92096db3b89c0c76afddaf733b845"
+  },
+  "helpers": {
+    "licenseSha256": "88064451f947b208d53559124d39049488522eeb7425d2d26e59ded24b595d71",
+    "platforms": {
+      "darwin-amd64": {
+        "manifestSha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+        "sidecarSha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5"
+      },
+      "darwin-arm64": {
+        "manifestSha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+        "sidecarSha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c"
+      },
+      "linux-amd64": {
+        "manifestSha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+        "sidecarSha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61"
+      },
+      "windows-amd64": {
+        "manifestSha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+        "sidecarSha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51"
+      }
+    }
+  },
+  "mods": [
+    {
+      "minecraft": "26.2",
+      "javaRelease": 25,
+      "jar": "mods/26.2/build/libs/monkeycraft-1.4.2-26.2.jar",
+      "jarSha256": "31ef8c433173d509452e1b4c2f1aabb15bdade3a8fffea6ca77d1df968c5f2cb",
+      "junit": { "tests": 62, "failures": 0, "errors": 0, "skipped": 0 },
+      "testTask": "Executed by this build invocation.",
+      "web": { "embeddedMatchingFileCount": 11, "missing": [], "mismatched": [] },
+      "helpers": { "binaryManifestSidecarAndLicenseByteEqual": true, "manifestDigestSizeValid": true },
+      "deployment": "Not deployed or started."
+    },
+    {
+      "minecraft": "26.1",
+      "javaRelease": 25,
+      "jar": "mods/26.1/build/libs/monkeycraft-1.4.2-26.1.jar",
+      "jarSha256": "74324218028119b615b84e32311452cf6a57aed8fbaddfb0e5d4babe1d9925f5",
+      "junit": { "tests": 57, "failures": 0, "errors": 0, "skipped": 0 },
+      "testTask": "Executed by this build invocation.",
+      "web": { "embeddedMatchingFileCount": 11, "missing": [], "mismatched": [] },
+      "helpers": { "binaryManifestSidecarAndLicenseByteEqual": true, "manifestDigestSizeValid": true },
+      "deployment": "Not deployed or started."
+    },
+    {
+      "minecraft": "1.21.11",
+      "javaRelease": 21,
+      "jar": "mods/1.21.11/build/libs/monkeycraft-1.4.2-1.21.11.jar",
+      "jarSha256": "d42a65b35cade5019f7a9999a79fc948d74493c2e2f894ae5861c757c5a8a9b3",
+      "junit": { "tests": 57, "failures": 0, "errors": 0, "skipped": 0 },
+      "testTask": "Executed by this build invocation.",
+      "web": { "embeddedMatchingFileCount": 11, "missing": [], "mismatched": [] },
+      "helpers": { "binaryManifestSidecarAndLicenseByteEqual": true, "manifestDigestSizeValid": true },
+      "deployment": "Not deployed or started."
+    },
+    {
+      "minecraft": "1.19",
+      "javaRelease": 17,
+      "jar": "mods/1.19/build/libs/monkeycraft-1.4.2-1.19.jar",
+      "jarSha256": "dd3dd059c12248bcd41a01a0e991fc3dc1cce418ba6ca0a4aea9cd8866f1c215",
+      "junit": { "tests": 57, "failures": 0, "errors": 0, "skipped": 0 },
+      "testTask": "Executed by this build invocation.",
+      "web": { "embeddedMatchingFileCount": 11, "missing": [], "mismatched": [] },
+      "helpers": { "binaryManifestSidecarAndLicenseByteEqual": true, "manifestDigestSizeValid": true },
+      "deployment": "Not deployed or started."
+    }
+  ]
+}

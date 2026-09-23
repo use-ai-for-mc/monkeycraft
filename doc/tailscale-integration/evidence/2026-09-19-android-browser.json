@@ -1,0 +1,226 @@
+{
+  "date": "2026-09-19",
+  "environment": {
+    "device": "Android API 36 ARM64 AVD MonkeyCraft_Audio_Test / emulator-5556",
+    "browser": "Chrome 133.0.6943.137",
+    "physicalDevice": false,
+    "audioOutput": false,
+    "pagesOrigin": "http://localhost:4173/monkeycraft/ via ADB reverse",
+    "gameOrigin": "https://mac.tail977122.ts.net:8443/",
+    "gameJarSha256": "097d40d51eaef9452d7f464b0b491b60f7a8a34ab6d4a816f56ee817372b84b5",
+    "networkBoundary": "Emulator NAT through host system Tailscale; no Android embedded-node authorization or public Pages deployment"
+  },
+  "baseline": {
+    "notificationPermission": "granted",
+    "constructorError": "TypeError: Failed to construct 'Notification': Illegal constructor. Use ServiceWorkerRegistration.showNotification() instead.",
+    "backgroundResult": "After actual Home and socket loss, the old client exhausted retries and displayed Connection lost. Please log in again.",
+    "automationLimit": "Initial Playwright focus-emulation input probes were discarded; raw CDP and native Home were used for visibility acceptance."
+  },
+  "results": {
+    "httpsModVideo": {
+      "decoded": 6,
+      "decoderErrors": 0,
+      "size": "504x960"
+    },
+    "pagesVideo": {
+      "decoded": 7,
+      "decoderErrors": 0,
+      "secureContext": true
+    },
+    "nativeRotation": [
+      {
+        "orientation": "landscape-primary",
+        "viewport": [
+          864,
+          304
+        ],
+        "serverAndRequestedSize": "960x338",
+        "decoded": 177,
+        "decoderErrors": 0,
+        "configs": 2
+      },
+      {
+        "orientation": "portrait-primary",
+        "viewport": [
+          412,
+          784
+        ],
+        "serverAndRequestedSize": "504x960",
+        "decoded": 229,
+        "decoderErrors": 0,
+        "configs": 3
+      }
+    ],
+    "inputRelease": {
+      "rawCdpTouchStartShift": true,
+      "nativeHomeShift": false,
+      "finalShift": false
+    },
+    "silentNotification": {
+      "title": "Chrome silent D",
+      "hidden": true,
+      "silent": true,
+      "icon": "http://localhost:4173/monkeycraft/icons/Icon-192.png",
+      "tag": "monkeycraft",
+      "androidDumpsysRecord": true
+    },
+    "soundRequestedNotification": {
+      "title": "Chrome sound F",
+      "hidden": true,
+      "silent": false,
+      "audibilityVerified": false
+    },
+    "notificationTap": {
+      "title": "Chrome tap return",
+      "actualAndroidDrawerTap": true,
+      "returnedToChrome": true,
+      "documentHidden": false,
+      "documentFocused": true,
+      "decoded": 211,
+      "decoderErrors": 0
+    },
+    "background": {
+      "before": {
+        "time": 1789763774537,
+        "hidden": true,
+        "link": {
+          "phase": "reconnecting",
+          "attempt": 1
+        },
+        "debug": "fps 0  recv 278  dec 277  drop 0  wait 0\nerr 0  cfg 3  kf 0  q 0  avc1.420028\nserver 504x960  req 504x960  link reconnecting  screen closed  ptr -"
+      },
+      "after": {
+        "time": 1789763804543,
+        "hidden": true,
+        "link": {
+          "phase": "reconnecting",
+          "attempt": 1
+        },
+        "debug": "fps 0  recv 278  dec 277  drop 0  wait 0\nerr 0  cfg 3  kf 0  q 0  avc1.420028\nserver 504x960  req 504x960  link reconnecting  screen closed  ptr -"
+      },
+      "elapsedMs": 30006
+    },
+    "resume": {
+      "hidden": false,
+      "link": {
+        "phase": "connected"
+      },
+      "debug": "fps 0  recv 279  dec 278  drop 0  wait 0\nerr 0  cfg 3  kf 0  q 0  avc1.420028\nserver 504x960  req 504x960  link connected  screen closed  ptr -",
+      "elapsedHostMs": 1052
+    },
+    "bannerLayout": {
+      "bannerTopCssPx": 56,
+      "toolbarBottomCssPx": 48,
+      "overlap": false
+    },
+    "explicitDisconnect": {
+      "loginVisibleAfterHomeAndResume": true,
+      "streamVisible": false,
+      "serverConnected": false
+    }
+  },
+  "artifacts": {
+    "webDist": {
+      "assets/index-D6OHIa3U.js": "d76d33857eb2c7ff8ad93546786d75dd4992b91bf2b69866a7392f64e1c80494",
+      "assets/index-D6OHIa3U.js.map": "454457b8d0502c46366846d37c3f1818b8ebd6a0d00abd7547db97dd838955a5",
+      "assets/index-HiLQ6Ais.css": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633",
+      "favicon.png": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962",
+      "icons/Icon-192.png": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782",
+      "icons/Icon-512.png": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5",
+      "icons/Icon-maskable-192.png": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782",
+      "icons/Icon-maskable-512.png": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5",
+      "index.html": "d35fb428f7ab129576cbf5aada05a8b203e137d1a3f1ac95d8ff555bc8695715",
+      "manifest.webmanifest": "3dc150ff51c83734f979cd71213ba6288b57ed509f8360dc8a792904e8b1d134",
+      "notification-worker.js": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+    },
+    "pagesDist": {
+      "assets/index-HiLQ6Ais.css": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633",
+      "assets/index-w88GYOnV.js": "8223dc457716f801ea2935cdb4e202d85f3c9c12d34d43536bec0fcd997cad13",
+      "assets/index-w88GYOnV.js.map": "69e20a81254ad460459c33edda7bd19f9475f765e032407b6a7c7334abf461ed",
+      "favicon.png": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962",
+      "icons/Icon-192.png": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782",
+      "icons/Icon-512.png": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5",
+      "icons/Icon-maskable-192.png": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782",
+      "icons/Icon-maskable-512.png": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5",
+      "index.html": "8379243bce1a44f3082ef77af8e12a55a1dadc07f1aacab9ee37ed3250824476",
+      "manifest.webmanifest": "3dc150ff51c83734f979cd71213ba6288b57ed509f8360dc8a792904e8b1d134",
+      "notification-worker.js": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+    }
+  },
+  "automated": {
+    "unit": {
+      "passed": 160
+    },
+    "typecheck": "passed",
+    "biome": "passed",
+    "chromiumRoot": {
+      "passed": 20,
+      "skipped": 5
+    },
+    "webkitRoot": {
+      "passed": 19,
+      "skipped": 6
+    },
+    "chromiumPagesProject": {
+      "passed": 19,
+      "skipped": 6
+    },
+    "chromiumPagesRootFocused": {
+      "passed": 4,
+      "skipped": 1
+    },
+    "headlessNotificationNote": "Explicit current-origin permission grant still reports denied; display scenario skipped, actual Android runtime verification remains separate."
+  },
+  "finalModRuntime": {
+    "jarSha256": "6fabc18716455b4e5cc7c9fe965d89c2c360995a894dc5a0ad2498c98fa10b09",
+    "oldGamePidExited": 70132,
+    "oldHelperPidExited": 70207,
+    "gamePid": 46058,
+    "helperPid": 46362,
+    "sameServer": "mp.imaginefun.net",
+    "embeddedState": "running",
+    "embeddedListening": true,
+    "embeddedIp": "100.82.132.32",
+    "identityFingerprintBeforeAndAfter": 1148163683,
+    "liveVideoTest": {
+      "passed": 1,
+      "skippedSoak": 1,
+      "totalSeconds": 5.0
+    },
+    "servedAssets": [
+      {
+        "path": "/assets/index-D6OHIa3U.js",
+        "matchesLocal": true,
+        "sha256": "d76d33857eb2c7ff8ad93546786d75dd4992b91bf2b69866a7392f64e1c80494",
+        "contentType": "text/javascript; charset=utf-8"
+      },
+      {
+        "path": "/assets/index-HiLQ6Ais.css",
+        "matchesLocal": true,
+        "sha256": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633",
+        "contentType": "text/css; charset=utf-8"
+      },
+      {
+        "path": "/notification-worker.js",
+        "matchesLocal": true,
+        "sha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111",
+        "contentType": "text/javascript; charset=utf-8"
+      }
+    ],
+    "finalState": {
+      "controllerConnected": false,
+      "shift": false,
+      "pcAudioActive": true,
+      "pcAudioConnected": true
+    }
+  },
+  "cleanup": {
+    "avd5556": "shut down normally",
+    "avd5554": "preserved pending user login",
+    "commandLineFlag": "restored to Default and Chrome relaunched",
+    "rotationSettings": "restored accelerometer_rotation=1, user_rotation=0",
+    "temporaryCommandLineFile": "removed",
+    "forward59946": "removed",
+    "reverse4173": "removed"
+  }
+}

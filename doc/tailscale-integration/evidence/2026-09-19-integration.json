@@ -1,0 +1,84 @@
+{
+  "date": "2026-09-19",
+  "environment": "macOS arm64; JDK 25.0.2",
+  "command": "JAVA_HOME=/opt/homebrew/Cellar/openjdk/25.0.2/libexec/openjdk.jdk/Contents/Home ./gradlew --no-daemon spotlessApply build",
+  "tests": {
+    "tests": 55,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "jar": {
+    "sha256": "1a43affd0d0c86f1c11aa10bd39ca92c0372e738abf555c4f2a5458e2777db5c",
+    "bytes": 37012608,
+    "webJavaScript": [
+      "web/assets/index-B1joDx_p.js"
+    ],
+    "helpers": {
+      "darwin-amd64": {
+        "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+        "bytes": 22113408
+      },
+      "darwin-arm64": {
+        "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+        "bytes": 20684882
+      },
+      "linux-amd64": {
+        "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+        "bytes": 22286498
+      },
+      "windows-amd64": {
+        "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+        "bytes": 22568448
+      }
+    }
+  },
+  "deployment": "Atomically copied to existing ImagineFun Add-Ons instance; user restarted on 2026-09-19. New Minecraft process 99326 loads version 1.4.2-26.2.",
+  "runtimeGate": "Resolved by user restart: DebugBridge session control enabled and MC 26.2 in-world. Final live tests in progress.",
+  "previousBuilds": [
+    {
+      "sha256": "2f27b3281fd28b76409ae6f4f93891da786017607d02944496abb3ee560b280a",
+      "bytes": 37011641,
+      "webJavaScript": [
+        "web/assets/index-B1joDx_p.js"
+      ],
+      "helpers": {
+        "darwin-amd64": {
+          "sha256": "aedb147d72ede1b649352fdf5787441a026b5c571b06cafb11b1042a78b54749",
+          "bytes": 22113408
+        },
+        "darwin-arm64": {
+          "sha256": "805d0dda7055146ae986da2bf0f0be3d82df51f831e89da43b4d37508cea9077",
+          "bytes": 20684882
+        },
+        "linux-amd64": {
+          "sha256": "422809e0c508125f1dd59684ae9999121b0f27ea84a4b8ae5dee20fd8c4f849e",
+          "bytes": 22286498
+        },
+        "windows-amd64": {
+          "sha256": "8374881e5ee436ce8b41ffdbd5903e06c0ff4cecda92d8c4fb359edc6e23d0d1",
+          "bytes": 22568448
+        }
+      }
+    },
+    {
+      "sha256": "715d222a0fb58ac6eb936d67fdcf19536a967b0e5776c72bb36027daa42e10b4",
+      "note": "TIME_WAIT fix, preceding helper identity fix"
+    }
+  ],
+  "regressions": [
+    "IPv4 and IPv6 listener conflicts with SO_REUSEADDR",
+    "TCP TIME_WAIT rapid port reuse",
+    "Production helper Running event includes node identity; hermetic Go test and race passed"
+  ],
+  "servedWebAsset": {
+    "httpsStatus": 200,
+    "contentType": "text/html; charset=utf-8",
+    "expectedAssetReferenced": true,
+    "asset": "assets/index-B1joDx_p.js",
+    "assetStatus": 200,
+    "servedAssetSHA256": "c3b8f40395bef925ac6f60c23a0bfbae62ce641486cebe56b41bf883c0c257ef",
+    "localAssetSHA256": "c3b8f40395bef925ac6f60c23a0bfbae62ce641486cebe56b41bf883c0c257ef",
+    "exactMatch": true
+  }
+}

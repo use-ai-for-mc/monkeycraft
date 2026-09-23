@@ -1,7 +1,8 @@
 # Android 内嵌 Tailscale：阶段 A（证据包 / spike）实施方案
 
-状态：**已批准的调研结论 + 待执行的实施计划**。本文件只覆盖 MOBILE.md 第 5 节要求的复核包（阶段 A）。
-未过 Go 门槛前，不写产品 JNI、不改 Dart、不改 MainActivity、不改 mods/ 和 iOS Runner。
+> 2026-09-18：本文件包含早期实施建议与历史阶段编号；产品优先级以 [产品路线](../PRODUCT_ROADMAP_2026-09.md) 为准，当前证据见 [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)。Flutter iOS/Android 与 `web/` 均长期维护；移动双端内嵌是已确认目标，Android 技术门槛不是取消产品目标。当前浏览器正式路径为 LAN/系统 Tailscale；WASM 属于 P4 候选探索，未经选择不自动产品化。
+
+状态（2026-09-19）：原调研路线已进入产品实现，JNI/Kotlin、Dart接线与两ABI构建已完成；最终库API36 ARM64模拟器集成2项通过。真实账户、系统VPN共存和真机生命周期仍待验收。本文保留早期spike设计与历史编译证据，当前实现以[构建说明](../../flutter/monkeycraft/android/third_party/libtailscale/README.md)、[本轮App证据](evidence/2026-09-19-app.md)和产品执行记录为准。
 
 ## 1. 决策记录（调研结论摘要）
 
@@ -17,9 +18,9 @@
 ### 1.2 #17311 的解法：官方 hook，不是 Go patch
 
 - 根因（源码级确认）：Android SELinux 拒绝 `untrusted_app` 打开 `NETLINK_ROUTE`；Go stdlib `net.Interfaces()` 走 `NetlinkRIB`；`netmon.New()` 在 `tsnet.Start` 内 eager 枚举接口（v1.94.1 `netmon.go` 与 v1.102.3 同位置均未改），error 直接使 `Start` 失败。Issue [#17311](https://github.com/tailscale/tailscale/issues/17311) 至今 open；v1.94.1/v1.102.3 均未修。
-- 解法：构建时向 libtailscale 源树**叠加一个自有文件** `android_netmon.go`（`//go:build android`），在 `init()` 中调用公开 API `netmon.RegisterInterfaceGetter(...)`（v1.66.0 起，官方 Android app 同款 hook）。实现策略 stdlib 优先、`EACCES` 时回退 cgo `getifaddrs(3)`（bionic 底层 `ioctl(SIOCGIFCONF)`，`untrusted_app` 允许；上游 PR [#19455](https://github.com/tailscale/tailscale/pull/19455) 同法已在 Pixel 8 Pro / Android 16 实测 tsnet 全链路）。
+- 解法：构建时向 libtailscale 源树**叠加一个自有文件** `android_netmon.go`（`//go:build android`），在 `init()` 中调用公开 API `netmon.RegisterInterfaceGetter(...)`（v1.66.0 起，官方 Android app 同款 hook）。当前实现直接使用 cgo `getifaddrs(3)`（bionic 底层 `ioctl(SIOCGIFCONF)`，`untrusted_app` 允许；上游 PR [#19455](https://github.com/tailscale/tailscale/pull/19455) 同法已在 Pixel 8 Pro / Android 16 实测 tsnet 全链路）。
 - 同一 init 中调用 `envknob.SetNoLogsNoSupport()`，关闭 tsnet 默认的 log.tailscale.com 上传（Play Data safety 项，记录进证据包）。
-- 边界：不改 tailscale 任何一行代码、不改 Go toolchain、无 replace directive、可复现、全部 SHA 入 manifest。**禁止**采用 #17311 报告者那种编译 Go 源码 + CL 507415 的做法（属任务书定义的 No-Go patch）。
+- 边界：不改 Go runtime、不改Tailscale注册重试、无 replace directive；另以最小受跟踪补丁禁用libtailscale的默认UserLogf认证URL输出；源码/覆盖层/补丁与产物SHA记录在manifest。**禁止**采用 #17311 报告者那种编译 Go 源码 + CL 507415 的做法（属任务书定义的 No-Go patch）。
 - 退出路径：上游 #19455 合入或 bradfitz 的 tsnet rework（去除启动期接口枚举）落地后，overlay 整体删除；升级 pin 时首先检查此项。
 
 ### 1.3 已完成的本机编译验证（2026-09-02，编译级证据，非真机证据）
@@ -64,8 +65,8 @@ android/third_party/libtailscale/
 
 `build.sh` 流程（对齐 `ios/third_party/libtailscale/build.sh` 与 `native/tailscale-helper/scripts/build.sh` 的模式）：
 
-1. clone/fetch libtailscale 并 `checkout --detach 80771313`（与 iOS 同一 pin；`LIBTAILSCALE_SRC` 可覆盖）。
-2. 把 `overlay/android_netmon.go` 拷入源树根（package main 同包），记录其 sha256。
+1. clone/fetch libtailscale固定commit后，以`git archive`展开到临时目录；不checkout或clean现有缓存。`LIBTAILSCALE_SRC`可指定源码缓存。
+2. 在临时源码应用UserLogf安全补丁，并拷入`overlay/android_netmon.go`（package main同包），记录两者sha256。
 3. 逐 ABI 构建：
    - arm64：`GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC=$NDK/.../aarch64-linux-android24-clang go build -buildmode=c-shared -ldflags "-s -w" -trimpath -o out/arm64-v8a/libtailscale_monkeycraft.so .`
    - arm：`GOOS=android GOARCH=arm GOARM=7 ... CC=$NDK/.../armv7a-linux-androideabi24-clang ...`

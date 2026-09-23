@@ -1,0 +1,628 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-19",
+  "commandEnvironment": {
+    "javaHome": null,
+    "javaExecutable": "/usr/bin/java",
+    "javaVersion": "openjdk 26.0.1+8-34",
+    "note": "JAVA_HOME was unset for the final Gradle commands. Project build configuration selects release 25 (26.2/26.1), 21 (1.21.11), and 17 (1.19)."
+  },
+  "rootBaseWeb": {
+    "path": "flutter/monkeycraft/build/web",
+    "fileCount": 49,
+    "treeSha256": "2b69f6412fa0b12465793a5e96351d5a4c62c891714fa2f4c9887fddab0d5024",
+    "files": [
+      {
+        "path": ".last_build_id",
+        "sha256": "0284bf59a94aeb28ed006a77beea0cc51f164b04395b6a00f487c19d6e3d08b7"
+      },
+      {
+        "path": "assets/AssetManifest.bin",
+        "sha256": "279d2a5433266ffda5998bf1df416ff1e925c433849b9ebfd7be6b3571ab2b87"
+      },
+      {
+        "path": "assets/AssetManifest.bin.json",
+        "sha256": "6c3cad40a1b2c4be3387f931ea0790e3912a1c0f880f3d4177db027bd52d8e6a"
+      },
+      {
+        "path": "assets/FontManifest.json",
+        "sha256": "85e0268dfbb94924bc13d903d45aadc0eeb6ebde08546ed1a408e6fbc66b8307"
+      },
+      {
+        "path": "assets/NOTICES",
+        "sha256": "04b3b2134486db9ddd9166c1608b2e3ec5433081c5170bf6cb523d3454a1ab83"
+      },
+      {
+        "path": "assets/assets/fonts/Montserrat-Italic-VariableFont_wght.ttf",
+        "sha256": "225da7d3255aaac9ab6bef71bf27ccbfab0b65a58a6b0a3d5c14c26cdd988691"
+      },
+      {
+        "path": "assets/assets/fonts/Montserrat-VariableFont_wght.ttf",
+        "sha256": "498dc34d0fa45288e0ac5345bd385c98bf81c56ee70209aacfb4a22a6510697c"
+      },
+      {
+        "path": "assets/assets/fonts/Mulish-Italic-VariableFont_wght.ttf",
+        "sha256": "b4375c3037385ca87698c8eb63b579dde82f544c280362d235711b3b955d6fd9"
+      },
+      {
+        "path": "assets/assets/fonts/Mulish-VariableFont_wght.ttf",
+        "sha256": "26506ba431d090360d25a03d6be4bae616729b2ab8245c3ae3f71518dcea352b"
+      },
+      {
+        "path": "assets/assets/fonts/NunitoSans-Italic-VariableFont_YTLC,opsz,wdth,wght.ttf",
+        "sha256": "3f9918129468e0a472e29beb086753adc3bc700700a834fa6f6073bac55d273b"
+      },
+      {
+        "path": "assets/assets/fonts/NunitoSans-VariableFont_YTLC,opsz,wdth,wght.ttf",
+        "sha256": "01d4782cc3ea4cd68a0b44f3b1bcea8e8c1050fdc2ae5ab6bfb26966811b68e5"
+      },
+      {
+        "path": "assets/fonts/MaterialIcons-Regular.otf",
+        "sha256": "a7a51c11f60872048b5bad49e77f462c51d9bbb8e027df48ffc2b58766bd9564"
+      },
+      {
+        "path": "assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+        "sha256": "3d90c370aa4cf00dc57ee2b902f6652147c0f81e03e483df584a9c08b1687c9d"
+      },
+      {
+        "path": "assets/packages/flutter_inappwebview/assets/t_rex_runner/t-rex.css",
+        "sha256": "2e563220bd855e11f230dc27a0d6f2fd5b839a2996f86edc8025aab45e6fa5c3"
+      },
+      {
+        "path": "assets/packages/flutter_inappwebview/assets/t_rex_runner/t-rex.html",
+        "sha256": "dc72cfc1f1d2a5013bb9de34f8cacf5e26e542d7d713fcbe09b865b4aaca6ddf"
+      },
+      {
+        "path": "assets/packages/flutter_inappwebview_web/assets/web/web_support.js",
+        "sha256": "2f9ccef9db4da6b73d3c678ffe570aad402791b00dfa520730fdb66d0dc209fc"
+      },
+      {
+        "path": "assets/shaders/ink_sparkle.frag",
+        "sha256": "5aee0e4ff369c0559eaa7af6d64dce812bab67afd9888d1d7d27046293b39ab5"
+      },
+      {
+        "path": "assets/shaders/stretch_effect.frag",
+        "sha256": "c723fbb5b9a3456b101073825ab5d34de312a39f32bf5de42aae0cda605d0a1a"
+      },
+      {
+        "path": "canvaskit/canvaskit.js",
+        "sha256": "931ae3f02e76e8ac58a1c1435d754a8740c87958b52edb9037d66e32be53eb40"
+      },
+      {
+        "path": "canvaskit/canvaskit.js.symbols",
+        "sha256": "90b967d768f78474a6e733298bf3af352585bac3c2210f07b0b226704b1888c2"
+      },
+      {
+        "path": "canvaskit/canvaskit.wasm",
+        "sha256": "681d8efd431b8134841c0595e8b7eec10e2ef3936f8a761f69b9291083c561bd"
+      },
+      {
+        "path": "canvaskit/chromium/canvaskit.js",
+        "sha256": "ff8dcd85cee325699499ee23ffd7567bc8086e9592c24d4d8d411f951c16bda4"
+      },
+      {
+        "path": "canvaskit/chromium/canvaskit.js.symbols",
+        "sha256": "3c9d8e7aa7d92a122c4714a6f239ba0a46d56d2f18395ac42cb9f2af8513a277"
+      },
+      {
+        "path": "canvaskit/chromium/canvaskit.wasm",
+        "sha256": "f6c67bf7989fcb1b69a3203617882ac0d1541cc79e38f81c3f5d63ab4d73de33"
+      },
+      {
+        "path": "canvaskit/skwasm.js",
+        "sha256": "d52e58007af740833faa088c1f68672e410dc385bbeb3e50a5e5bc285fc3fc9a"
+      },
+      {
+        "path": "canvaskit/skwasm.js.symbols",
+        "sha256": "b059d901611b40109e67d655605ce486827ea054e53ebc0b1eb419c169d4ae01"
+      },
+      {
+        "path": "canvaskit/skwasm.wasm",
+        "sha256": "461a759c657738e573f1c2f69e26489197e43db1bf6ec1e2c3b44c6721314cd1"
+      },
+      {
+        "path": "canvaskit/skwasm_heavy.js",
+        "sha256": "7a1aa20e765441b28f4be0cd397f95573a3ecd72adc80ba32dd2cb959a09a41d"
+      },
+      {
+        "path": "canvaskit/skwasm_heavy.js.symbols",
+        "sha256": "f0f3acc96b31be9d17e5a72ae9309d79d12436e51b8464690b12690fe0c0e020"
+      },
+      {
+        "path": "canvaskit/skwasm_heavy.wasm",
+        "sha256": "4b0028e38d865b4673ec38c0c673299dff6b00d6cd8c5e53dda9f800f7bbdda2"
+      },
+      {
+        "path": "canvaskit/wimp.js",
+        "sha256": "fa58b2c534ef9c66dff68df1ea28c1739bb02ce34cc8eca459f716527d9b5cae"
+      },
+      {
+        "path": "canvaskit/wimp.js.symbols",
+        "sha256": "90489d4e656c0810d2d637e9048363a02afd9b27733d7d0a9d721d4d7071b99c"
+      },
+      {
+        "path": "canvaskit/wimp.wasm",
+        "sha256": "78363ad9e37680cf35e14eead62b462c80dac6cea7cc02950422efd8ed222c9d"
+      },
+      {
+        "path": "favicon.png",
+        "sha256": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962"
+      },
+      {
+        "path": "flutter.js",
+        "sha256": "a483fd28f51ed2fadd0da3fade5b672eba56310d549d736ce62eabf624a6a578"
+      },
+      {
+        "path": "flutter_bootstrap.js",
+        "sha256": "e89c9158e4095a3585162f5d2070644b88499eb491d9f704326694f06715566b"
+      },
+      {
+        "path": "flutter_service_worker.js",
+        "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c"
+      },
+      {
+        "path": "icons/Icon-192.png",
+        "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+      },
+      {
+        "path": "icons/Icon-512.png",
+        "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+      },
+      {
+        "path": "icons/Icon-maskable-192.png",
+        "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+      },
+      {
+        "path": "icons/Icon-maskable-512.png",
+        "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+      },
+      {
+        "path": "index.html",
+        "sha256": "4829de984060257bd211f23aae1db48f3b056e38afa8d4cd1aa2f6d6fb010e09"
+      },
+      {
+        "path": "main.dart.js",
+        "sha256": "a35d0724fb28b0cc7a87239357c420c4e11d96c36356f3605d330a177133c988"
+      },
+      {
+        "path": "manifest.json",
+        "sha256": "203a070ee4c1fa534f377e5a0c5ca481c6c5629f4bf53813e218cd96b50cf759"
+      },
+      {
+        "path": "reminder-sw.js",
+        "sha256": "72c77e18ca40783b3ff41a55308842df9464b76717d5fafdc394048b51d71354"
+      },
+      {
+        "path": "vendor/jsQR-1.4.0.LICENSE",
+        "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+      },
+      {
+        "path": "vendor/jsQR-1.4.0.NOTICE",
+        "sha256": "ea0d1e7f341406c42694cefbfd8411f5c8de553dbc4e4d826702610f83aa1d04"
+      },
+      {
+        "path": "vendor/jsQR-1.4.0.js",
+        "sha256": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859"
+      },
+      {
+        "path": "version.json",
+        "sha256": "0e4c8b16f3e022291bd2d6bb40c165e1284645e90736b527570673f3c26298b1"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "minecraftTarget": "26.2",
+      "command": "./gradlew spotlessApply && ./gradlew build",
+      "workingDirectory": "/Users/cusgadmin/if-local/monkeycraft/mods/26.2",
+      "jar": {
+        "path": "mods/26.2/build/libs/monkeycraft-1.4.2-26.2.jar",
+        "sha256": "509ebc70d5b96010add2f59a7e2d63b99f319c17250539d3f1057cb6eac627ca"
+      },
+      "webResources": {
+        "fileCount": 49,
+        "treeSha256": "2b69f6412fa0b12465793a5e96351d5a4c62c891714fa2f4c9887fddab0d5024",
+        "matchesRootBase": true
+      },
+      "tests": {
+        "tests": 66,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xmlSuites": [
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.compat.MinecraftCompatibilityTest.xml",
+            "tests": 4,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.config.PasswordKeyTest.xml",
+            "tests": 2,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.HttpAndWebSocketPortTest.xml",
+            "tests": 9,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.PairingSessionTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebAssetServerTest.xml",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebSocketServerShutdownTest.xml",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceLifecycleTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.NativeHelperExtractorTest.xml",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.AccessPolicyTest.xml",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CommandPatternsTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CryptoUtilsTest.xml",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.2/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.TailnetHttpsTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    },
+    {
+      "minecraftTarget": "26.1",
+      "command": "./gradlew spotlessApply && ./gradlew build",
+      "workingDirectory": "/Users/cusgadmin/if-local/monkeycraft/mods/26.1",
+      "jar": {
+        "path": "mods/26.1/build/libs/monkeycraft-1.4.2-26.1.jar",
+        "sha256": "2dd7439444f4ddfaa9dd5698fdbbf87f0a7d9b173edd5a4b0efaf697167c78cf"
+      },
+      "webResources": {
+        "fileCount": 49,
+        "treeSha256": "2b69f6412fa0b12465793a5e96351d5a4c62c891714fa2f4c9887fddab0d5024",
+        "matchesRootBase": true
+      },
+      "tests": {
+        "tests": 61,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xmlSuites": [
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.HttpAndWebSocketPortTest.xml",
+            "tests": 9,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.PairingSessionTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebAssetServerTest.xml",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebSocketServerShutdownTest.xml",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceLifecycleTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.NativeHelperExtractorTest.xml",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.AccessPolicyTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CommandPatternsTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CryptoUtilsTest.xml",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/26.1/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.TailnetHttpsTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    },
+    {
+      "minecraftTarget": "1.21.11",
+      "command": "./gradlew spotlessApply && ./gradlew build",
+      "workingDirectory": "/Users/cusgadmin/if-local/monkeycraft/mods/1.21.11",
+      "jar": {
+        "path": "mods/1.21.11/build/libs/monkeycraft-1.4.2-1.21.11.jar",
+        "sha256": "cd8a64df1dc36f7ad297775bfa2527aaced999ffacef47990b122be3fa60c8d1"
+      },
+      "webResources": {
+        "fileCount": 49,
+        "treeSha256": "2b69f6412fa0b12465793a5e96351d5a4c62c891714fa2f4c9887fddab0d5024",
+        "matchesRootBase": true
+      },
+      "tests": {
+        "tests": 61,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xmlSuites": [
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.HttpAndWebSocketPortTest.xml",
+            "tests": 9,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.PairingSessionTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebAssetServerTest.xml",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebSocketServerShutdownTest.xml",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceLifecycleTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.NativeHelperExtractorTest.xml",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.AccessPolicyTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CommandPatternsTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CryptoUtilsTest.xml",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.21.11/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.TailnetHttpsTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    },
+    {
+      "minecraftTarget": "1.19",
+      "command": "./gradlew spotlessApply && ./gradlew build",
+      "workingDirectory": "/Users/cusgadmin/if-local/monkeycraft/mods/1.19",
+      "jar": {
+        "path": "mods/1.19/build/libs/monkeycraft-1.4.2-1.19.jar",
+        "sha256": "5b7e3ca61cd3c4bfd052aad8afeb69ca44ac069d26d20cc1f4a77aa6b21c7601"
+      },
+      "webResources": {
+        "fileCount": 49,
+        "treeSha256": "2b69f6412fa0b12465793a5e96351d5a4c62c891714fa2f4c9887fddab0d5024",
+        "matchesRootBase": true
+      },
+      "tests": {
+        "tests": 61,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "xmlSuites": [
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.HttpAndWebSocketPortTest.xml",
+            "tests": 9,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.PairingSessionTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebAssetServerTest.xml",
+            "tests": 6,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.server.WebSocketServerShutdownTest.xml",
+            "tests": 5,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceLifecycleTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.tailscale.NativeHelperExtractorTest.xml",
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.AccessPolicyTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CommandPatternsTest.xml",
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.CryptoUtilsTest.xml",
+            "tests": 10,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          {
+            "path": "mods/1.19/build/test-results/test/TEST-com.chenweikeng.monkeycraft.utils.TailnetHttpsTest.xml",
+            "tests": 3,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          }
+        ]
+      }
+    }
+  ],
+  "rawBuildLogs": null,
+  "evidenceNote": "No Gradle stdout/stderr files were redirected or saved. Build success was observed from the tool output; persisted test evidence is the listed JUnit XML.",
+  "deployed": false
+}

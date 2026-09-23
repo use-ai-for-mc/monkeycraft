@@ -1,0 +1,186 @@
+{
+  "date": "2026-09-19",
+  "kind": "Android release with expired reminder replay guard; real26.2 GUI reconnect and forced Doze verified",
+  "artifact": "outputs/roadmap-2026-09-19-expired-reminder/MonkeyCraft-1.4.2-11-release.apk",
+  "sha256": "4f5a225b9d7a01b087fa573f6305a93de34aefbdf5a83c4fca6a88270cd355a7",
+  "bytes": 83653506,
+  "nativeUnitTests": 11,
+  "nativeUnitTestsBoundary": "passed before this Dart-only correction; native source unchanged",
+  "flutterTests": 192,
+  "analyze": "passed, no issues",
+  "nativePackagingVerification": "both ARM ABIs, manifest hashes, ARM64 ELF16KB alignment and zipalign16KB passed",
+  "apkSignature": "apksigner v2 verified; one development signer",
+  "deviceStatus": "Installed on isolated API36 ARM64 emulator5556; same retained expired server deadline not reposted; fresh future deadline delivered during forced deep IDLE at +9ms; resume and explicit GUI reconnect did not update notification; explicit cancel cleared it. Normal shutdown5556 completed;5554 pending personal Tailscale authorization unchanged.",
+  "runtimeEvidence": "doc/tailscale-integration/evidence/2026-09-19-expired-reminder.json",
+  "logs": [
+    "outputs/roadmap-2026-09-19-android-doze/flutter-test.log",
+    "outputs/roadmap-2026-09-19-android-doze/flutter-analyze.log",
+    "outputs/roadmap-2026-09-19-android-doze/android-release-build.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/android-verify.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/android-zipalign.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/android-signature.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/android-install.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/android-installed-sha.txt"
+  ],
+  "previousBuilds": [
+    {
+      "date": "2026-09-19",
+      "kind": "Android release with bounded immediate notifications and user-controlled precise reminder access; actual production GUI tested against real Minecraft26.2",
+      "sha256": "f8bbc80a5c79843fedd79bed3757f2b9d800d8295befc546ee1b2f7753574f53",
+      "bytes": 83653506,
+      "artifact": "outputs/roadmap-2026-09-19-android-notifications/MonkeyCraft-1.4.2-11-release.apk",
+      "nativeUnitTests": 11,
+      "flutterTests": 188,
+      "analyze": "passed, no issues",
+      "nativePackagingVerification": "both ARM ABIs, manifest hashes, ARM64 ELF16KB alignment and zipalign16KB passed",
+      "apkSignature": "apksigner v2 verified; one development signer",
+      "deviceStatus": "Installed on isolated API36 ARM64 emulator5556; real LAN GUI/video,64-nudge quota, exact-alarm permission transition and current-timer rearm, background local deadline, resume without duplicate, touch release, fresh audio state and disconnect cleanup passed. No physical Android or audible sound.5556 shut down;5554 pending personal Tailscale authorization unchanged.",
+      "runtimeEvidence": "doc/tailscale-integration/evidence/2026-09-19-android-notifications-runtime.json",
+      "logs": [
+        "/tmp/monkeycraft-flutter-android-notifications-final.log",
+        "/tmp/monkeycraft-flutter-android-notifications-final-analyze.log",
+        "/tmp/monkeycraft-android-notification-unit.log",
+        "/tmp/monkeycraft-android-notifications-release-build.log",
+        "/tmp/monkeycraft-android-notifications-clean.log",
+        "/tmp/monkeycraft-android-notifications-release-retry.log",
+        "/tmp/monkeycraft-android-notifications-verify.log",
+        "/tmp/monkeycraft-android-notifications-zipalign.log",
+        "/tmp/monkeycraft-android-notifications-apksigner.log",
+        "/tmp/monkeycraft-android-notifications-install.log",
+        "/tmp/monkeycraft-android-notifications-launch.log"
+      ],
+      "archivedLogs": [
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-flutter-android-notifications-final.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-flutter-android-notifications-final-analyze.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notification-unit.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-release-build.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-clean.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-release-retry.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-verify.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-zipalign.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-apksigner.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-install.log",
+        "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-launch.log"
+      ]
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "Previous OpenAudio URI release; later production GUI/lifecycle passed, notification quota and exact-alarm UX defects discovered",
+      "sha256": "e843496ea0501e5d7c0f835a02d81acacc471c425762c3e99201bd0081cc12ab",
+      "bytes": 83653506,
+      "artifact": "outputs/roadmap-2026-09-19-audio-link/MonkeyCraft-1.4.2-11-release.apk",
+      "nativeUnitTests": 6,
+      "flutterTests": 179,
+      "nativePackagingVerification": "both ARM ABIs, manifest hashes, ARM64 ELF alignment and zipalign 16KB check passed",
+      "deviceStatus": "API36 ARM64 MonkeyCraft_Audio_Test emulator-5556: release adb install passed; cold launch 1.852 seconds; Flutter semantics content-desc confirms MonkeyCraft home and Connect with Tailscale. No account login attempted. Isolated emulator shut down after testing. Existing emulator-5554 remains on earlier eca32d4 release at the pending Tailscale login page; no physical Android evidence.",
+      "logs": [
+        "/tmp/monkeycraft-flutter-audio-url-full.log",
+        "/tmp/monkeycraft-flutter-audio-url-full-analyze.log",
+        "/tmp/monkeycraft-android-audio-link-release-build.log",
+        "/tmp/monkeycraft-android-audio-link-verify.log",
+        "/tmp/monkeycraft-android-audio-link-zipalign.log",
+        "/tmp/monkeycraft-android-audio-link-apksigner.log",
+        "/tmp/monkeycraft-android-live-audio.log",
+        "/tmp/monkeycraft-android-audio-link-install.log",
+        "/tmp/monkeycraft-android-audio-link-launch.log"
+      ],
+      "analyze": "passed, no issues",
+      "apkSignature": "apksigner v2 verified; one development signer",
+      "loginEntryValidation": "widget test injects Android capabilities, taps the visible entry, opens the production TailscaleLoginSheet and observes diagnostics/start on its client",
+      "releaseUiEntry": {
+        "device": "emulator-5556",
+        "avd": "MonkeyCraft_Audio_Test",
+        "api": 36,
+        "abi": "arm64-v8a",
+        "buttonVisible": true,
+        "coldLaunchMs": 1852,
+        "nativeLoginOpenedBrowser": "not exercised on this isolated fresh AVD",
+        "accountAuthorized": false,
+        "collectionBoundary": "initial text-only XML query omitted Flutter content-desc; corrected semantics query confirmed the home/entry, no product failure was inferred"
+      },
+      "liveOpenAudioMc": {
+        "kind": "real remote page in actual Android WebView integration fixture, not production GUI end-to-end or physical audible audio",
+        "passed": true,
+        "tests": 1,
+        "testSeconds": 13,
+        "buildSeconds": 24.1,
+        "htmlMedia": 1,
+        "playingHtmlMedia": 1,
+        "howlerAvailable": false,
+        "connectedInfoEvents": 1,
+        "afterSoftRefresh": "still connected; media counts 1/1",
+        "afterDisconnect": {
+          "active": false,
+          "connected": false,
+          "backgroundLeases": 0
+        },
+        "log": "/tmp/monkeycraft-android-live-audio.log"
+      },
+      "productionGuiEvidence": "2026-09-19-android-production-lifecycle.json"
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "Android release APK with iOS/Android embedded Tailscale entry; production entrypoint; installed and cold-started on Android emulator",
+      "sha256": "eca32d4d158b45e2ac0c285d011384a8a68a2b05e055216a0f7e6c109c2f253d",
+      "bytes": 83571586,
+      "artifact": "outputs/roadmap-2026-09-19-final/MonkeyCraft-1.4.2-11-tailscale-entry-verified-release.apk",
+      "nativeUnitTests": 6,
+      "flutterTests": 176,
+      "nativePackagingVerification": "both ARM ABIs, manifest hashes, ARM64 ELF alignment and zipalign 16KB check passed",
+      "deviceStatus": "API36 ARM64 emulator: adb cover-install success; cold launch 1.650 seconds; production home shows Connect with Tailscale; actual tap starts native path and opens Chrome login.tailscale.com Sign in page. No account selected or authorized; not physical Android.",
+      "logs": [
+        "/tmp/monkeycraft-login-screen-android-entry-test.log",
+        "/tmp/monkeycraft-flutter-test-20260919-tailscale-entry-full.log",
+        "/tmp/monkeycraft-flutter-analyze-20260919-tailscale-entry-full.log",
+        "/tmp/monkeycraft-android-final-tailscale-entry-verified-build.log",
+        "/tmp/monkeycraft-android-final-tailscale-entry-verified-verify.log",
+        "/tmp/monkeycraft-android-final-tailscale-entry-verified-zipalign.log",
+        "/tmp/monkeycraft-android-final-tailscale-entry-verified-apksigner.log"
+      ],
+      "analyze": "passed, no issues",
+      "apkSignature": "apksigner v2 verified; one development signer",
+      "loginEntryValidation": "widget test injects Android capabilities, taps the visible entry, opens the production TailscaleLoginSheet and observes diagnostics/start on its client",
+      "releaseUiEntry": {
+        "buttonVisible": true,
+        "nativeLoginOpenedBrowser": true,
+        "browserHost": "login.tailscale.com",
+        "accountAuthorized": false,
+        "coldLaunchMs": 1650
+      }
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "Android release APK; final production entrypoint, not integration fixture and not installed",
+      "sha256": "e0fcc61acc9a1dcb4aa8721daad2f262359d28fb4875fa1739ba6a551d2b946f",
+      "bytes": 83538818,
+      "artifact": "outputs/roadmap-2026-09-19-final/MonkeyCraft-1.4.2-11-release.apk",
+      "nativeUnitTests": 6,
+      "flutterTests": 175,
+      "nativePackagingVerification": "both ARM ABIs, manifest hashes, ARM64 ELF alignment and zipalign 16KB check passed",
+      "deviceStatus": "API36 ARM64 native audio fixture previously passed start/stop system state; this build was not installed; physical Android not available",
+      "logs": [
+        "/tmp/monkeycraft-android-final-release-build.log",
+        "/tmp/monkeycraft-android-final-release-verify.log",
+        "/tmp/monkeycraft-android-final-release-zipalign.log",
+        "/tmp/monkeycraft-android-final-release-apksigner.log"
+      ],
+      "analyze": "passed, no issues",
+      "apkSignature": "apksigner v2 verified; one development signer"
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "Android debug APK; final production entrypoint, not integration fixture",
+      "sha256": "493538d66d6e9eaa6e32843e1e21e977e4d308c004a252a8f93122315aaf6a40",
+      "bytes": 197442247,
+      "artifact": "outputs/roadmap-2026-09-19-login/MonkeyCraft-1.4.2-11-debug.apk",
+      "nativeUnitTests": 6,
+      "flutterTests": 162,
+      "nativePackagingVerification": "both ARM ABIs, manifest hashes and ARM64 ELF alignment passed",
+      "deviceStatus": "same final production plugin code passed API36 ARM64 emulator integration (2 scenarios including stop EventChannel); physical Android not available; no account login or peer dial",
+      "logs": [
+        "/tmp/monkeycraft-android-final-login-build.log",
+        "/tmp/monkeycraft-android-final-login-package.log"
+      ]
+    }
+  ]
+}

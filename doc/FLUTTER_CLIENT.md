@@ -1,6 +1,14 @@
 # Flutter Client Architecture
 
-The Monkeycraft Flutter client (`flutter/monkeycraft/`) connects to the Minecraft mod via WebSocket to provide remote gameplay. It targets iOS, Android, and Flutter Web (desktop Chrome/Edge first).
+The Monkeycraft Flutter client (`flutter/monkeycraft/`) connects to the Minecraft mod via WebSocket to provide remote gameplay. iOS, Android, and the production browser client share its UI and business logic, with conditional platform adapters. The TypeScript / Preact app in `web/` is retained only for reference and test fixtures; see [the product roadmap](PRODUCT_ROADMAP_2026-09.md).
+
+## Audio ownership protocol
+
+Authenticated `INFO` packets use `{ "type": "INFO", "title": "openaudiomc", "data": { "active": true, "connected": false } }`. Native OpenAudioMc sends `active` before loading a session and releases it after page teardown, including failed initial loads or refreshes. `connected` describes the detected page state; neither field guarantees audible output. Stream/chat transport recovery reports current state again. Explicit stream exit releases audio before closing the transport.
+
+All four Mod versions relay INFO through the existing `MonkeycraftApi.INFO_PACKET` on the Minecraft thread, checking that the sender is still the authenticated session. Inputs require a nonempty string title of at most 64 characters, object data, and a message of at most 8192 characters. This extends the existing message/API rather than adding a capability. Older receivers can ignore it, so automatic desktop audio handoff requires the matching receiver and provider update.
+
+ImagineMoreFun 26.2 suppresses desktop session creation/retry while native `active` is true, preserving prior connection intent and volume. An explicit false releases it; a socket loss does not. External browser audio does not claim ownership. See [audio lifecycle and acceptance limits](AudioPlayer.md).
 
 ## Directory Structure
 
@@ -277,20 +285,6 @@ Simple press/release buttons with visual feedback.
 - Uses MediaCodec for hardware H.264 decoding
 - Native plugin in `android/app/` handles decoder lifecycle
 
-### Flutter Web
-Web reuses the same login, stream, chat, map, and settings pages.
+### Browser client
 
-- Serve the app from `http://localhost` (`flutter run -d chrome` or `flutter build web`).
-- Connect to the mod with `ws://<LAN-IP>:<port>` from the login form. HTTPS pages cannot use plain `ws://`.
-- Video uses WebCodecs `VideoDecoder` with Annex-B access units (`avc1.420028` by default). Canvas is embedded via `HtmlElementView` with `pointer-events: none`.
-- First version disables QR scanning, native notifications, Live Activity, OpenAudioMC, and MCParks audio. Those stay available on iOS/Android.
-- `VideoRelay` (local MPEG-TS TCP) is a no-op on web; frames still go through `StreamProxy.accessUnits`.
-
-Local start:
-
-```bash
-cd flutter/monkeycraft
-flutter run -d chrome
-```
-
-Fill Server as `host:port` (for example `192.168.1.10:9600`) and the mod password. Do not put the password in source, tests, or docs.
+The maintained browser product is [`web/`](../web/PLAN.md), bundled into the Mod from `web/dist/`. Flutter remains the iOS/Android product; its legacy web target is not the browser release artifact. Both clients share pairing/HMAC, protocol semantics and the single-session constraint. Browser HTTPS, sound permissions and background limitations are documented in [WEB_TAILNET_PLAN.md](WEB_TAILNET_PLAN.md).

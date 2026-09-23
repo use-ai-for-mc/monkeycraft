@@ -23,7 +23,7 @@ iOS client 1.4.1 is now available on the Apple App Store. Android client is not 
 ## 📱 Mobile App Availability
 
 - **iOS 1.4.1** — Available on the [Apple App Store](https://apps.apple.com/app/id6759430770).
-- **Web** — [use-ai-for-mc.github.io/monkeycraft](https://use-ai-for-mc.github.io/monkeycraft/). Desktop Chrome/Edge. Open from the same machine or LAN as the Minecraft client (`ws://`), or over Tailscale (`wss://`).
+- **Web** — [GitHub Pages candidate entry](https://use-ai-for-mc.github.io/monkeycraft/) (available after publishing this build; the address may still serve an existing site, while this round’s static artifact has not been published). Desktop Chrome/Edge. Video requires a secure page and a reachable `wss://` endpoint, such as an existing Tailscale Serve HTTPS address. Development on `localhost` is also supported; bare LAN HTTP is not a cross-device video path. iPhone Safari acceptance is complete.
 - **Android** — Not publicly released yet. Google Play closed-testing and production-release preparation is in progress; Android public availability will be announced separately.
 
 
@@ -132,10 +132,12 @@ In Minecraft, type `/monkey start` to launch the WebSocket server.
 
 ### 3️⃣ Connect Your Phone or Browser
 
-Open the MonkeyCraft app, or the [web client](https://use-ai-for-mc.github.io/monkeycraft/), and:
+Open the MonkeyCraft app, or use the [web client entry](https://use-ai-for-mc.github.io/monkeycraft/) after this round’s GitHub Pages artifact is published (the current address may still serve an existing site), and:
 - Enter your computer's IP address and port (default: 9600)
 - Scan the QR code displayed in-game (mobile), or
 - Enter the password manually
+
+The native app can connect directly over LAN or system Tailscale. For a browser on another device, use a secure HTTPS page and its reachable WSS endpoint; an IP address alone does not provide the secure context needed for video. All four Mod versions now bundle the shared Flutter web client and optional PC Tailscale helper, and show an existing matching Tailscale Serve HTTPS entry when available. Each version has passed its build, automated tests and a real-game short regression: 26.2, 26.1 and 1.21.11 used ImagineFun; 1.19 used its separate compatible test world. See the [current verification matrix](doc/tailscale-integration/TEST_MATRIX.md) for the accepted feature scope and remaining publishing steps. Shared client features are not retested for each Minecraft version.
 
 ### 4️⃣ Play!
 
@@ -207,25 +209,53 @@ Access settings via `/monkey config` or through ModMenu:
 
 ### Building from Source
 
+Run each command from the repository root. Install the target JDK, Flutter and the Go toolchain first. Every Mod build requires the shared Flutter browser bundle and the four-platform helper artifacts:
+
 ```bash
-# Build for Minecraft 26.2 (needs Java 25)
-cd mods/26.2 && ./gradlew build
+# Set FLUTTER_BIN to your Flutter executable when it is not on PATH.
+# This is the production web bundle embedded by every Mod, rooted at /.
+(cd flutter/monkeycraft && \
+  FLUTTER_BIN=/absolute/path/to/flutter \
+  MONKEYCRAFT_PAGES_PROVENANCE=0 \
+  bash tool/build_web_release.sh / build/web)
 
-# Build for Minecraft 26.1 (needs Java 25)
-cd mods/26.1 && ./gradlew build
+(cd native/tailscale-helper && ./scripts/build-all.sh)
+(cd mods/26.2 && ./gradlew build)
 
-# Build for Minecraft 1.21.11 (needs Java 21)
-cd mods/1.21.11 && ./gradlew build
-
-# Build for Minecraft 1.19 (needs Java 17)
-cd mods/1.19 && ./gradlew build
-
-# Build Flutter app
-cd flutter/monkeycraft && flutter build apk
-
-# Build Flutter web (GitHub Pages uses --base-href /monkeycraft/)
-cd flutter/monkeycraft && flutter build web --release --base-href /monkeycraft/
+# Other Mod targets: Java 25, 21, and 17 bytecode respectively
+(cd mods/26.1 && ./gradlew build)
+(cd mods/1.21.11 && ./gradlew build)
+(cd mods/1.19 && ./gradlew build)
 ```
+
+If Flutter is on your `PATH`, omit `FLUTTER_BIN=/absolute/path/to/flutter`. The historical `web/` TypeScript client remains only as reference and test fixtures; `pnpm --dir web build` is not the production Mod browser build. To make the separate GitHub Pages candidate artifact, use the same command with base `/monkeycraft/` and a distinct output:
+
+```bash
+(cd flutter/monkeycraft && \
+  FLUTTER_BIN=/absolute/path/to/flutter \
+  MONKEYCRAFT_PAGES_PROVENANCE=0 \
+  bash tool/build_web_release.sh /monkeycraft/ build/pages)
+```
+
+That Pages candidate is not published by this command, and the current public URL may still serve an older site. The 1.19 Gradle launcher requires Java 21 or later while compiling for Java 17. See the [helper build instructions](native/tailscale-helper/README.md) for Go toolchain selection.
+
+For Android, install the NDK and build the pinned native libraries before building the app. Details and APK verification are in the [Android native dependency instructions](flutter/monkeycraft/android/third_party/libtailscale/README.md).
+
+```bash
+flutter/monkeycraft/android/third_party/libtailscale/build.sh
+(cd flutter/monkeycraft && flutter pub get && flutter build apk)
+```
+
+For iOS, use macOS with Xcode and the pinned Go toolchain described in the [native dependency instructions](flutter/monkeycraft/ios/third_party/libtailscale/README.md), then build with your signing configuration:
+
+```bash
+flutter/monkeycraft/ios/third_party/libtailscale/build.sh
+(cd flutter/monkeycraft && bash tool/build_ios_device_release.sh)
+```
+
+This device-build entry point clears shared native-asset caches and verifies
+the platform and signing team of every embedded framework before installation.
+Preserve any Android or Web build outputs you need before its clean step.
 
 ---
 

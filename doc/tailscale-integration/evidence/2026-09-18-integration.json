@@ -1,0 +1,105 @@
+{
+  "recordedAt": "2026-09-18T14:25:15.248215+00:00",
+  "kind": "current-run-automated",
+  "java": {
+    "com.chenweikeng.monkeycraft.server.HttpAndWebSocketPortTest": {
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.366"
+    },
+    "com.chenweikeng.monkeycraft.tailscale.HelperTailscaleServiceTest": {
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.885"
+    },
+    "com.chenweikeng.monkeycraft.config.PasswordKeyTest": {
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    "com.chenweikeng.monkeycraft.utils.CommandPatternsTest": {
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    "com.chenweikeng.monkeycraft.tailscale.NativeHelperExtractorTest": {
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    "com.chenweikeng.monkeycraft.compat.MinecraftCompatibilityTest": {
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.2"
+    },
+    "com.chenweikeng.monkeycraft.utils.CryptoUtilsTest": {
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.005"
+    },
+    "com.chenweikeng.monkeycraft.utils.TailnetHttpsTest": {
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    "com.chenweikeng.monkeycraft.server.PairingSessionTest": {
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    "com.chenweikeng.monkeycraft.utils.AccessPolicyTest": {
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.002"
+    },
+    "com.chenweikeng.monkeycraft.server.WebSocketServerShutdownTest": {
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.104"
+    },
+    "com.chenweikeng.monkeycraft.server.WebAssetServerTest": {
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.004"
+    }
+  },
+  "artifact": {
+    "name": "monkeycraft-1.4.2-26.2.jar",
+    "sha256": "733c58582efbab719cd76c21f145b5f03c4d470a1d60211b3be46628a79ed90f",
+    "bytes": 37009653
+  },
+  "runtime": {
+    "minecraft": "26.2",
+    "instance": "ImagineFun Add-Ons",
+    "httpsIndexMatchesDist": true,
+    "httpsHeadContentLength": 1459,
+    "httpsCacheControl": "no-cache",
+    "phoneInstalled": "iOS 1.4.2 (11)",
+    "phoneBehaviorVerified": false,
+    "androidPhysicalDeviceVerified": false
+  }
+}

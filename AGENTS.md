@@ -6,7 +6,11 @@ This document provides essential context for AI agents working on the MonkeyCraf
 
 MonkeyCraft is a **remote Minecraft control system** consisting of:
 1. **Java Fabric Mod** - Server-side component running in Minecraft
-2. **Flutter Mobile App** - Client app for iOS/Android
+2. **Flutter Client** - Shared client UI and business logic for iOS, Android, and browsers
+
+`web/` is the historical TypeScript client, retained for reference and test fixtures.
+The production browser client is built from `flutter/monkeycraft/`, using browser
+adapters where native APIs differ. Do not resume independent-client development.
 
 ## Architecture Summary
 
@@ -51,9 +55,13 @@ cd mods/1.19     && ./gradlew build    # needs Java 17 (Gradle launcher needs 21
 # Flutter App
 # NOTE: flutter is NOT on PATH — the SDK lives at /Users/cusgadmin/if-local/flutter/bin/flutter
 cd flutter/monkeycraft
-/Users/cusgadmin/if-local/flutter/bin/flutter build ios            # Build iOS
+FLUTTER_BIN=/Users/cusgadmin/if-local/flutter/bin/flutter bash tool/build_ios_device_release.sh
 /Users/cusgadmin/if-local/flutter/bin/flutter build apk            # Build Android
 /Users/cusgadmin/if-local/flutter/bin/flutter analyze              # Static analysis
+
+# Flutter browser assets embedded in the Mod (root base)
+FLUTTER_BIN=/Users/cusgadmin/if-local/flutter/bin/flutter \
+  MONKEYCRAFT_PAGES_PROVENANCE=0 bash tool/build_web_release.sh / build/web
 ```
 
 ## Deploy
@@ -78,7 +86,7 @@ the running app manually — `flutter install` replaces it):
 ```bash
 cd flutter/monkeycraft
 /Users/cusgadmin/if-local/flutter/bin/flutter devices          # find device id
-/Users/cusgadmin/if-local/flutter/bin/flutter build ios --release
+FLUTTER_BIN=/Users/cusgadmin/if-local/flutter/bin/flutter bash tool/build_ios_device_release.sh
 /Users/cusgadmin/if-local/flutter/bin/flutter install -d <device-id>
 # verify version on device:
 xcrun devicectl device info apps --device <coredevice-uuid> | grep monkeycraft
@@ -87,6 +95,12 @@ xcrun devicectl device info apps --device <coredevice-uuid> | grep monkeycraft
 Note: `flutter install` output may end at "Uninstalling old version..." — verify
 with devicectl instead of trusting stdout. `flutter devices` and `devicectl`
 show different UUIDs for the same phone; use each tool's own id.
+
+Use the device-release script for signed iPhone builds. It cleans the shared
+native-assets cache and verifies every nested Mach-O platform and signing team.
+A plain incremental `flutter build ios --release` can retain a simulator
+`objective_c.framework` even when compilation and outer-bundle signing pass.
+Archive needed Android/Web build outputs before running the script's clean step.
 
 ## Code Style
 

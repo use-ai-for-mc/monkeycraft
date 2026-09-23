@@ -1,0 +1,200 @@
+{
+  "date": "2026-09-19",
+  "environment": {
+    "kind": "Android API36 ARM64 emulator, actual production release GUI",
+    "avd": "MonkeyCraft_Audio_Test",
+    "serial": "emulator-5556",
+    "audioOutput": false,
+    "app": "1.4.2 (11)",
+    "apkSha256": "f8bbc80a5c79843fedd79bed3757f2b9d800d8295befc546ee1b2f7753574f53",
+    "minecraft": "26.2 ImagineFun Add-Ons",
+    "modSha256": "097d40d51eaef9452d7f464b0b491b60f7a8a34ab6d4a816f56ee817372b84b5"
+  },
+  "automated": {
+    "flutterTests": 188,
+    "flutterAnalyze": "no issues",
+    "androidUnitTests": 11,
+    "releaseCleanBuildSeconds": 54.0,
+    "firstReleaseBuild": "failed after 24.8s: generated plugin registrant referenced unavailable integration_test plugin; clean/pub get then sequential rebuild passed",
+    "archivedLogs": [
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-flutter-android-notifications-final.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-flutter-android-notifications-final-analyze.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notification-unit.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-release-build.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-clean.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-release-retry.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-verify.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-zipalign.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-apksigner.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-install.log",
+      "outputs/roadmap-2026-09-19-android-notifications/logs/monkeycraft-android-notifications-launch.log"
+    ]
+  },
+  "exactAlarm": {
+    "beforeUserGrant": {
+      "notifications": [
+        {
+          "id": 990001,
+          "title": "MC Grant Countdown",
+          "body": null,
+          "flags": "ONGOING_EVENT|ONLY_ALERT_ONCE",
+          "creation": "1789762137795",
+          "update": "1789762137795",
+          "when": "1789762328762/1789762328762",
+          "countDown": "true",
+          "chronometer": "true"
+        }
+      ],
+      "alarms": [
+        [
+          "    RTC_WAKEUP #3: Alarm{1d7967f type 0 origWhen 1789762328762 whenElapsed 1454037 com.chenweikeng.monkeycraft}",
+          "      tag=*walarm*:com.chenweikeng.monkeycraft/.TimedNotificationReceiver",
+          "      type=RTC_WAKEUP origWhen=2026-09-19 04:12:08.762 window=+2m23s223ms repeatInterval=0 count=0 flags=0x20",
+          "      policyWhenElapsed: requester=+3m0s807ms app_standby=-10s157ms device_idle=-- battery_saver=-10s157ms",
+          "      whenElapsed=+3m0s807ms maxWhenElapsed=+5m24s30ms"
+        ]
+      ],
+      "hostEpoch": 1789762158.984287,
+      "deviceEpoch": "1789762148"
+    },
+    "afterUiGrant": {
+      "notifications": [
+        {
+          "id": 990001,
+          "title": "MC Grant Countdown",
+          "body": null,
+          "flags": "ONGOING_EVENT|ONLY_ALERT_ONCE",
+          "creation": "1789762137795",
+          "update": "1789762137795",
+          "when": "1789762328762/1789762328762",
+          "countDown": "true",
+          "chronometer": "true"
+        }
+      ],
+      "alarms": [
+        [
+          "    RTC_WAKEUP #3: Alarm{8d420eb type 0 origWhen 1789762328762 whenElapsed 1454037 com.chenweikeng.monkeycraft}",
+          "      tag=*walarm*:com.chenweikeng.monkeycraft/.TimedNotificationReceiver",
+          "      type=RTC_WAKEUP origWhen=2026-09-19 04:12:08.762 window=0 exactAllowReason=permission repeatInterval=0 count=0 flags=0x5",
+          "      policyWhenElapsed: requester=+2m30s743ms app_standby=-7s749ms device_idle=-- battery_saver=-7s749ms",
+          "      whenElapsed=+2m30s743ms maxWhenElapsed=+2m30s743ms"
+        ]
+      ],
+      "ui": [
+        "Exact Ride Reminders\nExact ride reminders are enabled."
+      ],
+      "hostEpoch": 1789762191.086159,
+      "deviceEpoch": "1789762180"
+    },
+    "backgroundFire": {
+      "observedAtHost": 1789762344.957209,
+      "deviceEpochSeconds": 1789762333,
+      "deadline": 1789762328762,
+      "matchingAlerts": [
+        {
+          "id": 1,
+          "title": "MC Grant Timer",
+          "body": "Android exact permission verification",
+          "flags": "AUTO_CANCEL|SILENT",
+          "creation": "1789762328765",
+          "update": "1789762328765",
+          "when": "1789762328764/1789762328764",
+          "countDown": null,
+          "chronometer": "false"
+        }
+      ],
+      "deliveryOffsetMs": 3,
+      "countdownPresent": false,
+      "audioPresent": true
+    },
+    "resume": {
+      "freshAudioConnected": true,
+      "exactEnabled": true,
+      "timerAlerts": [
+        {
+          "id": 1,
+          "title": "MC Grant Timer",
+          "body": "Android exact permission verification",
+          "flags": "AUTO_CANCEL|SILENT",
+          "creation": "1789762328765",
+          "update": "1789762328765",
+          "when": "1789762328764/1789762328764",
+          "countDown": null,
+          "chronometer": "false"
+        }
+      ]
+    }
+  },
+  "quota": {
+    "nudgesSent": 64,
+    "intervalMillis": 350,
+    "afterBurst": {
+      "hostEpoch": 1789762319.6895528,
+      "deviceEpoch": 1789762308,
+      "activeCount": 20,
+      "immediateCount": 16,
+      "latestQuota64": true,
+      "countdown": true,
+      "audioNotification": true
+    },
+    "legacyMigrationRuntime": "not claimed: APK replacement cleared old system notifications; unit test covers legacy overflow",
+    "postBurstUpdate": [
+      {
+        "id": 990001,
+        "title": "MC Post Quota B",
+        "body": null,
+        "flags": "ONGOING_EVENT|ONLY_ALERT_ONCE",
+        "creation": "1789762378639",
+        "update": "1789762378923",
+        "when": "1789762449594/1789762449594",
+        "countDown": "true",
+        "chronometer": "true"
+      }
+    ],
+    "repeatSamePayloadUnchanged": true,
+    "cancel": {
+      "countdownPresent": false,
+      "activeTimerAlarms": [],
+      "audioPresent": true
+    }
+  },
+  "inputRelease": {
+    "interaction": "production Sneak touch DOWN, then Android Home, then touch UP on launcher",
+    "shiftWhileHeld": true,
+    "shiftAfterHome": false,
+    "gameConnectedAfterHome": false,
+    "shiftAfterResume": false,
+    "gameReconnectedAfterResume": true
+  },
+  "audio": {
+    "freshChatLinkInsideApp": true,
+    "fgsAndNotificationSurvived64NudgesAndHome": true,
+    "freshSettingsConnectedAfterResume": true,
+    "disconnect": {
+      "hostEpoch": 1789762439.6583831,
+      "audioServicePresent": false,
+      "audioNotificationPresent": false,
+      "countdownPresent": false,
+      "homeEntry": true
+    },
+    "pcRestored": {
+      "active": true,
+      "connected": true,
+      "pending": false,
+      "volume": 0
+    }
+  },
+  "cleanup": {
+    "gameTimerCancelled": true,
+    "gameControllerDisconnected": true,
+    "testAvdShutdownRequested": true,
+    "original5554Untouched": true,
+    "testAvdShutdownConfirmed": true
+  },
+  "limits": [
+    "No physical Android, audible sound, continuous playback, lockscreen, Doze throttling, VPN coexistence or public tailnet account evidence.",
+    "One measured alarm delivered at device deadline +3ms; not a general latency guarantee.",
+    "Device clock lags host by about11s; compare device creation time with scheduled epoch.",
+    "API36 may add SILENT during system autogrouping, so flags alone do not validate physical sound."
+  ]
+}

@@ -1,5 +1,7 @@
 # MonkeyCraft 内嵌 Tailscale 集成计划
 
+> 2026-09-18：本文件包含早期实施建议与历史阶段编号；产品优先级以 [产品路线](../PRODUCT_ROADMAP_2026-09.md) 为准，当前证据见 [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)。Flutter iOS/Android 与 `web/` 均长期维护；移动双端内嵌是已确认目标，Android 技术门槛不是取消产品目标。当前浏览器正式路径为 LAN/系统 Tailscale；WASM 属于 P4 候选探索，未经选择不自动产品化。
+
 ## 1. 文档目的与状态
 
 本目录定义 MonkeyCraft 在电脑 Mod、Flutter 手机端和网页端内嵌 Tailscale 能力的开发、测试与发布路径。它是**实施方案，不是已完成功能说明**；当前已存在的 `doc/TAILSCALE.md` 仍描述“用户自行安装并运行系统 Tailscale”的现状。
@@ -9,7 +11,7 @@
 三个工作流分别见：
 
 - [MOD_DESKTOP.md](MOD_DESKTOP.md)：Minecraft Mod/电脑端的预编译 helper、登录、生命周期、四个 Minecraft 版本集成。
-- [MOBILE.md](MOBILE.md)：Flutter 连接抽象、iOS 原生实现与真机调试、Android 调研和 Go/No-Go。
+- [MOBILE.md](MOBILE.md)：Flutter 连接抽象、iOS 原生实现与真机调试、Android原生实现与发布验收。
 - [WEB.md](WEB.md)：浏览器 WASM 节点、登录与设备选择、WebSocket 传输和性能验证。
 - [TEST_MATRIX.md](TEST_MATRIX.md)：跨工作流的自动化层级、平台矩阵、故障注入、证据和发布门槛。
 - [AGENT_PROMPTS.md](AGENT_PROMPTS.md)：推荐的并行节奏、文件所有权和三个专门 AI agent 的首轮工作 prompt。
@@ -48,7 +50,7 @@ helper 使用 Tailscale 的 userspace 网络栈在 tailnet 内监听 `9600`，�
 | --- | --- | --- | --- |
 | `direct` | 现有 Mod 服务 | 普通 WebSocket | LAN 和手工地址，默认回退 |
 | `systemTailscale` | 系统 Tailscale 或内嵌 helper | OS 的普通 WebSocket 路由 | 当前手机端兼容路径，也是电脑 helper 的首个验收客户端 |
-| `embeddedTailscale` | 内嵌 helper | iOS/未来 Android/WASM 内嵌节点 | 不安装完整 Tailscale App 的目标路径 |
+| `embeddedTailscale` | 内嵌 helper | iOS/Android内嵌节点；WASM仍为候选探索 | 不安装完整 Tailscale App 的目标路径 |
 
 任何内嵌失败都必须明确告诉用户原因并允许切换；不得静默改连另一个主机，也不得删除现有 LAN/系统 Tailscale 行为。
 
@@ -147,4 +149,4 @@ P4、P5、P6 可在 P1 冻结登录/状态术语后并行，但电脑 helper 的
 5. 许可证、SBOM、hash、代码签名/完整性、隐私和加密出口评估完成。
 6. 内嵌功能关闭或失败时，既有 LAN 和系统 Tailscale 路径无回归。
 
-Android 若最终为 No-Go，不影响电脑端、iOS、Web 或 Android 的系统 Tailscale 兼容路径完成各自目标。
+Android内嵌若暂未达到发布条件，继续修复并保留系统Tailscale路径；不取消已经确认的Android内嵌产品目标，也不阻碍其他已验收路径。

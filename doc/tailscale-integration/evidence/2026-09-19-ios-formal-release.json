@@ -1,0 +1,133 @@
+{
+  "date": "2026-09-19",
+  "kind": "formal signed iOS device Release including expired reminder replay guard; clean-built, nested platforms/signatures verified and cover-installed",
+  "artifact": "outputs/roadmap-2026-09-19-expired-reminder/Runner.app",
+  "bundleId": "com.chenweikeng.monkeycraft",
+  "version": "1.4.2",
+  "build": "11",
+  "runnerSha256": "88b8f26aac64f9068f5fcfcd56d8cc4df860b016319fc7620c95f021948b48f0",
+  "dartFrameworkSha256": "1ce900467976757d0acb36102b4576acb43df3a0a470f594ea37fcfd473d01cb",
+  "flutterTests": 192,
+  "analyze": "passed, no issues",
+  "xcodeBuildSeconds": 48.5,
+  "strictCodesign": "all nested bundles pass codesign strict; all Mach-O arm64 and iOS platform 2; signing teams match Runner",
+  "logs": [
+    "outputs/roadmap-2026-09-19-expired-reminder/ios-release-build.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/ios-archive-verify.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/ios-install.log",
+    "outputs/roadmap-2026-09-19-expired-reminder/ios-installed-readback.json"
+  ],
+  "deviceInstall": {
+    "passed": true,
+    "method": "devicectl cover-install; no uninstall, data clearing, manual app kill or app launch",
+    "runtimeBoundary": "Android emulator production GUI verified shared Dart guard; physical iOS notification/audio/Live Activity perception on this package remains pending",
+    "appsReadbackMatches": 1
+  },
+  "previousBuilds": [
+    {
+      "date": "2026-09-19",
+      "kind": "formal signed iOS device Release including OpenAudioMc URI routing fix; clean-built, nested platforms/signatures verified and cover-installed",
+      "bundleId": "com.chenweikeng.monkeycraft",
+      "version": "1.4.2",
+      "build": "11",
+      "runnerSha256": "36e8c0d49cab460e527e344080d0a3d2cf1b272de132b386bb4c79b4098cb291",
+      "dartFrameworkSha256": "e83b892abd130a90ded41c58af5a9ee31a065ac377151313d0124875dc2eee23",
+      "archiveSha256": "e7ec1d6a54264ab6d1f1f987e236329c952049866648eeb984e11ff86c0b570f",
+      "flutterTests": 179,
+      "analyze": "passed, no issues",
+      "xcodeBuildSeconds": 47.8,
+      "strictCodesign": "all nested bundles pass codesign strict; all Mach-O arm64 and iOS platform 2; signing teams match Runner",
+      "artifact": "outputs/roadmap-2026-09-19-audio-link/Runner.app",
+      "logs": [
+        "/tmp/monkeycraft-ios-audio-link-release-build.log",
+        "/tmp/monkeycraft-ios-audio-link-archive-verify.log",
+        "/tmp/monkeycraft-ios-audio-link-install.log"
+      ],
+      "deviceInstall": {
+        "passed": true,
+        "method": "devicectl cover-install; no uninstall, data clearing or app launch",
+        "runtimeBoundary": "real OpenAudioMc page passed in iOS simulator; physical audio and updated-build perception remain pending",
+        "appsReadbackMatches": 1
+      }
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "formal signed iOS device Release, clean-rebuilt and verified nested Mach-O platform/team; successfully cover-installed on physical iPhone",
+      "bundleId": "com.chenweikeng.monkeycraft",
+      "version": "1.4.2",
+      "build": "11",
+      "runnerSha256": "e6d44e2800da94c7b34ad10890f2f0f467c8c39df3a54bbf842a4970bb9f4a50",
+      "dartFrameworkSha256": "5b312fea82cb6226a1b0f4e9e6c41e98594e86a69bd124bea7f0960abcae9cdb",
+      "archiveSha256": "e7ec1d6a54264ab6d1f1f987e236329c952049866648eeb984e11ff86c0b570f",
+      "flutterTests": 175,
+      "analyze": "passed, no issues",
+      "xcodeBuildSeconds": 49.2,
+      "strictCodesign": "all nested bundles pass codesign strict; all Mach-O arm64 and iOS platform 2; signing teams match Runner",
+      "artifact": "outputs/roadmap-2026-09-19-final/Runner.app",
+      "logs": [
+        "/tmp/monkeycraft-ios-device-clean.log",
+        "/tmp/monkeycraft-ios-device-clean-build.log",
+        "/tmp/monkeycraft-ios-device-verified.log",
+        "/tmp/monkeycraft-ios-device-clean-install.log"
+      ],
+      "deviceInstall": {
+        "passed": true,
+        "method": "devicectl cover-install; no uninstall, data clearing or app launch",
+        "runtimeBoundary": "new binary installed, physical perception tests remain observations from previous package"
+      }
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "INVALID device archive: simulator objective_c.framework detected during physical install; rebuild required",
+      "bundleId": "com.chenweikeng.monkeycraft",
+      "version": "1.4.2",
+      "build": "11",
+      "runnerSha256": "b396e89168166ca3a2ea09cfae859a17c29b184282a2734e7338f39d99c89ea4",
+      "dartFrameworkSha256": "164fa44e2d6340d5a636762af555081a44ed32ef8ebaf2ff23879c2bfd397d8d",
+      "archiveSha256": "e7ec1d6a54264ab6d1f1f987e236329c952049866648eeb984e11ff86c0b570f",
+      "flutterTests": 175,
+      "analyze": "passed, no issues",
+      "xcodeBuildSeconds": 50.9,
+      "strictCodesign": "outer bundle passed locally; insufficient: nested simulator framework has adhoc signature and wrong platform",
+      "artifact": "outputs/roadmap-2026-09-19-final/Runner.app",
+      "logs": [
+        "/tmp/monkeycraft-ios-final-release-build.log",
+        "/tmp/monkeycraft-ios-final-release-codesign.log",
+        "/tmp/monkeycraft-ios-final-release-sha256.log"
+      ],
+      "deviceInstall": {
+        "passed": false,
+        "error": "0xe8008014 invalid objective_c.framework signature; nested binary is iOS Simulator platform 7 with x86_64+arm64",
+        "log": "/tmp/monkeycraft-ios-final-device-install.log",
+        "existingAppStillPresent": "1.4.2(11)"
+      }
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "formal signed Release including login dismissal cancellation, not installed on physical phone",
+      "bundleId": "com.chenweikeng.monkeycraft",
+      "version": "1.4.2",
+      "build": "11",
+      "runnerSha256": "c972475f0bcebf192d7630203466cce8c0d8269eab61ffe2727d2d8216cdbb17",
+      "dartFrameworkSha256": "f0dfc75a88bb66f46c6c3607b0e7116d178d002abe9cd5d5a8b27ae00c99f596",
+      "archiveSha256": "e7ec1d6a54264ab6d1f1f987e236329c952049866648eeb984e11ff86c0b570f",
+      "flutterTests": 162,
+      "analyze": "passed, no issues",
+      "xcodeBuildSeconds": 27.3,
+      "strictCodesign": "passed; exit 0"
+    },
+    {
+      "date": "2026-09-19",
+      "kind": "formal signed Release, not installed on physical phone",
+      "bundleId": "com.chenweikeng.monkeycraft",
+      "version": "1.4.2",
+      "build": "11",
+      "runnerSha256": "ad883f74beb547d3168b7bb7a2499b649558fe8580678c78690cd088915cce28",
+      "dartFrameworkSha256": "7e51a639ad6362f4ebbda1b5d7645723cd0322b874910b727a1930115aaced4c",
+      "archiveSha256": "e7ec1d6a54264ab6d1f1f987e236329c952049866648eeb984e11ff86c0b570f",
+      "flutterTests": 158,
+      "analyze": "passed, no issues",
+      "xcodeBuildSeconds": 44.7
+    }
+  ]
+}

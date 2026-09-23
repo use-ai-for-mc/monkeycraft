@@ -1,0 +1,163 @@
+{
+  "date": "2026-09-19",
+  "environment": "macOS arm64, Java 25.0.2, real Minecraft 26.2 / ImagineFun Add-Ons",
+  "jar": {
+    "sha256": "249a06108fe1b286e37bc4c0630d71afdc98277c45cd6e92563ac7c7f84355c5",
+    "bytes": 37016796,
+    "loadedProcess": 18533,
+    "tests": 61,
+    "failures": 0,
+    "skips": 0,
+    "log": "/tmp/monkeycraft-26.2-runtime-fixes-build.log"
+  },
+  "web": {
+    "asset": "assets/index-DhSuvO0A.js",
+    "servedSHA256": "a433baf59ae26c0e9e2889726f01abce6d633c6b745732daca5af6331536f49f",
+    "sameAsBuild": true,
+    "secureContext": true
+  },
+  "liveRestart": {
+    "portBefore": 9600,
+    "portAfter": 9600,
+    "elapsedMs": 165.229875,
+    "automaticReauthentication": true,
+    "streamPageRemained": true,
+    "decodedFramesSamples": [
+      110,
+      166,
+      239,
+      349
+    ],
+    "decoderErrors": 0,
+    "previousJarUIFailure": "UI went to login after a transient idle signal even though the connection restored; fixed by atomic close/reconnect state publication."
+  },
+  "liveInput": {
+    "jar": "1a43affd0d0c86f1c11aa10bd39ca92c0372e738abf555c4f2a5458e2777db5c",
+    "shiftBefore": false,
+    "shiftHeld": true,
+    "shiftAfterSyntheticBrowserBlur": false,
+    "shiftAfterServerRestart": false,
+    "note": "Browser blur was programmatically dispatched; key states observed in real MC via DebugBridge."
+  },
+  "liveReminders": {
+    "silentNudgeBannerObserved": true,
+    "initialCountdown": "Validation A 0:53",
+    "updatedCountdown": "Validation B 1:22",
+    "afterCancel": [],
+    "limitations": "Headless browser: no physical audible/OS notification claim; actual ImagineMoreFun nudge later replaced the test banner."
+  },
+  "pcHelper": {
+    "javaHeadless": true,
+    "oldDesktopSupported": false,
+    "newHelperProcess": 19215,
+    "newState": "running",
+    "errorCode": "",
+    "listening": true,
+    "accountAuthorized": true,
+    "note": "User authorized personal account. Real iPhone embedded connection traversed helper-owned loopback socket; user confirmed video normal. AuthURL not recorded.",
+    "restart": {
+      "oldGameProcessExited": true,
+      "oldHelperProcessExited": true,
+      "newGameLoadsSHA256": "837404d20f7dd7d8f8428a811fffde0c0d7c58c2d3d8142da1d8b60200724d26",
+      "autoStartEnabled": true,
+      "state": "running",
+      "listening": true,
+      "ipPreserved": true,
+      "nodeFingerprintBefore": 1148163683,
+      "nodeFingerprintAfter": 1148163683,
+      "fingerprintMethod": "Java String.hashCode of nodeId (not a cryptographic digest)",
+      "requiresFreshLogin": false,
+      "gameProcess": 34634,
+      "helperProcess": 34878
+    }
+  },
+  "longRunHistory": {
+    "jar": "1a43affd0d0c86f1c11aa10bd39ca92c0372e738abf555c4f2a5458e2777db5c",
+    "passed": 2,
+    "duration": "10.1m",
+    "log": "/tmp/monkeycraft-26.2-final-live.log",
+    "latestJarLongRun": {
+      "jar": "837404d20f7dd7d8f8428a811fffde0c0d7c58c2d3d8142da1d8b60200724d26",
+      "passed": 2,
+      "duration": "10.2m",
+      "resizes": 4,
+      "decoderErrors": 0,
+      "log": "/tmp/monkeycraft-26.2-837404-live-soak.log"
+    }
+  },
+  "realIPhone": {
+    "installedVersion": "1.4.2(11)",
+    "mixedEmbeddedToSystem": true,
+    "dualEmbeddedSocketVerified": true,
+    "dualEmbeddedVideoUserConfirmed": true,
+    "videoWidth": 490,
+    "videoHeight": 960,
+    "pendingFrames": 0,
+    "silentNudge": "User confirmed authorized silent03 displayed without sound",
+    "soundNudge": "User confirmed sound05 displayed and sounded once",
+    "countdownUpdate": "User confirmed only B remained",
+    "countdownCancel": "User confirmed removed",
+    "lockScreen": "User confirmed countdown visible and local reminder sounded/displayed once at due time",
+    "unlockResume": "User confirmed automatic video recovery without Tailscale login, then voluntarily disconnected"
+  },
+  "systemToEmbeddedProbe": {
+    "environment": "same macOS machine, system Tailscale via utun7 to PC embedded helper",
+    "authenticated": true,
+    "heartbeatAcks": 6,
+    "videoState": "HIBERNATING",
+    "frames": 0,
+    "cause": "ImagineFun ride add-on actively put video to sleep while riding Disneyland Railroad; not a streaming pass.",
+    "firstProbe": "15 seconds auth succeeded but zero frames; second probe captured explicit server state",
+    "log": "/tmp/monkeycraft-system-to-helper-probe-retry.json"
+  },
+  "systemToEmbeddedActiveProbe": {
+    "authenticated": true,
+    "elapsedMs": 20057,
+    "frames": 150,
+    "bytes": 1742432,
+    "dimensions": [
+      360,
+      640
+    ],
+    "videoState": "ACTIVE",
+    "types": {
+      "HELLO": 1,
+      "AUTH_OK": 1,
+      "SCREEN_STATE": 1,
+      "SERVER_STATUS": 1,
+      "WORLD_STATE": 1,
+      "NUDGE": 2,
+      "HEARTBEAT_ACK": 6
+    },
+    "path": "macOS system Tailscale to embedded PC helper",
+    "decodeVerified": false,
+    "environment": "same-host macOS system Tailscale via utun7 to PC embedded node; packet reception, no decoder or cross-device claim"
+  },
+  "finalHelperRestart": {
+    "jar": "097d40d51eaef9452d7f464b0b491b60f7a8a34ab6d4a816f56ee817372b84b5",
+    "oldGamePID": 34634,
+    "oldHelperPID": 34878,
+    "oldGameExited": true,
+    "oldHelperExited": true,
+    "newGamePID": 70132,
+    "newHelperPID": 70207,
+    "state": "running",
+    "listening": true,
+    "nodeFingerprintBefore": 1148163683,
+    "nodeFingerprintAfter": 1148163683,
+    "freshLoginRequired": false,
+    "joinedSameServer": true
+  },
+  "finalServedWeb": {
+    "asset": "/assets/index-XJYcWVQS.js",
+    "servedSHA256": "4eae514a913b76499af4f97db655ebaa2259c683e66cf1626b05b6afd753ae83",
+    "matchesCurrentDist": true,
+    "gamePID": "70132"
+  },
+  "finalModWebLive": {
+    "passed": 1,
+    "longSoakSkipped": 1,
+    "log": "/tmp/monkeycraft-26.2-097d40-live.log",
+    "note": "new helper generation guard and new Web credential bundle; latest ten-minute soak remains prior 837404, not claimed repeated"
+  }
+}

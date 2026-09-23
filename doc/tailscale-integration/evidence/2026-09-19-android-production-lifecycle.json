@@ -1,0 +1,94 @@
+{
+  "date": "2026-09-19",
+  "environment": {
+    "device": "MonkeyCraft_Audio_Test / emulator-5556",
+    "platform": "Android API 36 ARM64 simulator",
+    "audioOutput": false,
+    "appVersion": "1.4.2 (11)",
+    "apkSha256": "e843496ea0501e5d7c0f835a02d81acacc471c425762c3e99201bd0081cc12ab",
+    "minecraftVersion": "26.2",
+    "modSha256": "097d40d51eaef9452d7f464b0b491b60f7a8a34ab6d4a816f56ee817372b84b5",
+    "transport": "LAN 10.0.2.2:9600, HMAC password, Remember password off"
+  },
+  "productionGui": {
+    "actualVideoVisible": true,
+    "notificationPermissionPromptAccepted": true,
+    "freshChatAudioLinkOpenedInsideApp": true,
+    "settingsConnectedBeforeHome": true,
+    "homeSample": {
+      "elapsedSeconds": 53.3,
+      "audioServicePresent": true,
+      "foreground": true,
+      "foregroundId": [
+        "990002"
+      ],
+      "foregroundPackages": [
+        "com.google.android.apps.nexuslauncher"
+      ]
+    },
+    "modConnectedAtHome": false,
+    "modReconnectedAfterReturn": true,
+    "freshSettingsConnectedAfterReturn": true,
+    "explicitDisconnect": {
+      "sampledAt": 1789761658.991272,
+      "audioServicePresent": false,
+      "audioNotificationPresent": false,
+      "countdownPresent": false,
+      "homeTailscaleButton": true
+    },
+    "pcAudioRestored": {
+      "active": true,
+      "connected": true,
+      "pending": false,
+      "volume": 0
+    }
+  },
+  "notificationObservations": {
+    "silentNudge": {
+      "title": "MC Silent GUI A",
+      "id": 2023,
+      "flags": "AUTO_CANCEL|SILENT"
+    },
+    "soundRequestedNudge": {
+      "title": "MC Sound GUI A",
+      "id": 2045,
+      "flags": "AUTO_CANCEL|SILENT",
+      "audibilityVerified": false
+    },
+    "countdown": {
+      "id": 990001,
+      "deadline": 1789761637399,
+      "initial": "MC Countdown GUI A",
+      "updated": "MC Countdown GUI B",
+      "creationTime": 1789761506453,
+      "updateTime": 1789761518711,
+      "samePayloadRepeatChangedUpdateTime": false,
+      "samePayloadRepeatActiveCount": 1,
+      "chronometer": true,
+      "countDown": true,
+      "cancelRemovedCountdown": true
+    },
+    "quotaFailure": {
+      "activeRecords": 50,
+      "subsequentCountdownMissing": true,
+      "systemLog": "Package has already posted or enqueued 50 notifications. Not showing more. package=com.chenweikeng.monkeycraft",
+      "incomingPeriodicReminder": "ImagineMoreFun / You are not riding!",
+      "origin": "imaginemorefun-3.4.2.jar not-riding-alert, every 200 client ticks, sound=true"
+    },
+    "exactAlarmAccess": {
+      "appop": "default",
+      "postNotificationsGranted": true,
+      "alarmType": "RTC_WAKEUP",
+      "scheduling": "setAndAllowWhileIdle fallback",
+      "observedWindowMillis": 98206,
+      "exactDeadlineNotVerified": true
+    }
+  },
+  "limitations": [
+    "Simulator has no audio output; no audible or uninterrupted playback conclusion.",
+    "Foreground-service presence alone does not prove webpage audio continues.",
+    "No physical Android, lockscreen, network-switch or Android Tailscale account result.",
+    "Notification quota and missing exact-alarm access require fixes and a new APK retest.",
+    "First post-cancel countdown probe stopped at a missing-countdown assertion; subsequent logs established the system quota rejection."
+  ]
+}

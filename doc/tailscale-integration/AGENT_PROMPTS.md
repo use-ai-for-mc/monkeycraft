@@ -1,5 +1,7 @@
 # 内嵌 Tailscale 开发 Agent Prompts
 
+> 2026-09-18：本文件包含早期实施建议与历史阶段编号；产品优先级以 [产品路线](../PRODUCT_ROADMAP_2026-09.md) 为准，当前证据见 [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)。Flutter iOS/Android 与 `web/` 均长期维护；移动双端内嵌是已确认目标，Android 技术门槛不是取消产品目标。当前浏览器正式路径为 LAN/系统 Tailscale；WASM 属于 P4 候选探索，未经选择不自动产品化。
+
 ## 1. 推荐推进方式
 
 不建议把桌面、手机、网页完整串行做完；总工期会很长，而且很多平台风险可以独立验证。也不建议三个 agent 从第一天起同时修改 Flutter 连接层和共享文档；这会造成接口漂移和反复合并。

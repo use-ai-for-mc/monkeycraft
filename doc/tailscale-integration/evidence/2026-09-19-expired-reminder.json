@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-19",
+  "environment": {
+    "platform": "Android API36 ARM64 emulator",
+    "avd": "MonkeyCraft_Audio_Test",
+    "serial": "emulator-5556",
+    "physicalDevice": false,
+    "audibleSoundTested": false,
+    "game": "real Minecraft26.2 ImagineFun Add-Ons, mp.imaginefun.net"
+  },
+  "oldApk": {
+    "sha256": "f8bbc80a5c79843fedd79bed3757f2b9d800d8295befc546ee1b2f7753574f53",
+    "deadline": 1789766527465,
+    "deliveredAt": 1789766527481,
+    "delayMs": 16,
+    "repostAtAfterGuiReconnect": 1789766655221,
+    "bugReproduced": true
+  },
+  "newApk": {
+    "artifact": "outputs/roadmap-2026-09-19-expired-reminder/MonkeyCraft-1.4.2-11-release.apk",
+    "sha256": "4f5a225b9d7a01b087fa573f6305a93de34aefbdf5a83c4fca6a88270cd355a7",
+    "bytes": 83653506
+  },
+  "newRuntime": {
+    "install": "adb install -r, package SHA read back; saved target and permission retained",
+    "installBoundary": "Android removed old notification at package replacement; first connection verifies no new past notification, not preservation across install",
+    "retainedOldServerDeadline": 1789766527465,
+    "expiredReplay": "no notification and no alarm on fresh GUI connection and subsequent sample",
+    "futureDeadline": 1789767038139,
+    "deliveredAt": 1789767038148,
+    "delayMs": 9,
+    "deepIdleAtDelivery": true,
+    "resumeAndGuiReconnect": "delivered notification creation/update unchanged; no timer or alarm recreated",
+    "explicitCancel": "notification and alarm removed"
+  },
+  "cleanup": {
+    "deviceidle": "mForceIdle=false, ACTIVE/ACTIVE",
+    "batterySimulation": "unchanged",
+    "testTimer": "cancelled",
+    "gameClientConnected": false,
+    "shiftPressed": false,
+    "helperState": "running/listening, identity1148163683 retained",
+    "emulator5556": "normal emu kill completed, absent from adb devices",
+    "emulator5554": "retained, no interactions"
+  },
+  "evidenceDirectory": "outputs/roadmap-2026-09-19-android-doze",
+  "limits": [
+    "No physical Android, audible sound, VPN coexistence or personal tailnet login result.",
+    "Forced emulator Doze proves this exact alarm path only, not all OEM background policies."
+  ]
+}

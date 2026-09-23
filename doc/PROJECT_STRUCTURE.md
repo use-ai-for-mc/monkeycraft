@@ -29,7 +29,9 @@ monkeycraft/
 │               ├── monkeycraft.mixins.json
 │               └── assets/monkeycraft/       # icon, lang
 │
-├── flutter/monkeycraft/          # Flutter companion app
+├── flutter/monkeycraft/          # Maintained Flutter iOS / Android app
+├── web/                          # Maintained TypeScript / Preact browser app
+├── native/tailscale-helper/       # Optional embedded desktop node
 ├── doc/                          # Documentation
 ├── .github/workflows/            # Build & release CI
 ├── AGENTS.md                     # Notes for AI agents
@@ -86,5 +88,5 @@ cd mods/1.19     && ./gradlew build           # MC 1.19   (Java 17)
 ## Deployment
 
 ```bash
-./build-and-deploy.sh  # (within mods/<mc>/) Build and copy to local Modrinth profile
+./build-and-deploy.sh  # (within mods/<mc>/) Build and copy to the configured real PrismLauncher instance
 ```

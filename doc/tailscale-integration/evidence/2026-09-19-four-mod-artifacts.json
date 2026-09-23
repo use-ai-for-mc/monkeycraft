@@ -1,0 +1,189 @@
+{
+  "date": "2026-09-19",
+  "verification": "Each current JAR was built locally with max-workers=2. JUnit XML was aggregated after build. Every web/dist file was compared byte-for-byte with the embedded web entry; each of four helper binaries was checked against embedded manifest SHA-256 and size, sidecar digest, and embedded license.",
+  "mods": [
+    {
+      "minecraft": "26.2",
+      "jar": "mods/26.2/build/libs/monkeycraft-1.4.2-26.2.jar",
+      "sha256": "097d40d51eaef9452d7f464b0b491b60f7a8a34ab6d4a816f56ee817372b84b5",
+      "junit": {
+        "tests": 62,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "web": {
+        "matchingFileCount": 10,
+        "indexSha256": "88f76ea4a16c617db112cd5cf68d5678b692152e7fbc5d0ede067f927476b5a9"
+      },
+      "helpers": {
+        "platforms": [
+          "darwin-amd64",
+          "darwin-arm64",
+          "linux-amd64",
+          "windows-amd64"
+        ],
+        "manifestDigestSizeVerified": true,
+        "licenseMatchesSource": true
+      },
+      "deployment": "Not deployed; this record covers only the current local build artifact.",
+      "runtime": "deployed and restarted as game PID70132; helper PID70207 same identity; real HTTPS/WSS UI/video/inventory smoke passed 1; latest ten-minute soak belongs to previous 837404"
+    },
+    {
+      "minecraft": "26.1",
+      "jar": "mods/26.1/build/libs/monkeycraft-1.4.2-26.1.jar",
+      "sha256": "cb2351ce59ebe0cf3b1637c135124714535847da608f90b418bb2d408e840b81",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "web": {
+        "matchingFileCount": 10,
+        "indexSha256": "88f76ea4a16c617db112cd5cf68d5678b692152e7fbc5d0ede067f927476b5a9"
+      },
+      "helpers": {
+        "platforms": [
+          "darwin-amd64",
+          "darwin-arm64",
+          "linux-amd64",
+          "windows-amd64"
+        ],
+        "manifestDigestSizeVerified": true,
+        "licenseMatchesSource": true
+      },
+      "deployment": "Not deployed; this record covers only the current local build artifact."
+    },
+    {
+      "minecraft": "1.21.11",
+      "jar": "mods/1.21.11/build/libs/monkeycraft-1.4.2-1.21.11.jar",
+      "sha256": "8010137e339ddc0e3e1d6eb78937a6dc42ee865cc33ff4df4103926c457e656e",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "web": {
+        "matchingFileCount": 10,
+        "indexSha256": "88f76ea4a16c617db112cd5cf68d5678b692152e7fbc5d0ede067f927476b5a9"
+      },
+      "helpers": {
+        "platforms": [
+          "darwin-amd64",
+          "darwin-arm64",
+          "linux-amd64",
+          "windows-amd64"
+        ],
+        "manifestDigestSizeVerified": true,
+        "licenseMatchesSource": true
+      },
+      "deployment": "Not deployed; this record covers only the current local build artifact."
+    },
+    {
+      "minecraft": "1.19",
+      "jar": "mods/1.19/build/libs/monkeycraft-1.4.2-1.19.jar",
+      "sha256": "aae0420a60697d28a480f601da060c57d7a01bce3449dc863825012204ea70a8",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "web": {
+        "matchingFileCount": 10,
+        "indexSha256": "88f76ea4a16c617db112cd5cf68d5678b692152e7fbc5d0ede067f927476b5a9"
+      },
+      "helpers": {
+        "platforms": [
+          "darwin-amd64",
+          "darwin-arm64",
+          "linux-amd64",
+          "windows-amd64"
+        ],
+        "manifestDigestSizeVerified": true,
+        "licenseMatchesSource": true
+      },
+      "deployment": "Not deployed; this record covers only the current local build artifact."
+    }
+  ],
+  "previousBuilds": [
+    {
+      "minecraft": "26.2",
+      "jar": "mods/26.2/build/libs/monkeycraft-1.4.2-26.2.jar",
+      "sha256": "837404d20f7dd7d8f8428a811fffde0c0d7c58c2d3d8142da1d8b60200724d26",
+      "junit": {
+        "tests": 62,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "webIndexBytes": 1459,
+      "helperPlatformsHashVerified": [
+        "darwin-amd64",
+        "darwin-arm64",
+        "linux-amd64",
+        "windows-amd64"
+      ],
+      "runtime": "26.2 actual running; live soak ongoing"
+    },
+    {
+      "minecraft": "26.1",
+      "jar": "mods/26.1/build/libs/monkeycraft-1.4.2-26.1.jar",
+      "sha256": "27bf8282157ce9691af975113fa16bbe335b1c1579055165fe625af82ffb778c",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "webIndexBytes": 1459,
+      "helperPlatformsHashVerified": [
+        "darwin-amd64",
+        "darwin-arm64",
+        "linux-amd64",
+        "windows-amd64"
+      ],
+      "runtime": "not yet run; DebugBridge control authorization pending"
+    },
+    {
+      "minecraft": "1.21.11",
+      "jar": "mods/1.21.11/build/libs/monkeycraft-1.4.2-1.21.11.jar",
+      "sha256": "11548e2e31ae00c999de0d5ae620372621b09e3bef8d4f5b1db6b851ae4619ea",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "webIndexBytes": 1459,
+      "helperPlatformsHashVerified": [
+        "darwin-amd64",
+        "darwin-arm64",
+        "linux-amd64",
+        "windows-amd64"
+      ],
+      "runtime": "not yet run; DebugBridge control authorization pending"
+    },
+    {
+      "minecraft": "1.19",
+      "jar": "mods/1.19/build/libs/monkeycraft-1.4.2-1.19.jar",
+      "sha256": "cbe1ae742c732e31af14ee71534d0bd1a4d48562699447a8634260f854702da0",
+      "junit": {
+        "tests": 57,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "webIndexBytes": 1459,
+      "helperPlatformsHashVerified": [
+        "darwin-amd64",
+        "darwin-arm64",
+        "linux-amd64",
+        "windows-amd64"
+      ],
+      "runtime": "not yet run; DebugBridge control authorization pending"
+    }
+  ]
+}

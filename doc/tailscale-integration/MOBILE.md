@@ -1,10 +1,14 @@
 # MonkeyCraft 手机端内嵌 Tailscale：开发与验证方案
 
+> 2026-09-18：本文件包含早期实施建议与历史阶段编号；产品优先级以 [产品路线](../PRODUCT_ROADMAP_2026-09.md) 为准，当前证据见 [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)。Flutter iOS/Android 与 `web/` 均长期维护；移动双端内嵌是已确认目标，Android 技术门槛不是取消产品目标。当前浏览器正式路径为 LAN/系统 Tailscale；WASM 属于 P4 候选探索，未经选择不自动产品化。
+
+> 2026-09-19：iOS 正式 C archive 已改为从固定版本的隔离源码副本构建，并以受跟踪补丁将 `tsnet.Server.UserLogf` 设为 discard，避免认证 URL 写入系统控制台。该覆盖层与 `tailscale_set_logfd(-1)` 一起禁止正式运行时 raw 日志；诊断 archive 不参与正式构建。构建拒绝覆盖脏源码，并记录模块锁与许可证哈希。构建产物、精确 Go 1.26.3 的安装方式与本轮18项模拟器通过、真实设备待验收边界见[本轮记录](evidence/2026-09-19-ios-product.md)。
+
 ## 1. 目标、边界与当前结论
 
 本方案让 MonkeyCraft 手机端可选择在自身进程内运行一个 Tailscale userspace 节点。用户只安装 MonkeyCraft，不必另装或开启系统 Tailscale VPN App；但首次使用仍需以自己的 Tailscale 账号登录并授权这个节点。它不是整机 VPN：只有 MonkeyCraft 到 Minecraft 的连接进入 tailnet，因此不占用系统 VPN 槽，也不改变其他应用的流量。
 
-首个可交付目标为 **iOS 内嵌连接**：手机端成功登录、选择一台运行 MonkeyCraft 的 tailnet 电脑、经内嵌节点建立到该电脑 `9600` 端口的连接，并维持当前的 H.264、控制、聊天和 HMAC 鉴权协议不变。现有用户仍可选择 LAN 或“系统 Tailscale VPN”方式连接。Android 当前仅进入调研与复核包，不承诺实现或发布内嵌模式。
+首个可交付目标为 **iOS 内嵌连接**：手机端成功登录、选择一台运行 MonkeyCraft 的 tailnet 电脑、经内嵌节点建立到该电脑 `9600` 端口的连接，并维持当前的 H.264、控制、聊天和 HMAC 鉴权协议不变。现有用户仍可选择 LAN 或“系统 Tailscale VPN”方式连接。Android 内嵌同样是已确认的产品目标：JNI/Kotlin桥接和ARM64/ARMv7构建已实现，API36 ARM64模拟器生命周期与通知集成通过；本人账户登录、拨号、系统VPN共存和后台恢复仍须真机验收。
 
 官方 `libtailscale` 可把 Tailscale 编入进程并在完全 userspace 中获得 tailnet 地址；C API 可直接 `dial` tailnet 服务，Swift 的 TailscaleKit 已提供 iOS framework、节点状态和 `dial/listen` 能力。参考：[libtailscale](https://github.com/tailscale/libtailscale)、[TailscaleKit](https://github.com/tailscale/libtailscale/tree/main/swift)、[C API](https://github.com/tailscale/libtailscale/blob/main/tailscale.h)。
 
@@ -41,7 +45,7 @@ Dart StreamProxy ── ws://127.0.0.1:<随机端口> ──┐
 1. 新增 `ConnectionTransport`（`open`、`close`、连接状态与结构化错误）及 `TransportFactory`；`DirectWebSocketTransport` 包装当前 `WebSocketChannel.connect`。
 2. `StreamProxy` 依赖该抽象，仍将已打开的 WebSocket channel 交给 `CommandSender`。不改变 WebSocket 消息、HMAC、视频 relay、心跳或自动重连的语义。
 3. 新增持久化的连接配置模型：`mode=direct|systemTailscale|embeddedTailscale`、上次电脑的稳定 node ID、显示名、端口及是否自动重连；机密状态不放入该模型。
-4. 连接 UI 增加“直接/LAN”“使用已安装的 Tailscale”“内置 Tailscale（iOS 试验）”入口。内置模式不可用时展示原因和可操作的回退按钮，绝不静默降级到未知主机。
+4. 连接 UI 增加“直接/LAN”“使用已安装的 Tailscale”“内置 Tailscale”入口。内置模式不可用时展示原因和可操作的回退按钮，绝不静默降级到未知主机。
 
 **自动化验证**：Dart unit test 覆盖 URL 解析、transport 选择、错误映射与取消；fake transport 验证 `StreamProxy` 的认证成功、认证失败、断线、三次重连、二进制帧路径未变；widget test 验证三个入口、不可用态与回退。准入标准是现有 direct/LAN 和系统 VPN 路径的所有测试及 `flutter analyze` 均通过，并至少在 LAN 真机回归一局完整游戏。
 
@@ -86,9 +90,11 @@ Dart StreamProxy ── ws://127.0.0.1:<随机端口> ──┐
 1. 构建 TestFlight archive，检查 App Store 上传、framework 签名、崩溃符号和体积变化；外测前完成真实设备矩阵。
 2. 当前 `Info.plist` 和 `doc/APP_ENCRYPTION_DOCUMENTATION.md` 声明不使用非豁免加密；嵌入 WireGuard/Tailscale 后必须在每次发布前由负责人员重新填写 App Store Connect 的出口合规问卷并留存结论，必要时提交文档。不能沿用现有 `false`。Apple 的出口合规要求覆盖 app 使用或访问加密的情形。[Apple 说明](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/)
 3. 更新隐私政策、第三方许可证、支持文档与故障诊断指引；说明创建的是 MonkeyCraft 自己的 tailnet 节点，用户仍需 Tailscale 账号、受其 ACL/device approval 约束。
-4. 用远程 feature flag / beta 渠道灰度，先只开放 iOS；出现 node 无法启动、连续桥接崩溃、重大性能回归或合规未确认时立即关闭内嵌入口，direct 和系统 VPN 不受影响。
+4. 按各平台实际验收结果安排 beta；出现 node 无法启动、连续桥接崩溃、重大性能回归或合规未确认时立即关闭内嵌入口，direct 和系统 VPN 不受影响。
 
-## 5. Android：调研与复核包（不预先承诺）
+## 5. Android：已实现路径与剩余验收
+
+已采用与iOS相同pin的libtailscale C shared library + JNI。当前构建方式见[Android构建说明](../../flutter/monkeycraft/android/third_party/libtailscale/README.md)，自动化和真实设备的证据边界见[App本轮记录](evidence/2026-09-19-app.md)。以下复核项是进入beta/发布的验证要求，不再是是否实施Android内嵌的产品选择。
 
 ### 已知条件
 
@@ -98,7 +104,7 @@ Dart StreamProxy ── ws://127.0.0.1:<随机端口> ──┐
 
 ### 复核包交付物
 
-由后续前沿模型/Android 负责人在**固定的** Tailscale commit、Go 版本、Android Gradle Plugin、NDK 与设备矩阵下给出以下证据，而不是仅给设计建议：
+实施与验收在**固定的** Tailscale commit、Go 版本、Android Gradle Plugin、NDK 与设备矩阵下给出以下证据，而不是仅给设计建议：
 
 1. 方案对比：`libtailscale` C archive + JNI、从官方 Android client 最小化/改造的 Go backend、纯 `tsnet` AAR；逐项说明是否需要 `VpnService`、是否仅 proxy 单端口、升级路径、许可证、构建可复现性及维护成本。
 2. 最小 repro：`gomobile`/JNI library 在 arm64-v8a 和 armeabi-v7a，Android API 29 至当前 target 的真机上完成 `Start → interactive auth → dial TCP → close`；附完整未脱敏的技术日志给开发组，向产品文档只提供脱敏摘要。
@@ -110,7 +116,7 @@ Dart StreamProxy ── ws://127.0.0.1:<随机端口> ──┐
 
 **Go（仅进入受限 Android beta）**：固定版本的真机 repro 不需要私有 Go runtime patch；两个 ABI 均可稳定启动和退出；tailnet 登录、单端口 dial、前后台恢复及现有 direct/system-VPN 回退通过；没有系统 VPN permission 或流量劫持；构建/许可/安全审查完整；Android 负责人和前沿模型的独立复核结论一致。
 
-**No-Go（继续只支持系统 Tailscale VPN）**：上游 bug 仍未解决且只能靠未维护 patch；任一目标 ABI/API 无法稳定启动；需要改造成完整 `VpnService` 才能运作；无法保证状态与私钥保护；或性能/体积/商店风险超过团队明确阈值。No-Go 不是项目失败：用户仍可安装 Tailscale App 并使用现有 `100.x`/MagicDNS 路径，LAN 也完全不变。
+**暂缓该平台内嵌发布（继续修复并保留系统 Tailscale VPN）**：上游 bug 仍未解决且只能靠未维护 patch；任一目标 ABI/API 无法稳定启动；需要改造成完整 `VpnService` 才能运作；无法保证状态与私钥保护；或性能/体积/商店风险超过团队明确阈值。No-Go 不是项目失败：用户仍可安装 Tailscale App 并使用现有 `100.x`/MagicDNS 路径，LAN 也完全不变。
 
 ## 6. 统一安全、可观测性和验收清单
 
@@ -129,6 +135,6 @@ Dart StreamProxy ── ws://127.0.0.1:<随机端口> ──┐
 | I2 | 真机交互登录、状态、设备选择 | 不通过则保留系统 Tailscale 路径 |
 | I3 | 真实 Mod 的单端口 loopback bridge | 不通过则不改 WebSocket 协议 |
 | I4 | TestFlight 灰度、合规与回退开关 | 仅 iOS beta/正式发布 |
-| A-R | Android 复核包和独立结论 | 仅满足 Go 条件才立项实现 |
+| A-R | Android 复核包和独立结论 | 实现已进行；满足Go条件后才进入beta |
 
-本文件是实施和测试计划，不等同于把内嵌 Tailscale 承诺为所有平台功能。每个阶段完成后都必须以实际产物和测试记录更新结论。
+本文件是实施和测试计划；PC、iOS和Android内嵌是已确认目标，构建通过不等于已具备发布条件。每个阶段完成后都必须以实际产物和测试记录更新结论。

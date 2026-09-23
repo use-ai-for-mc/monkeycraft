@@ -1,5 +1,7 @@
 # MonkeyCraft 网页端 Tailscale / WASM 方案
 
+> 2026-09-18：本文件包含早期实施建议与历史阶段编号；产品优先级以 [产品路线](../PRODUCT_ROADMAP_2026-09.md) 为准，当前证据见 [执行记录](../PRODUCT_ROADMAP_EXECUTION.md)。Flutter iOS/Android 与 `web/` 均长期维护；移动双端内嵌是已确认目标，Android 技术门槛不是取消产品目标。当前浏览器正式路径为 LAN/系统 Tailscale；WASM 属于 P4 候选探索，未经选择不自动产品化。
+
 ## 结论与范围
 
 网页端可以在**不安装 Tailscale 客户端、也不申请浏览器 VPN 权限**的前提下，以 WebAssembly 在页面内运行一个受限的 Tailscale userspace 节点；用户可在浏览器中完成自己的 Tailscale 登录、查看可见 Tailnet 设备并选择运行 MonkeyCraft 的电脑。Tailscale 官方的 `tsconnect` 正是此模式，浏览器节点会作为 Tailnet 的临时（ephemeral）设备出现；若 Tailnet 开启设备审批，仍需管理员批准。[Tailscale browser client](https://tailscale.com/docs/privileged-access-management/how-to/access-ssh/remote-ssh)

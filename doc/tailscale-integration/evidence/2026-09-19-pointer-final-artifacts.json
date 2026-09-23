@@ -1,0 +1,851 @@
+{
+  "all_checks_passed": true,
+  "date": "2026-09-19",
+  "helper_platforms": [
+    "darwin-amd64",
+    "darwin-arm64",
+    "linux-amd64",
+    "windows-amd64"
+  ],
+  "scope": "final Pointer Lock browser bundle and helper artifact verification",
+  "versions": {
+    "1.19": {
+      "buildLog": "outputs/roadmap-2026-09-19-pointer-final/1.19-clean-build.log",
+      "helpers": {
+        "all_byte_equal": true,
+        "license_byte_equal": true,
+        "license_sha256": "88064451f947b208d53559124d39049488522eeb7425d2d26e59ded24b595d71",
+        "platforms": {
+          "darwin-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+                "size": 22113408
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+              "size": 22113408,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "darwin-arm64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+                "size": 20684882
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "arm64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+              "size": 20684882,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "linux-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+                "size": 320
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+                "size": 22286498
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "linux",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+              "size": 22286498,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "windows-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+                "size": 326
+              },
+              "monkeycraft-tailscale-helper.exe": {
+                "byte_equal": true,
+                "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+                "size": 22568448
+              },
+              "monkeycraft-tailscale-helper.exe.sha256": {
+                "byte_equal": true,
+                "sha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+                "size": 99
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "windows",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper.exe",
+              "protocolVersion": 1,
+              "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+              "size": 22568448,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          }
+        }
+      },
+      "jar": "mods/1.19/build/libs/monkeycraft-1.4.2-1.19.jar",
+      "jar_sha256": "e9df6d39e3ad9e2614550f4c717559a370857e2e58059f1926df20c6e8c843bc",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 57
+      },
+      "passed": true,
+      "testTask": "Executed in final successful build, confirmed by task log",
+      "web": {
+        "all_byte_equal": true,
+        "count": 11,
+        "files": {
+          "assets/index-BIjLcCD9.js": {
+            "byte_equal": true,
+            "sha256": "6e63db6abd56ddb1bcb6c365368f285802d2fde2c6667ade57ef60cbc02893d2"
+          },
+          "assets/index-BIjLcCD9.js.map": {
+            "byte_equal": true,
+            "sha256": "1d82df5ae5a5591947cc7efe28d871b569a64d409d5328faa4b0a6d55bb0d458"
+          },
+          "assets/index-HiLQ6Ais.css": {
+            "byte_equal": true,
+            "sha256": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633"
+          },
+          "favicon.png": {
+            "byte_equal": true,
+            "sha256": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962"
+          },
+          "icons/Icon-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "icons/Icon-maskable-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-maskable-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "index.html": {
+            "byte_equal": true,
+            "sha256": "8f689972e869d7488a261153b9bf0f126c5c0ef2d53de16ddac16caff82e0af2"
+          },
+          "manifest.webmanifest": {
+            "byte_equal": true,
+            "sha256": "3dc150ff51c83734f979cd71213ba6288b57ed509f8360dc8a792904e8b1d134"
+          },
+          "notification-worker.js": {
+            "byte_equal": true,
+            "sha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+          }
+        }
+      }
+    },
+    "1.21.11": {
+      "buildLog": "outputs/roadmap-2026-09-19-pointer-final/1.21.11-build.log",
+      "helpers": {
+        "all_byte_equal": true,
+        "license_byte_equal": true,
+        "license_sha256": "88064451f947b208d53559124d39049488522eeb7425d2d26e59ded24b595d71",
+        "platforms": {
+          "darwin-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+                "size": 22113408
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+              "size": 22113408,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "darwin-arm64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+                "size": 20684882
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "arm64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+              "size": 20684882,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "linux-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+                "size": 320
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+                "size": 22286498
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "linux",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+              "size": 22286498,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "windows-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+                "size": 326
+              },
+              "monkeycraft-tailscale-helper.exe": {
+                "byte_equal": true,
+                "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+                "size": 22568448
+              },
+              "monkeycraft-tailscale-helper.exe.sha256": {
+                "byte_equal": true,
+                "sha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+                "size": 99
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "windows",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper.exe",
+              "protocolVersion": 1,
+              "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+              "size": 22568448,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          }
+        }
+      },
+      "jar": "mods/1.21.11/build/libs/monkeycraft-1.4.2-1.21.11.jar",
+      "jar_sha256": "b927c80ffbab19a87ee648c7a3c3758eea9cf32919aacc942d825c6a044104a9",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 57
+      },
+      "passed": true,
+      "testTask": "Executed in final successful build, confirmed by task log",
+      "web": {
+        "all_byte_equal": true,
+        "count": 11,
+        "files": {
+          "assets/index-BIjLcCD9.js": {
+            "byte_equal": true,
+            "sha256": "6e63db6abd56ddb1bcb6c365368f285802d2fde2c6667ade57ef60cbc02893d2"
+          },
+          "assets/index-BIjLcCD9.js.map": {
+            "byte_equal": true,
+            "sha256": "1d82df5ae5a5591947cc7efe28d871b569a64d409d5328faa4b0a6d55bb0d458"
+          },
+          "assets/index-HiLQ6Ais.css": {
+            "byte_equal": true,
+            "sha256": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633"
+          },
+          "favicon.png": {
+            "byte_equal": true,
+            "sha256": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962"
+          },
+          "icons/Icon-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "icons/Icon-maskable-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-maskable-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "index.html": {
+            "byte_equal": true,
+            "sha256": "8f689972e869d7488a261153b9bf0f126c5c0ef2d53de16ddac16caff82e0af2"
+          },
+          "manifest.webmanifest": {
+            "byte_equal": true,
+            "sha256": "3dc150ff51c83734f979cd71213ba6288b57ed509f8360dc8a792904e8b1d134"
+          },
+          "notification-worker.js": {
+            "byte_equal": true,
+            "sha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+          }
+        }
+      }
+    },
+    "26.1": {
+      "buildLog": "outputs/roadmap-2026-09-19-pointer-final/26.1-build.log",
+      "helpers": {
+        "all_byte_equal": true,
+        "license_byte_equal": true,
+        "license_sha256": "88064451f947b208d53559124d39049488522eeb7425d2d26e59ded24b595d71",
+        "platforms": {
+          "darwin-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+                "size": 22113408
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+              "size": 22113408,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "darwin-arm64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+                "size": 20684882
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "arm64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+              "size": 20684882,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "linux-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+                "size": 320
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+                "size": 22286498
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "linux",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+              "size": 22286498,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "windows-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+                "size": 326
+              },
+              "monkeycraft-tailscale-helper.exe": {
+                "byte_equal": true,
+                "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+                "size": 22568448
+              },
+              "monkeycraft-tailscale-helper.exe.sha256": {
+                "byte_equal": true,
+                "sha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+                "size": 99
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "windows",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper.exe",
+              "protocolVersion": 1,
+              "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+              "size": 22568448,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          }
+        }
+      },
+      "jar": "mods/26.1/build/libs/monkeycraft-1.4.2-26.1.jar",
+      "jar_sha256": "2a48ef6a643a5582dbff651ebe9fdba13bbe852853d71ba09045f1a2ef9dcbef",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 57
+      },
+      "passed": true,
+      "testTask": "Executed in final successful build, confirmed by task log",
+      "web": {
+        "all_byte_equal": true,
+        "count": 11,
+        "files": {
+          "assets/index-BIjLcCD9.js": {
+            "byte_equal": true,
+            "sha256": "6e63db6abd56ddb1bcb6c365368f285802d2fde2c6667ade57ef60cbc02893d2"
+          },
+          "assets/index-BIjLcCD9.js.map": {
+            "byte_equal": true,
+            "sha256": "1d82df5ae5a5591947cc7efe28d871b569a64d409d5328faa4b0a6d55bb0d458"
+          },
+          "assets/index-HiLQ6Ais.css": {
+            "byte_equal": true,
+            "sha256": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633"
+          },
+          "favicon.png": {
+            "byte_equal": true,
+            "sha256": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962"
+          },
+          "icons/Icon-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "icons/Icon-maskable-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-maskable-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "index.html": {
+            "byte_equal": true,
+            "sha256": "8f689972e869d7488a261153b9bf0f126c5c0ef2d53de16ddac16caff82e0af2"
+          },
+          "manifest.webmanifest": {
+            "byte_equal": true,
+            "sha256": "3dc150ff51c83734f979cd71213ba6288b57ed509f8360dc8a792904e8b1d134"
+          },
+          "notification-worker.js": {
+            "byte_equal": true,
+            "sha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+          }
+        }
+      }
+    },
+    "26.2": {
+      "buildLog": "outputs/roadmap-2026-09-19-pointer-final/26.2-build.log",
+      "helpers": {
+        "all_byte_equal": true,
+        "license_byte_equal": true,
+        "license_sha256": "88064451f947b208d53559124d39049488522eeb7425d2d26e59ded24b595d71",
+        "platforms": {
+          "darwin-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "bc5217ff02d7cf0afb67ea5ebbf1920cdbc040b67e48a561078672dc2a494876",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+                "size": 22113408
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "52403b7b28475f292f2c353e828f203ffe0cde99ddbb8a09c8136b4c6f45d3a5",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "f7ca51048fcaeeaaa47e061d56661fb409458ac4c71db4c83f3abb7b73b52a33",
+              "size": 22113408,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "darwin-arm64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "81100187b22c900b326ac9bae014b3baf090282509fe617b04ebb024151c0ff0",
+                "size": 321
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+                "size": 20684882
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "f24794a4c4742c190ab73713ac2262f56eb3bb97bfaaabd91998848dd2526a6c",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "arm64",
+              "goos": "darwin",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "1ea6169659fc3bda71f97fae2baeb06b45aca62ad297521ff757c2dc194029ae",
+              "size": 20684882,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "linux-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "c5b2ccc1708f2c7d14db7c05494e56e2f660334ef314a070fa37c2f94728051b",
+                "size": 320
+              },
+              "monkeycraft-tailscale-helper": {
+                "byte_equal": true,
+                "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+                "size": 22286498
+              },
+              "monkeycraft-tailscale-helper.sha256": {
+                "byte_equal": true,
+                "sha256": "fee1e17901ce5b3cdb04b46a0f503db0a087df8d247b91f99f9e5ba69ce13e61",
+                "size": 95
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "linux",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper",
+              "protocolVersion": 1,
+              "sha256": "b207a597adc93f5fc77d4d66e2cf222751041a016656a856b632f823a41d8937",
+              "size": 22286498,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          },
+          "windows-amd64": {
+            "all_byte_equal": true,
+            "files": {
+              "manifest.json": {
+                "byte_equal": true,
+                "sha256": "0b07df2bc91ff9c71d7e0f46f51a403287aa77482b56afba7d2d1a23d0265167",
+                "size": 326
+              },
+              "monkeycraft-tailscale-helper.exe": {
+                "byte_equal": true,
+                "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+                "size": 22568448
+              },
+              "monkeycraft-tailscale-helper.exe.sha256": {
+                "byte_equal": true,
+                "sha256": "761638ac7c7e8e2ab16a9ca8cb04e2f0a3d92b6736df8c751d6b1160cc4ade51",
+                "size": 99
+              }
+            },
+            "manifest": {
+              "gitCommit": "838bfd5",
+              "goVersion": "go1.26.6",
+              "goarch": "amd64",
+              "goos": "windows",
+              "helperVersion": "0.1.0-p1",
+              "name": "monkeycraft-tailscale-helper.exe",
+              "protocolVersion": 1,
+              "sha256": "ba3d00b3a9424b15eeb3a4f912424fd979ae342d865be7f49bf6862e5486796b",
+              "size": 22568448,
+              "tailscale": "v1.102.3"
+            },
+            "manifest_binary_sha256_matches": true,
+            "manifest_binary_size_matches": true
+          }
+        }
+      },
+      "jar": "mods/26.2/build/libs/monkeycraft-1.4.2-26.2.jar",
+      "jar_sha256": "2f6045c246f22e65f7a056dd4aba38e55d4f74e7ccaf465a923be26a27fefe03",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 62
+      },
+      "passed": true,
+      "testTask": "Executed in final successful build, confirmed by task log",
+      "web": {
+        "all_byte_equal": true,
+        "count": 11,
+        "files": {
+          "assets/index-BIjLcCD9.js": {
+            "byte_equal": true,
+            "sha256": "6e63db6abd56ddb1bcb6c365368f285802d2fde2c6667ade57ef60cbc02893d2"
+          },
+          "assets/index-BIjLcCD9.js.map": {
+            "byte_equal": true,
+            "sha256": "1d82df5ae5a5591947cc7efe28d871b569a64d409d5328faa4b0a6d55bb0d458"
+          },
+          "assets/index-HiLQ6Ais.css": {
+            "byte_equal": true,
+            "sha256": "467358ec8c74cf9f1ed66c1fe9ea094906dc0ff1b3a05e8aba3ef60d31e68633"
+          },
+          "favicon.png": {
+            "byte_equal": true,
+            "sha256": "7eb013878a20aaa3579e8e42cf8f0964a30ad6e6a20e2791a642ec8d32752962"
+          },
+          "icons/Icon-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "icons/Icon-maskable-192.png": {
+            "byte_equal": true,
+            "sha256": "5e6caa56f337ff6890fdb681fc740914cb4ffe08b5fbd4795d7f82826b23f782"
+          },
+          "icons/Icon-maskable-512.png": {
+            "byte_equal": true,
+            "sha256": "8e84ddb4fcc3e0ccaba2b23a503d5668938a176b68e60dd887f3e916ab1353d5"
+          },
+          "index.html": {
+            "byte_equal": true,
+            "sha256": "8f689972e869d7488a261153b9bf0f126c5c0ef2d53de16ddac16caff82e0af2"
+          },
+          "manifest.webmanifest": {
+            "byte_equal": true,
+            "sha256": "3dc150ff51c83734f979cd71213ba6288b57ed509f8360dc8a792904e8b1d134"
+          },
+          "notification-worker.js": {
+            "byte_equal": true,
+            "sha256": "ac94a79a48240b48a4abf77fde4d96c86a45cf9fc3d7abb3822ded3535f74111"
+          }
+        }
+      }
+    }
+  },
+  "web_dist_file_count": 11,
+  "web_dist_files": [
+    "assets/index-BIjLcCD9.js",
+    "assets/index-BIjLcCD9.js.map",
+    "assets/index-HiLQ6Ais.css",
+    "favicon.png",
+    "icons/Icon-192.png",
+    "icons/Icon-512.png",
+    "icons/Icon-maskable-192.png",
+    "icons/Icon-maskable-512.png",
+    "index.html",
+    "manifest.webmanifest",
+    "notification-worker.js"
+  ]
+}
