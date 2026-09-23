@@ -161,4 +161,23 @@ public class NetworkUtils {
     byte[] b = addr.getAddress();
     return b.length == 4 && (b[0] & 0xFF) == 100 && (b[1] & 0xFF) >= 64 && (b[1] & 0xFF) <= 127;
   }
+
+  public static boolean isPairingAllowed(InetAddress addr) {
+    if (addr == null) {
+      return false;
+    }
+    if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
+      return true;
+    }
+    byte[] bytes = addr.getAddress();
+    if (bytes.length != 4) {
+      return false;
+    }
+    int first = bytes[0] & 0xFF;
+    int second = bytes[1] & 0xFF;
+    return first == 10
+        || (first == 172 && second >= 16 && second <= 31)
+        || (first == 192 && second == 168)
+        || (first == 100 && second >= 64 && second <= 127);
+  }
 }

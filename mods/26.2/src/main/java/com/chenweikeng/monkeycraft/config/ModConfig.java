@@ -81,6 +81,7 @@ public class ModConfig {
   private ServerAutoStart serverAutoStart;
   private boolean allowRemoteServerJoin = true;
   private boolean wizardDone = false;
+  private boolean embeddedTailscaleEnabled = false;
   private boolean phonePairedOnce = false;
   private String lastPhoneName;
   private long lastPhoneSeenAt;
@@ -250,6 +251,14 @@ public class ModConfig {
 
   public void setWizardDone(boolean wizardDone) {
     this.wizardDone = wizardDone;
+  }
+
+  public boolean isEmbeddedTailscaleEnabled() {
+    return embeddedTailscaleEnabled;
+  }
+
+  public void setEmbeddedTailscaleEnabled(boolean embeddedTailscaleEnabled) {
+    this.embeddedTailscaleEnabled = embeddedTailscaleEnabled;
   }
 
   public boolean isPhonePairedOnce() {

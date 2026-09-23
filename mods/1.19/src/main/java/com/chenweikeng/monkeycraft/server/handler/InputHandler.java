@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import org.java_websocket.WebSocket;
 
 public class InputHandler {
@@ -77,6 +78,16 @@ public class InputHandler {
 
           if (binding != null) {
             InputConstants.Key boundKey = ((KeyMappingAccessor) binding).monkeycraft$getKey();
+            Screen screen = mc.screen;
+            if ("E".equals(key) && screen != null) {
+              KeyMapping.set(boundKey, false);
+              if (pressed) {
+                screen.keyPressed(boundKey.getValue(), 0, 0);
+              } else {
+                screen.keyReleased(boundKey.getValue(), 0, 0);
+              }
+              return;
+            }
             if (pressed) {
               KeyMapping.set(boundKey, true);
               KeyMapping.click(boundKey);
@@ -99,6 +110,7 @@ public class InputHandler {
             mc.options.keyJump,
             mc.options.keyShift,
             mc.options.keyDrop,
+            mc.options.keyInventory,
             mc.options.keySwapOffhand,
             mc.options.keyUse,
             mc.options.keyAttack,

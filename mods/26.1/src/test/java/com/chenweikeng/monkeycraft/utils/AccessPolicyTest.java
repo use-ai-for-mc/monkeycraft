@@ -101,6 +101,17 @@ class AccessPolicyTest {
   }
 
   @Test
+  void pairingAllowsLocalLanAndCgnatOnly() {
+    assertTrue(NetworkUtils.isPairingAllowed(ip("127.0.0.1")));
+    assertTrue(NetworkUtils.isPairingAllowed(ip("192.168.1.5")));
+    assertTrue(NetworkUtils.isPairingAllowed(ip("10.0.0.4")));
+    assertTrue(NetworkUtils.isPairingAllowed(ip("172.16.1.2")));
+    assertTrue(NetworkUtils.isPairingAllowed(ip("100.64.0.1")));
+    assertFalse(NetworkUtils.isPairingAllowed(ip("8.8.8.8")));
+    assertFalse(NetworkUtils.isPairingAllowed(null));
+  }
+
+  @Test
   void nullAddressIsRejected() {
     assertFalse(
         NetworkUtils.isConnectionAllowed(NetworkScope.ANYONE, TailscaleAccess.ALWAYS, true, null));

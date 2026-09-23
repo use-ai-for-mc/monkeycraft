@@ -13,11 +13,11 @@ TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 STAGING_JAR="${TARGET_JAR}.new"
 
 FLUTTER="${FLUTTER:-/Users/cusgadmin/if-local/flutter/bin/flutter}"
-FLUTTER_APP="${SCRIPT_DIR}/../../flutter/monkeycraft"
 
-echo "Building Flutter web..."
-cd "${FLUTTER_APP}"
-"${FLUTTER}" build web --release --base-href=/
+MONKEYCRAFT_PAGES_PROVENANCE=0 FLUTTER_BIN="${FLUTTER}" \
+    "${SCRIPT_DIR}/../../flutter/monkeycraft/tool/build_web_release.sh" / build/web
+
+"${SCRIPT_DIR}/../../native/tailscale-helper/scripts/build-all.sh"
 
 echo "Building Monkeycraft mod (26.2)..."
 cd "${PROJECT_DIR}"

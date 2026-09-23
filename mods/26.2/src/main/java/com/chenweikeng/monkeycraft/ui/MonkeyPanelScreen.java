@@ -5,6 +5,8 @@ import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.config.ServerAutoStart;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
+import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
+import com.chenweikeng.monkeycraft.tailscale.TailscaleSnapshot;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.chenweikeng.monkeycraft.utils.TailnetHttps;
 import java.util.ArrayList;
@@ -74,6 +76,7 @@ public class MonkeyPanelScreen extends Screen {
   private boolean serverRunning;
   private boolean phoneConnected;
   private int actualPort = -1;
+  private TailscaleSnapshot tailscaleSnapshot = TailscaleSnapshot.stopped();
 
   private String notice = "";
   private int noticeColor = MUTED;
@@ -569,6 +572,107 @@ public class MonkeyPanelScreen extends Screen {
         "If the preferred port is busy, the server takes the next free port up to 9700.",
         span,
         FAINT);
+    section("Built-in Tailscale");
+    Checkbox embedded =
+        Checkbox.builder(Component.literal("Enable built-in Tailscale"), font)
+            .pos(0, 0)
+            .maxWidth(span - 8)
+            .selected(config.isEmbeddedTailscaleEnabled())
+            .onValueChange(
+                (box, value) -> {
+                  config.setEmbeddedTailscaleEnabled(value);
+                  config.save();
+                  if (!value) {
+                    HelperTailscaleService.get().stop();
+                  }
+                  rebuildWidgets();
+                })
+            .build();
+    addControl(embedded, 0, Math.min(span, embedded.getWidth()));
+    paragraph(
+        "Logs in to your own Tailscale account without requiring the Tailscale desktop app. LAN and"
+            + " system Tailscale connections remain available.",
+        span,
+        FAINT);
+    int buttonWidth = Math.max(48, Math.min(70, (span - 9) / 4));
+    Button login =
+        Button.builder(Component.literal("Log in"), button -> onTailscaleLogin())
+            .bounds(0, 0, buttonWidth, CONTROL_HEIGHT)
+            .build();
+    Button status =
+        Button.builder(Component.literal("Status"), button -> showTailscaleStatus())
+            .bounds(0, 0, buttonWidth, CONTROL_HEIGHT)
+            .build();
+    Button stop =
+        Button.builder(
+                Component.literal("Stop"),
+                button -> {
+                  HelperTailscaleService.get().stop();
+                  setNotice("Built-in Tailscale stopped.", MUTED);
+                })
+            .bounds(0, 0, buttonWidth, CONTROL_HEIGHT)
+            .build();
+    Button logout =
+        Button.builder(
+                Component.literal("Log out"),
+                button -> {
+                  HelperTailscaleService.get().logout();
+                  config.setEmbeddedTailscaleEnabled(false);
+                  config.save();
+                  setNotice("Tailscale logout requested.", MUTED);
+                  rebuildWidgets();
+                })
+            .bounds(0, 0, buttonWidth, CONTROL_HEIGHT)
+            .build();
+    body.place(login, 0, cursor);
+    body.place(status, buttonWidth + 3, cursor);
+    body.place(stop, (buttonWidth + 3) * 2, cursor);
+    body.place(logout, (buttonWidth + 3) * 3, cursor);
+    cursor += CONTROL_HEIGHT + ROW_GAP;
+    TailscaleSnapshot tailscale = HelperTailscaleService.get().snapshot();
+    paragraph(tailscaleDetail(tailscale), span, tailscale.errorCode().isEmpty() ? MUTED : RED);
+    paragraph(
+        "Log out removes this computer's built-in Tailscale sign-in. You will need to log in again"
+            + " before using the built-in route.",
+        span,
+        GOLD);
+  }
+
+  private void onTailscaleLogin() {
+    WebSocketServerHandler handler = WebSocketServerHandler.getInstance();
+    int port = handler.getCurrentPort();
+    if (!handler.isRunning() || port <= 0) {
+      port = handler.startServerWithPortRange(ModConfig.getInstance().getPort(), false);
+    }
+    if (port <= 0) {
+      setNotice("Could not start the MonkeyCraft server.", RED);
+      return;
+    }
+    ModConfig.getInstance().setEmbeddedTailscaleEnabled(true);
+    ModConfig.getInstance().save();
+    showTailscaleSnapshot(HelperTailscaleService.get().login(port));
+  }
+
+  private void showTailscaleStatus() {
+    showTailscaleSnapshot(HelperTailscaleService.get().status());
+  }
+
+  private void showTailscaleSnapshot(TailscaleSnapshot snapshot) {
+    setNotice(tailscaleDetail(snapshot), snapshot.errorCode().isEmpty() ? AQUA : RED);
+    rebuildWidgets();
+  }
+
+  private static String tailscaleDetail(TailscaleSnapshot snapshot) {
+    if (!snapshot.errorCode().isEmpty()) {
+      return "Built-in Tailscale: " + snapshot.errorCode() + " — " + snapshot.error();
+    }
+    if (snapshot.isRunning()) {
+      return "Built-in Tailscale ready at " + snapshot.tailnetIp() + ":" + snapshot.port();
+    }
+    if (snapshot.needsLogin()) {
+      return "Finish Tailscale login in the browser window, then check Status.";
+    }
+    return "Built-in Tailscale: " + snapshot.state();
   }
 
   private void buildAdvCompat() {
@@ -762,12 +866,17 @@ public class MonkeyPanelScreen extends Screen {
     boolean connected = handler.isClientConnected();
     int port = handler.getCurrentPort();
     List<String> nextAddresses = connectionAddresses();
+    TailscaleSnapshot nextTailscaleSnapshot = HelperTailscaleService.get().snapshot();
 
-    if (running != serverRunning || connected != phoneConnected || port != actualPort) {
+    if (running != serverRunning
+        || connected != phoneConnected
+        || port != actualPort
+        || !nextTailscaleSnapshot.equals(tailscaleSnapshot)) {
       serverRunning = running;
       phoneConnected = connected;
       actualPort = port;
       addresses = nextAddresses;
+      tailscaleSnapshot = nextTailscaleSnapshot;
       rebuildWidgets();
       return;
     }
@@ -999,7 +1108,7 @@ public class MonkeyPanelScreen extends Screen {
     }
     List<String> result =
         new ArrayList<>(NetworkUtils.getLocalIpAddressesWithPort(handler.getCurrentPort()));
-    String httpsUrl = TailnetHttps.probeUrl();
+    String httpsUrl = TailnetHttps.probeUrl(handler.getCurrentPort());
     if (!httpsUrl.isEmpty()) {
       result.add(httpsUrl);
     }

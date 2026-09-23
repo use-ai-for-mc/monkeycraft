@@ -95,6 +95,7 @@ public class ModConfig {
   private Boolean startServerAtLaunch; // legacy; migrated to serverAutoStart on load
   private ServerAutoStart serverAutoStart; // null until set or migrated; getter falls back to OFF
   private boolean allowRemoteServerJoin = true;
+  private boolean embeddedTailscaleEnabled = false;
 
   public static ModConfig getInstance() {
     if (INSTANCE == null) {
@@ -260,6 +261,14 @@ public class ModConfig {
 
   public void setAllowRemoteServerJoin(boolean allowRemoteServerJoin) {
     this.allowRemoteServerJoin = allowRemoteServerJoin;
+  }
+
+  public boolean isEmbeddedTailscaleEnabled() {
+    return embeddedTailscaleEnabled;
+  }
+
+  public void setEmbeddedTailscaleEnabled(boolean embeddedTailscaleEnabled) {
+    this.embeddedTailscaleEnabled = embeddedTailscaleEnabled;
   }
 
   public void save() {

@@ -25,6 +25,8 @@
 	"config.monkeycraft.option.tailscaleAccess.never": "Never allow",
 	"config.monkeycraft.option.tailscaleAccess.status.detected": "Tailscale detected on this PC",
 	"config.monkeycraft.option.tailscaleAccess.status.not_detected": "Tailscale not detected on this PC",
+	"config.monkeycraft.option.embeddedTailscale": "Built-in Tailscale",
+	"config.monkeycraft.option.embeddedTailscale.tooltip": "Start the bundled Tailscale helper when MonkeyCraft starts. It remains off until enabled or /monkey tailscale login is used.",
 	"monkeycraft.server.allow_anywhere_warning": "WARNING: 'Who Can Connect' is set to Anyone. Anyone who can reach this port and knows the password can control your game.",
 	"monkeycraft.connection.rejected_possibly_tailscale": "Rejected a connection from %s (possibly Tailscale). Tailscale was not detected on this PC. Set Tailscale Access to 'Always allow' in /monkey config to allow it.",
 	"config.monkeycraft.option.password": "Password",

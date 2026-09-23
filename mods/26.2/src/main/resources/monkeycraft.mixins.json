@@ -8,6 +8,7 @@
 		"ChatListenerMixin",
 		"LocalPlayerMixin",
 		"MinecraftMixin",
+		"WindowMixin",
 		"GuiMixin",
 		"AbstractContainerScreenAccessor",
 		"KeyMappingAccessor",

@@ -8,8 +8,44 @@ permissions:
   contents: write
 
 jobs:
+  resources:
+    name: Build embedded mod resources
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.2'
+          channel: stable
+      - name: build root-path Flutter browser bundle
+        working-directory: flutter/monkeycraft
+        run: flutter pub get --enforce-lockfile && MONKEYCRAFT_PAGES_PROVENANCE=0 tool/build_web_release.sh / build/web
+      - name: capture browser bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web/
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: native/tailscale-helper/go.mod
+          cache-dependency-path: native/tailscale-helper/go.sum
+      - name: build embedded helpers
+        working-directory: native/tailscale-helper
+        run: ./scripts/build-all.sh
+      - name: capture embedded helpers
+        uses: actions/upload-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: |
+            native/tailscale-helper/dist/
+            native/tailscale-helper/LICENSE.tailscale
+
   build-26-2:
     name: Build mod (Minecraft 26.2)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -17,6 +53,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
@@ -28,9 +74,15 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts-26.2
+          path: mods/26.2/build/libs/
 
   build-26-1:
     name: Build mod (Minecraft 26.1)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -38,6 +90,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
@@ -49,9 +111,15 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts-26.1
+          path: mods/26.1/build/libs/
 
   build-1-21-11:
     name: Build mod (Minecraft 1.21.11)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -59,6 +127,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
@@ -70,9 +148,15 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts-1.21.11
+          path: mods/1.21.11/build/libs/
 
   build-1-19:
     name: Build mod (Minecraft 1.19)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -80,9 +164,18 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
-      # Loom 1.16 requires Java 21+ to load; compile still targets Java 17.
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
@@ -92,6 +185,11 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build
+      - name: capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts-1.19
+          path: mods/1.19/build/libs/
 
   release:
     needs: [build-26-2, build-26-1, build-1-21-11, build-1-19]
@@ -99,44 +197,32 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
-
-      - name: setup jdk 25
-        uses: actions/setup-java@v5
+      - name: download 26.2 artifacts
+        uses: actions/download-artifact@v7
         with:
-          java-version: '25'
-          distribution: 'microsoft'
-      - name: build 26.2
-        working-directory: mods/26.2
-        run: chmod +x ./gradlew && ./gradlew build
-      - name: build 26.1
-        working-directory: mods/26.1
-        run: chmod +x ./gradlew && ./gradlew build
-
-      - name: setup jdk 21
-        uses: actions/setup-java@v5
+          name: Artifacts-26.2
+          path: release-artifacts/26.2
+      - name: download 26.1 artifacts
+        uses: actions/download-artifact@v7
         with:
-          java-version: '21'
-          distribution: 'temurin'
-      - name: build 1.21.11
-        working-directory: mods/1.21.11
-        run: chmod +x ./gradlew && ./gradlew build
-
-      # Loom 1.16 requires Java 21+ to load; compile still targets Java 17.
-      - name: setup jdk for 1.19 (Loom needs 21+, compile targets 17)
-        uses: actions/setup-java@v5
+          name: Artifacts-26.1
+          path: release-artifacts/26.1
+      - name: download 1.21.11 artifacts
+        uses: actions/download-artifact@v7
         with:
-          java-version: '21'
-          distribution: 'temurin'
-      - name: build 1.19
-        working-directory: mods/1.19
-        run: chmod +x ./gradlew && ./gradlew build
-
+          name: Artifacts-1.21.11
+          path: release-artifacts/1.21.11
+      - name: download 1.19 artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: Artifacts-1.19
+          path: release-artifacts/1.19
       - name: create release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            mods/26.2/build/libs/*.jar
-            mods/26.1/build/libs/*.jar
-            mods/1.21.11/build/libs/*.jar
-            mods/1.19/build/libs/*.jar
+            release-artifacts/26.2/*.jar
+            release-artifacts/26.1/*.jar
+            release-artifacts/1.21.11/*.jar
+            release-artifacts/1.19/*.jar
           generate_release_notes: true

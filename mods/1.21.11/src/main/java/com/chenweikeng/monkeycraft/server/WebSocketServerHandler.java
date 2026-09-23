@@ -9,14 +9,21 @@ import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
 import com.chenweikeng.monkeycraft.server.handler.InputHandler;
 import com.chenweikeng.monkeycraft.server.handler.ScreenInteractionHandler;
 import com.chenweikeng.monkeycraft.server.handler.WorldJoinHandler;
+import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.mojang.blaze3d.platform.NativeImage;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
+import java.net.StandardProtocolFamily;
+import java.net.StandardSocketOptions;
+import java.nio.channels.ServerSocketChannel;
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -369,9 +376,11 @@ public class WebSocketServerHandler {
     if (!cleanupInProgress.compareAndSet(false, true)) {
       return;
     }
+
     MonkeycraftWebSocketServer serverToStop;
     H264Streamer streamerToStop;
     try {
+      HelperTailscaleService.get().shutdown();
       synchronized (lifecycleLock) {
         lifecycleState =
             terminal || shutdownRequested.get()
@@ -385,6 +394,7 @@ public class WebSocketServerHandler {
         pairingSession.set(null);
         resetServerState();
       }
+
       ShutdownSequence.run(
           MonkeycraftClient.LOGGER,
           new ShutdownSequence.Step("WebSocket server", () -> stopWebSocketServer(serverToStop)),
@@ -413,7 +423,9 @@ public class WebSocketServerHandler {
   }
 
   private void stopWebSocketServer(MonkeycraftWebSocketServer serverToStop) throws Exception {
-    if (serverToStop == null) return;
+    if (serverToStop == null) {
+      return;
+    }
     for (WebSocket connection : serverToStop.getConnections()) {
       try {
         connection.close(1001, SHUTDOWN_REASON);
@@ -464,6 +476,15 @@ public class WebSocketServerHandler {
   }
 
   public void beginPairing(WebSocket conn) {
+    InetAddress addr = clientAddrOf(conn);
+    if (!isPairingAllowed(addr)) {
+      JsonObject failed = new JsonObject();
+      failed.addProperty("type", "PAIR_FAILED");
+      failed.addProperty("message", "Pairing is only allowed on this computer or LAN");
+      conn.send(GSON.toJson(failed));
+      conn.close();
+      return;
+    }
     PairingSession previous = pairingSession.getAndSet(null);
     if (previous != null && previous.conn() != conn && previous.conn().isOpen()) {
       JsonObject busy = new JsonObject();
@@ -522,6 +543,18 @@ public class WebSocketServerHandler {
     if (session != null && session.conn() == conn) {
       pairingSession.compareAndSet(session, null);
     }
+  }
+
+  private static InetAddress clientAddrOf(WebSocket conn) {
+    if (conn == null) {
+      return null;
+    }
+    InetSocketAddress remote = conn.getRemoteSocketAddress();
+    return remote == null ? null : remote.getAddress();
+  }
+
+  public static boolean isPairingAllowed(InetAddress addr) {
+    return com.chenweikeng.monkeycraft.utils.NetworkUtils.isPairingAllowed(addr);
   }
 
   public void resetQrTimer() {
@@ -818,9 +851,29 @@ public class WebSocketServerHandler {
   }
 
   private boolean isPortAvailable(int port) {
-    try (ServerSocket socket = new ServerSocket(port)) {
-      socket.setReuseAddress(true);
-      return true;
+    try {
+      ArrayList<InetAddress> addresses = new ArrayList<>();
+      addresses.add(InetAddress.getByName("0.0.0.0"));
+      for (NetworkInterface network : NetworkInterface.networkInterfaces().toList()) {
+        if (network.isUp()) {
+          network.inetAddresses().forEach(addresses::add);
+        }
+      }
+      for (InetAddress address : addresses) {
+        StandardProtocolFamily family =
+            address instanceof Inet4Address
+                ? StandardProtocolFamily.INET
+                : StandardProtocolFamily.INET6;
+        try (ServerSocketChannel socket = ServerSocketChannel.open(family)) {
+          socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+          socket.bind(new InetSocketAddress(address, port));
+        }
+      }
+      try (ServerSocket socket = new ServerSocket()) {
+        socket.setReuseAddress(true);
+        socket.bind(new InetSocketAddress(port));
+        return true;
+      }
     } catch (Exception e) {
       return false;
     }
@@ -854,6 +907,7 @@ public class WebSocketServerHandler {
 
     public MonkeycraftWebSocketServer(int port) {
       super(new InetSocketAddress(port));
+      setWebSocketFactory(new HttpAwareWebSocketServerFactory());
     }
 
     @Override
@@ -910,7 +964,7 @@ public class WebSocketServerHandler {
       JsonObject hello = new JsonObject();
       hello.addProperty("type", "HELLO");
       hello.addProperty("salt", serverSalt);
-      hello.addProperty("pairing", true);
+      hello.addProperty("pairing", isPairingAllowed(clientAddrOf(conn)));
       conn.send(GSON.toJson(hello));
     }
 
@@ -993,7 +1047,29 @@ public class WebSocketServerHandler {
               case "LEAVE_WORLD" -> worldJoinHandler.handleLeaveWorld(conn);
               case "GET_PLAYER_LIST" -> worldJoinHandler.handleGetPlayerList(conn);
               case "GET_PLAYER_COUNT" -> worldJoinHandler.handleGetPlayerCount(conn);
-              case "INFO" -> {}
+              case "INFO" -> {
+                if (message.length() > 8192
+                    || !json.has("title")
+                    || !json.get("title").isJsonPrimitive()
+                    || !json.getAsJsonPrimitive("title").isString()
+                    || !json.has("data")
+                    || !json.get("data").isJsonObject()) return;
+                String title = json.get("title").getAsString();
+                if (title.isEmpty() || title.length() > 64) return;
+                JsonObject payload = json.getAsJsonObject("data").deepCopy();
+                Minecraft.getInstance()
+                    .execute(
+                        () -> {
+                          if (conn != authenticatedSession || !conn.isOpen()) return;
+                          try {
+                            com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi.INFO_PACKET
+                                .invoker()
+                                .onInfoPacket(title, payload);
+                          } catch (RuntimeException error) {
+                            MonkeycraftClient.LOGGER.warn("Client info listener failed", error);
+                          }
+                        });
+              }
               default ->
                   MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }
@@ -1091,7 +1167,9 @@ public class WebSocketServerHandler {
       H264Streamer previous = null;
       H264Streamer configured;
       synchronized (lifecycleLock) {
-        if (!isAcceptingMessages()) return false;
+        if (!isAcceptingMessages()) {
+          return false;
+        }
         if (streamer == null
             || streamConfig.width != width
             || streamConfig.height != height
@@ -1108,8 +1186,12 @@ public class WebSocketServerHandler {
         }
         configured = streamer;
       }
-      if (previous != null) previous.close();
-      if (configured != null) configured.resetBackpressure();
+      if (previous != null) {
+        previous.close();
+      }
+      if (configured != null) {
+        configured.resetBackpressure();
+      }
       return true;
     }
 

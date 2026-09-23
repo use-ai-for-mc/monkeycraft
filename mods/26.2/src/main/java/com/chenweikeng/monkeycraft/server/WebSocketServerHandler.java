@@ -7,14 +7,21 @@ import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
 import com.chenweikeng.monkeycraft.server.handler.InputHandler;
 import com.chenweikeng.monkeycraft.server.handler.ScreenInteractionHandler;
 import com.chenweikeng.monkeycraft.server.handler.WorldJoinHandler;
+import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.mojang.blaze3d.platform.NativeImage;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
+import java.net.StandardProtocolFamily;
+import java.net.StandardSocketOptions;
+import java.nio.channels.ServerSocketChannel;
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -371,6 +378,7 @@ public class WebSocketServerHandler {
     MonkeycraftWebSocketServer serverToStop;
     H264Streamer streamerToStop;
     try {
+      HelperTailscaleService.get().shutdown();
       synchronized (lifecycleLock) {
         lifecycleState =
             terminal || shutdownRequested.get()
@@ -863,9 +871,29 @@ public class WebSocketServerHandler {
   }
 
   private boolean isPortAvailable(int port) {
-    try (ServerSocket socket = new ServerSocket(port)) {
-      socket.setReuseAddress(true);
-      return true;
+    try {
+      ArrayList<InetAddress> addresses = new ArrayList<>();
+      addresses.add(InetAddress.getByName("0.0.0.0"));
+      for (NetworkInterface network : NetworkInterface.networkInterfaces().toList()) {
+        if (network.isUp()) {
+          network.inetAddresses().forEach(addresses::add);
+        }
+      }
+      for (InetAddress address : addresses) {
+        StandardProtocolFamily family =
+            address instanceof Inet4Address
+                ? StandardProtocolFamily.INET
+                : StandardProtocolFamily.INET6;
+        try (ServerSocketChannel socket = ServerSocketChannel.open(family)) {
+          socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+          socket.bind(new InetSocketAddress(address, port));
+        }
+      }
+      try (ServerSocket socket = new ServerSocket()) {
+        socket.setReuseAddress(true);
+        socket.bind(new InetSocketAddress(port));
+        return true;
+      }
     } catch (Exception e) {
       return false;
     }
@@ -1040,7 +1068,29 @@ public class WebSocketServerHandler {
               case "LEAVE_WORLD" -> worldJoinHandler.handleLeaveWorld(conn);
               case "GET_PLAYER_LIST" -> worldJoinHandler.handleGetPlayerList(conn);
               case "GET_PLAYER_COUNT" -> worldJoinHandler.handleGetPlayerCount(conn);
-              case "INFO" -> {}
+              case "INFO" -> {
+                if (message.length() > 8192
+                    || !json.has("title")
+                    || !json.get("title").isJsonPrimitive()
+                    || !json.getAsJsonPrimitive("title").isString()
+                    || !json.has("data")
+                    || !json.get("data").isJsonObject()) return;
+                String title = json.get("title").getAsString();
+                if (title.isEmpty() || title.length() > 64) return;
+                JsonObject payload = json.getAsJsonObject("data").deepCopy();
+                Minecraft.getInstance()
+                    .execute(
+                        () -> {
+                          if (conn != authenticatedSession || !conn.isOpen()) return;
+                          try {
+                            com.chenweikeng.monkeycraft_api.v1.MonkeycraftApi.INFO_PACKET
+                                .invoker()
+                                .onInfoPacket(title, payload);
+                          } catch (RuntimeException error) {
+                            MonkeycraftClient.LOGGER.warn("Client info listener failed", error);
+                          }
+                        });
+              }
               default ->
                   MonkeycraftClient.LOGGER.debug("Received authenticated message: {}", message);
             }

@@ -7,8 +7,46 @@ name: build
 on: [pull_request, push]
 
 jobs:
+  resources:
+    name: Build embedded mod resources
+    needs: web
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: native/tailscale-helper/go.mod
+          cache-dependency-path: native/tailscale-helper/go.sum
+      - name: build embedded helpers
+        working-directory: native/tailscale-helper
+        run: ./scripts/build-all.sh
+      - name: test embedded helpers
+        working-directory: native/tailscale-helper
+        run: go test ./...
+      - name: race test embedded helper components
+        working-directory: native/tailscale-helper
+        run: go test -race ./internal/...
+      - name: test helper with isolated local tailnet
+        working-directory: native/tailscale-helper
+        run: go test -mod=readonly -race -tags=integration ./internal/engine -run TestHermeticTailnetHelperForwardRestart -count=1 -timeout=90s
+      - name: capture embedded helpers
+        uses: actions/upload-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: |
+            native/tailscale-helper/dist/
+            native/tailscale-helper/LICENSE.tailscale
+
   build-26-2:
     name: Build mod (Minecraft 26.2)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -16,6 +54,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
@@ -39,6 +87,7 @@ jobs:
 
   build-26-1:
     name: Build mod (Minecraft 26.1)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -46,6 +95,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
@@ -67,6 +126,7 @@ jobs:
 
   build-1-21-11:
     name: Build mod (Minecraft 1.21.11)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -74,6 +134,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
@@ -95,6 +165,7 @@ jobs:
 
   build-1-19:
     name: Build mod (Minecraft 1.19)
+    needs: resources
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -102,6 +173,16 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: download browser bundle
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: flutter/monkeycraft/build/web
+      - name: download embedded helpers
+        uses: actions/download-artifact@v7
+        with:
+          name: tailscale-helper-dist
+          path: native/tailscale-helper
       - name: validate gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
       # Loom 1.16 (pinned in gradle.properties for the unified toolchain)
@@ -133,9 +214,25 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
+      - name: setup Java for Android
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: setup go for Android embedded Tailscale
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.3'
+      - name: setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: install native toolchain
+        run: sdkmanager 'ndk;28.2.13676358' 'cmake;3.22.1'
+      - name: build Android embedded Tailscale
+        run: ./android/third_party/libtailscale/build.sh
       - name: setup flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.41.2'
           channel: stable
       - name: get dependencies
         run: flutter pub get
@@ -143,44 +240,63 @@ jobs:
         run: flutter analyze
       - name: test
         run: flutter test
-      - name: build web
-        run: flutter build web --release --base-href /monkeycraft/
+      - name: build Android
+        run: flutter build apk --debug
+      - name: test Android native login lifecycle
+        working-directory: flutter/monkeycraft/android
+        run: ./gradlew :app:testDebugUnitTest --tests com.chenweikeng.monkeycraft.AuthUrlLaunchGateTest
+      - name: verify Android native packaging
+        run: python3 android/third_party/libtailscale/verify_apk.py build/app/outputs/flutter-apk/app-debug.apk
 
-  web:
-    name: Web client
-    runs-on: ubuntu-24.04
+  ios:
+    name: Build iOS release without signing
+    runs-on: macos-26
     defaults:
       run:
-        working-directory: web
+        working-directory: flutter/monkeycraft
     steps:
       - name: checkout repository
         uses: actions/checkout@v6
-      - name: setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: setup Go for iOS embedded Tailscale
+        uses: actions/setup-go@v6
         with:
-          package_json_file: web/package.json
-      - name: setup node
-        uses: actions/setup-node@v5
+          go-version: '1.26.3'
+      - name: build iOS embedded Tailscale
+        run: LIBTAILSCALE_GO="$(go env GOROOT)/bin/go" ./ios/third_party/libtailscale/build.sh ios
+      - name: setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          node-version: '24'
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-      - name: install
-        run: pnpm install --frozen-lockfile
-      - name: lint
-        run: pnpm lint
-      - name: typecheck
-        run: pnpm typecheck
-      - name: unit tests
-        run: pnpm test
-      - name: build
-        run: pnpm build
-      - name: install playwright chromium
-        run: pnpm exec playwright install --with-deps chromium
-      - name: browser tests
-        run: pnpm test:browser
+          flutter-version: '3.41.2'
+          channel: stable
+      - name: get dependencies
+        run: flutter pub get
+      - name: build iOS release without signing
+        run: flutter build ios --release --no-codesign
+
+  web:
+    name: Flutter Web client
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: flutter/monkeycraft
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v6
+      - name: setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.2'
+          channel: stable
+      - name: get dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: analyze
+        run: flutter analyze
+      - name: test
+        run: flutter test
+      - name: build root-path web bundle for embedded Mods
+        run: MONKEYCRAFT_PAGES_PROVENANCE=0 tool/build_web_release.sh / build/web
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
           name: web-dist
-          path: web/dist/
+          path: flutter/monkeycraft/build/web/

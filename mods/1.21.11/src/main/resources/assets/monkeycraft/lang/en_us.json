@@ -4,7 +4,7 @@
 	"config.monkeycraft.option.enabled": "Enable the mod",
 	"config.monkeycraft.option.enabled.tooltip": "Enable or disable MonkeyCraft functionality",
 	"config.monkeycraft.option.serverAutoStart": "Server Auto-Start",
-	"config.monkeycraft.option.serverAutoStart.tooltip": "When the MonkeyCraft server should start automatically.\n• Off — server stays off until you run /monkey start.\n• At title screen — required for the remote server picker; server stays running across worlds.\n• On world join — server starts on world join and stops on disconnect.",
+	"config.monkeycraft.option.serverAutoStart.tooltip": "When the MonkeyCraft server should start automatically.\n\u2022 Off \u2014 server stays off until you run /monkey start.\n\u2022 At title screen \u2014 required for the remote server picker; server stays running across worlds.\n\u2022 On world join \u2014 server starts on world join and stops on disconnect.",
 	"config.monkeycraft.option.serverAutoStart.off": "Off",
 	"config.monkeycraft.option.serverAutoStart.at_title_screen": "At title screen",
 	"config.monkeycraft.option.serverAutoStart.on_world_join": "On world join",
@@ -44,5 +44,7 @@
 	"monkeycraft.server.port_unavailable": "Port %s is unavailable. Server not started.",
 	"monkeycraft.server.disabled": "Mod is disabled in config",
 	"monkeycraft.server.autolaunch": "Auto-launching server...",
-	"monkeycraft.command.help": "/monkey - Show help and local IPs\n/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open settings"
+	"monkeycraft.command.help": "/monkey - Show help and local IPs\n/monkey start - Start server\n/monkey stop - Stop server\n/monkey config - Open settings",
+	"config.monkeycraft.option.embeddedTailscale": "Built-in Tailscale",
+	"config.monkeycraft.option.embeddedTailscale.tooltip": "Start the bundled Tailscale helper when MonkeyCraft starts. It remains off until enabled or /monkey tailscale login is used."
 }

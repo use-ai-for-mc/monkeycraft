@@ -1,5 +1,6 @@
 package com.chenweikeng.monkeycraft.config;
 
+import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import java.util.Arrays;
 import java.util.List;
@@ -127,6 +128,24 @@ public class ConfigScreenFactory {
                         "config.monkeycraft.option.tailscaleAccess." + mode.name().toLowerCase()))
             .build();
     general.addEntry(tailscaleAccessEntry);
+
+    AbstractConfigListEntry<Boolean> embeddedTailscaleEntry =
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.monkeycraft.option.embeddedTailscale"),
+                config.isEmbeddedTailscaleEnabled())
+            .setDefaultValue(false)
+            .setTooltip(
+                Component.translatable("config.monkeycraft.option.embeddedTailscale.tooltip"))
+            .setSaveConsumer(
+                enabled -> {
+                  config.setEmbeddedTailscaleEnabled(enabled);
+                  if (!enabled) {
+                    HelperTailscaleService.get().stop();
+                  }
+                })
+            .build();
+    general.addEntry(embeddedTailscaleEntry);
 
     String randomPassword = ModConfig.generateRandomPassword();
     AbstractConfigListEntry<String> passwordEntry =

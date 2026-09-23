@@ -64,8 +64,71 @@ dependencies {
 	include "com.github.weikengchen:monkeycraft-api:1.0.0-mc1.19"
 }
 
+def browserWeb = file("${rootProject.projectDir}/../../flutter/monkeycraft/build/web")
+
+def helperRoot = file("${rootProject.projectDir}/../../native/tailscale-helper")
+def helperPlatforms = ["darwin-amd64", "darwin-arm64", "linux-amd64", "windows-amd64"]
+
+tasks.register("verifyTailscaleHelpers") {
+	inputs.dir new File(helperRoot, "dist")
+	doLast {
+		helperPlatforms.each { platform ->
+			def dir = new File(helperRoot, "dist/${platform}")
+			def manifestFile = new File(dir, "manifest.json")
+			if (!manifestFile.isFile()) {
+				throw new GradleException("Missing embedded Tailscale helper for ${platform}. Run native/tailscale-helper/scripts/build-all.sh.")
+			}
+			def manifest = new groovy.json.JsonSlurper().parse(manifestFile)
+			def name = "monkeycraft-tailscale-helper" + (platform.startsWith("windows-") ? ".exe" : "")
+			def binary = new File(dir, name)
+			if (manifest.protocolVersion != 1 || manifest.name != name || "${manifest.goos}-${manifest.goarch}" != platform || !binary.isFile()) {
+				throw new GradleException("Invalid embedded Tailscale manifest for ${platform}")
+			}
+			def digest = java.security.MessageDigest.getInstance("SHA-256")
+			binary.withInputStream { stream ->
+				byte[] buffer = new byte[65536]
+				int count
+				while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+			}
+			if (digest.digest().encodeHex().toString() != manifest.sha256 || binary.length() != manifest.size) {
+				throw new GradleException("Embedded Tailscale helper integrity mismatch for ${platform}")
+			}
+		}
+		if (!new File(helperRoot, "LICENSE.tailscale").isFile()) {
+			throw new GradleException("Embedded Tailscale license is missing")
+		}
+	}
+}
+
 processResources {
+	dependsOn "verifyTailscaleHelpers"
+	helperPlatforms.each { platform ->
+		from(new File(helperRoot, "dist/${platform}")) {
+			include "monkeycraft-tailscale-helper", "monkeycraft-tailscale-helper.exe", "*.sha256", "manifest.json"
+			into "native/tailscale/${platform}"
+		}
+	}
+	from(new File(helperRoot, "LICENSE.tailscale")) {
+		into "native/tailscale"
+	}
 	inputs.property "version", project.version
+	inputs.dir browserWeb
+	from(browserWeb) {
+		exclude "tailscale/**"
+		into "web"
+	}
+	doFirst {
+		def index = new File(browserWeb, "index.html")
+		if (!index.isFile() || !new File(browserWeb, "flutter_bootstrap.js").isFile() || !new File(browserWeb, "main.dart.js").isFile()) {
+			throw new GradleException("Flutter browser bundle missing. Run flutter/monkeycraft/tool/build_web_release.sh / build/web first.")
+		}
+		if (!index.getText("UTF-8").contains('<base href="/">')) {
+			throw new GradleException("Flutter browser bundle must use root base href /. Run flutter/monkeycraft/tool/build_web_release.sh / build/web first.")
+		}
+		if (new File(browserWeb, "tailscale").exists()) {
+			throw new GradleException("Flutter browser bundle contains ignored Tailscale experiment assets. Rebuild it with flutter/monkeycraft/tool/build_web_release.sh.")
+		}
+	}
 
 	filesMatching("fabric.mod.json") {
 		expand "version": inputs.properties.version
