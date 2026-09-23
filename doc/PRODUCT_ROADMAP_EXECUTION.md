@@ -986,3 +986,13 @@ TEST_MATRIX、REMAINING_ACCEPTANCE_STEPS、KNOWN_ISSUES_HANDOFF均改为核心�
 用户明确要求“提交到master”，随后要求其余改动也陆续commit。已按精确批准补丁提交100文件为6a67a9e，并推送origin/master；未触发Pages部署。随后分组提交移动端集成e53d153、helper c2fcc00、四版Mod及资源构建工作流5d0aaff，以及历史Web参考改动。主checkout未切换、未建worktree；构建产物、exports、原始诊断输出和未采用web-tailscale实验留本地，不纳入本批提交。
 
 本轮仅执行Java仓库规定的四树spotlessApply，均成功；未新增或重跑功能验收。原生依赖.patch文本自带统一diff上下文空格与制表符，保留正确补丁格式，没有按普通源代码去剥离它们。Android独立spike脚本引用的标准Gradle wrapper JAR此前被上层忽略，本次随脚本补入，并仅对该文件设置忽略例外；不提交生成的native库、账号状态或安装包。代码候选的凭证特征核对未发现匹配项，日志留outputs/commits-2026-09-23/。后续文档提交包含精简后的验收范围和已完成Safari/Android结论，不能用旧快照复活测试要求。
+
+### 2026-09-23 CI 干净环境修复
+
+用户指出近期 CI 连续失败。本轮读取 GitHub Actions 原始失败日志，不重开 Safari、Android 或声音人工验收。最新 d27eba4 的 Flutter Web analyze、既有测试、Release 构建已通过；Android 在 SDK 安装阶段失败（setup-android 默认请求已不存在的 tools 包），iOS 在 native 构建前因缺少 rg 失败，helper 因 cmd/monkeycraft-tailscale-helper/main.go 未纳入 Git 而失败，四个 Mod 被依赖关系跳过。前一笔 6a67a9 运行的仍是旧 TypeScript lint，失败属于历史工作流，不能混作当前 Flutter Web 失败。
+
+修复提交 279b2be：SDK 明确只请求 platform-tools；固定 native 编译使用已安装 NDK 28.2；iOS 的单个固定文本计数改用系统自带 grep；helper 忽略规则限定根目录二进制并补入现有入口源码。APK release 工作流同样补齐 Java/Go/SDK/NDK 和 native 库编译，未创建 release/tag 或部署 Pages。shell 语法与 diff 检查通过；GitHub 全量构建运行 35821423775 已开始，结果待后续记录。原始日志保存在 outputs/ci-repair-2026-09-23/。
+
+第一轮修复后的云端结果（35821423775）：Flutter Web、Android（含 APK 构建、native 登录单测和打包校验）、iOS 未签名 Release 均成功；helper 四平台编译、单测和 race 检查成功。Linux 隔离 tailnet 集成检查暴露第二层问题：go.mod 未完整记录带 integration 标签的跨平台传递依赖，-mod=readonly 正确拒绝运行。使用仓库要求的 Go 1.26.6 执行 go mod tidy，保留 Tailscale v1.102.3 及原有依赖版本，仅补齐间接依赖和校验和；GOOS=linux CGO_ENABLED=1 go list -mod=readonly -tags=integration -deps -test ./internal/engine 已成功验证依赖解析。实际 Linux 集成执行仍以接下来的 CI 为准，不把本地解析当作测试通过。
+
+APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重命名的 shell 引号。使用 actionlint v1.7.12 检查 build/release/release-flutter-apk/pages 四个工作流全部通过；本机原有 v1.6.2 不认识现代 runner、Pages 权限及布尔输入，其过期诊断未用于修改有效配置。未发布 App、Mod 或 Pages。

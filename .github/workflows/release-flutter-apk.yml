@@ -61,11 +61,15 @@ jobs:
         working-directory: flutter/monkeycraft
         run: flutter build apk --release
 
+      - name: verify Android native packaging
+        working-directory: flutter/monkeycraft
+        run: python3 android/third_party/libtailscale/verify_apk.py build/app/outputs/flutter-apk/app-release.apk
+
       - name: rename apk
         working-directory: flutter/monkeycraft
         run: |
           VERSION=$(cat pubspec.yaml | grep '^version:' | awk '{print $2}')
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/monkeycraft-$VERSION.apk
+          mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/monkeycraft-$VERSION.apk"
 
       - name: create release
         uses: softprops/action-gh-release@v2
