@@ -1,5 +1,5 @@
 dist/
 harness/java/out/
 *.exe
-monkeycraft-tailscale-helper
+/monkeycraft-tailscale-helper
 /tmp-state/

@@ -50,7 +50,7 @@ need xcodebuild
 need lipo
 need ditto
 need python3
-need rg
+need grep
 test -n "$GO_BINARY" && test -x "$GO_BINARY" || {
   echo "missing Go 1.26.3; set LIBTAILSCALE_GO to its bin/go path" >&2
   exit 1
@@ -88,7 +88,7 @@ prepare_source() {
     echo "unexpected product source changes" >&2
     exit 1
   }
-  test "$(rg -c 'UserLogf: logger.Discard' "$WORK_SRC/tailscale.go")" = 1 || {
+  test "$(grep -Fc 'UserLogf: logger.Discard' "$WORK_SRC/tailscale.go")" = 1 || {
     echo "product safety patch did not set UserLogf to discard" >&2
     exit 1
   }
