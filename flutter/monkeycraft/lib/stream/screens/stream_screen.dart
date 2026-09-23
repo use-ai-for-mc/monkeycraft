@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/platform/platform_capabilities.dart';
+import 'package:monkeycraft_client/platform/page_visibility.dart';
+import 'package:monkeycraft_client/platform/browser_input.dart';
+import 'package:monkeycraft_client/stream/browser_keyboard_input.dart';
 import 'package:monkeycraft_client/stream/game_input_controller.dart';
 import 'package:monkeycraft_client/notifications/ios_timed_notification_scheduler.dart';
 import 'package:monkeycraft_client/notifications/notification_models.dart';
@@ -30,6 +33,7 @@ import 'package:monkeycraft_client/stream/widgets/shift_button.dart';
 import 'package:monkeycraft_client/stream/widgets/virtual_joystick.dart';
 import 'package:monkeycraft_client/stream/widgets/screen_controls.dart';
 import 'package:monkeycraft_client/stream/widgets/stream_overlays.dart';
+import 'package:monkeycraft_client/stream/widgets/timed_reminder_countdown.dart';
 import 'package:monkeycraft_client/stream/widgets/command_palette.dart';
 import 'package:monkeycraft_client/map/map_screen.dart';
 import 'package:monkeycraft_client/serverpicker/server_picker_screen.dart';
@@ -55,6 +59,10 @@ class StreamScreen extends StatefulWidget {
 class _StreamScreenState extends State<StreamScreen>
     with WidgetsBindingObserver {
   late final GameInputController _input;
+  late final BrowserKeyboardInput _browserKeyboard;
+  late final BrowserInputLifecycle _browserLifecycle;
+  final _browserPointerLock = BrowserPointerLockController();
+  final _browserFullscreen = BrowserFullscreenController();
   late final TimedNotificationCoordinator _timedCoordinator;
   late final IosTimedNotificationScheduler _timedScheduler;
   late final StreamSettingsStore _settingsStore;
@@ -86,6 +94,10 @@ class _StreamScreenState extends State<StreamScreen>
   StreamSubscription<WorldState>? _worldStateSub;
 
   Timer? _notificationCheckTimer;
+  Timer? _resizeTimer;
+  Future<void>? _decoderInitialization;
+  Future<void> _videoTransitions = Future<void>.value();
+  void Function()? _stopPageVisibility;
   bool? _lastIsPortrait;
   Size? _lastScreenSize;
   bool _closing = false;
@@ -98,9 +110,11 @@ class _StreamScreenState extends State<StreamScreen>
   ClientMode? _lastHandledMode;
   VideoState? _lastHandledVideoState;
   int? _lastFiredTimedNotificationMs;
-  int? _lastHandledTimedFireAtMs;
+  String? _lastHandledTimedSignature;
 
   bool get _supportedPlatform => platformCapabilities.supportsVideoDecoder;
+  bool get _showDiagnostics =>
+      platformCapabilities.isWeb && Uri.base.queryParameters['debug'] == '1';
 
   @override
   void initState() {
@@ -113,6 +127,13 @@ class _StreamScreenState extends State<StreamScreen>
         'pressed': pressed,
       }),
     );
+    _browserKeyboard = BrowserKeyboardInput(
+      input: _input,
+      isScreenOpen: () => _isScreenOpen,
+      sendScreenEscape: (pressed) =>
+          widget.proxy.sendScreenKey('ESCAPE', pressed),
+    );
+    _browserLifecycle = BrowserInputLifecycle(onInactive: _releaseInputs);
     _timedScheduler = IosTimedNotificationScheduler(TimedNotificationService());
     _timedCoordinator = TimedNotificationCoordinator(
       scheduler: _timedScheduler,
@@ -131,6 +152,21 @@ class _StreamScreenState extends State<StreamScreen>
     );
     _attachProxyStreams();
     _attachSessionState();
+    _stopPageVisibility = listenPageHidden((hidden) {
+      if (!mounted || _closing) return;
+      _releaseInputs();
+      if (_session.state.foreground == !hidden) return;
+      _session.setForeground(!hidden);
+      if (!hidden) {
+        unawaited(
+          _resumeIfNeeded().then((_) async {
+            if (mounted && !_closing && widget.proxy.isConnected) {
+              await _session.refreshVideo();
+            }
+          }),
+        );
+      }
+    });
 
     openAudioMcService.setInfoPacketHandler((packet) {
       widget.proxy.trySendCommand(packet);
@@ -171,6 +207,7 @@ class _StreamScreenState extends State<StreamScreen>
       _checkTimedNotification();
       _session.checkWaitingForStream();
       _checkVideoStateStaleness();
+      if (_showDiagnostics && mounted) setState(() {});
     });
 
     if (_supportedPlatform) {
@@ -210,6 +247,8 @@ class _StreamScreenState extends State<StreamScreen>
     });
     _screenStateSub?.cancel();
     _screenStateSub = widget.proxy.screenStateEvents.listen((isOpen) {
+      _releaseInputs();
+      _browserPointerLock.setEnabled(!isOpen);
       if (mounted) setState(() => _isScreenOpen = isOpen);
     });
     _isScreenOpen = widget.proxy.screenOpen;
@@ -231,23 +270,33 @@ class _StreamScreenState extends State<StreamScreen>
       final videoStateChanged = _lastHandledVideoState != state.videoState;
 
       if (modeChanged || videoStateChanged) {
-        _handleStateTransition(
-          fromMode: _lastHandledMode,
-          toMode: state.mode,
-          fromVideoState: _lastHandledVideoState,
-          toVideoState: state.videoState,
-          message: state.videoStateMessage,
-        );
+        final previousMode = _lastHandledMode;
+        final previousVideoState = _lastHandledVideoState;
+        _videoTransitions = _videoTransitions
+            .then((_) async {
+              if (!mounted || _closing) return;
+              await _handleStateTransition(
+                fromMode: previousMode,
+                toMode: state.mode,
+                fromVideoState: previousVideoState,
+                toVideoState: state.videoState,
+                message: state.videoStateMessage,
+              );
+            })
+            .catchError((Object error) {
+              debugPrint('Video transition failed: ${error.runtimeType}');
+            });
       }
 
-      final timedFireAt = state.timedFireAtEpochMs;
-      if (state.hasTimedNotification) {
-        if (timedFireAt != _lastHandledTimedFireAtMs) {
-          _lastHandledTimedFireAtMs = timedFireAt;
-          _handleTimedNotification(state.timedNotification!);
+      final timedNotification = state.timedNotification;
+      if (timedNotification != null) {
+        final timedSignature = timedNotificationSignature(timedNotification);
+        if (timedSignature != _lastHandledTimedSignature) {
+          _lastHandledTimedSignature = timedSignature;
+          _handleTimedNotification(timedNotification);
         }
-      } else if (_lastHandledTimedFireAtMs != null) {
-        _lastHandledTimedFireAtMs = null;
+      } else if (_lastHandledTimedSignature != null) {
+        _lastHandledTimedSignature = null;
         _handleTimedNotification(
           const TimedNotification(
             fireAtEpochMs: null,
@@ -274,19 +323,19 @@ class _StreamScreenState extends State<StreamScreen>
     if (toVideoState == VideoState.hibernating &&
         fromVideoState != VideoState.hibernating &&
         toMode == ClientMode.streaming) {
-      _handleEnterHibernation(message);
+      await _handleEnterHibernation(message);
     }
 
     // Exiting hibernation while streaming
     if (toVideoState == VideoState.active &&
         fromVideoState == VideoState.hibernating &&
         toMode == ClientMode.streaming) {
-      _handleExitHibernation();
+      await _handleExitHibernation();
     }
   }
 
   Future<void> _handleEnterHibernation(String message) async {
-    _input.releaseAll();
+    _releaseInputs();
     await _pauseVideoPipeline();
 
     if (_session.shouldAutoNavigateToChat && mounted) {
@@ -297,11 +346,12 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _handleExitHibernation() async {
     if (!mounted) return;
     await _restartStream();
-    _session.refreshVideo();
+    await _session.refreshVideo();
   }
 
   void _handleConnectionLost() {
     if (_closing) return;
+    _releaseInputs();
     _session.handleConnectionLost();
   }
 
@@ -309,7 +359,7 @@ class _StreamScreenState extends State<StreamScreen>
     if (_closing) return;
     _closing = true;
 
-    _input.releaseAll();
+    _releaseInputs();
     SystemChrome.setPreferredOrientations([]);
 
     await _accessUnitSub?.cancel();
@@ -322,9 +372,9 @@ class _StreamScreenState extends State<StreamScreen>
     await _session.disposeDecoder();
     // _session, _liveActivityService and the proxy are disposed exactly once,
     // in State.dispose, which the pop below triggers.
-    await widget.proxy.stop();
     await openAudioMcService.disconnect();
     await mcParksV1Service.disconnect();
+    await widget.proxy.stop();
 
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -411,7 +461,7 @@ class _StreamScreenState extends State<StreamScreen>
   void _goToServerPicker() {
     if (_closing || _handingOff || !mounted) return;
     _handingOff = true;
-    _input.releaseAll();
+    _releaseInputs();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => ServerPickerScreen(
@@ -427,7 +477,7 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _pauseVideoPipeline() async {
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
-    await _session.disposeDecoder();
+    if (!platformCapabilities.isWeb) await _session.disposeDecoder();
   }
 
   void _syncClientStatus() {
@@ -437,7 +487,7 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _openChatScreenAuto() async {
     _session.setMode(ClientMode.chat);
-    _input.releaseAll();
+    _releaseInputs();
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
@@ -484,7 +534,7 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _openChatScreen() async {
     _session.setMode(ClientMode.chat);
-    _input.releaseAll();
+    _releaseInputs();
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
 
@@ -528,7 +578,7 @@ class _StreamScreenState extends State<StreamScreen>
   Future<void> _openMapScreen() async {
     // Keep decoder and access unit subscription alive — map mode streams video too
     _session.setMode(ClientMode.map, resolution: _currentTargetResolution());
-    _input.releaseAll();
+    _releaseInputs();
 
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -586,25 +636,51 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   void _handleNudge(NudgeNotification nudge) {
-    if (!_session.state.foreground) return;
-    final title = nudge.title ?? 'MonkeyCraft';
-    final body = nudge.body ?? '';
-    // OS notification is the single surface (shown in the foreground via the
-    // willPresent handler); no extra in-app SnackBar or ringtone.
-    _timedScheduler.showImmediate(title, body, nudge.sound);
+    if (!_session.state.foreground && !platformCapabilities.isWeb) return;
+    unawaited(_showNudge(nudge));
   }
 
-  Future<void> _initHardwareDecoder() async {
+  Future<void> _showNudge(NudgeNotification nudge) async {
+    try {
+      await _timedScheduler.showImmediate(
+        nudge.title ?? 'MonkeyCraft',
+        nudge.body ?? '',
+        nudge.sound,
+      );
+    } catch (error) {
+      final kind = error is PlatformException ? error.code : error.runtimeType;
+      debugPrint('Immediate notification delivery failed: $kind');
+    }
+  }
+
+  Future<void> _initHardwareDecoder() {
+    return _decoderInitialization ??= _initializeDecoder().whenComplete(() {
+      _decoderInitialization = null;
+    });
+  }
+
+  Future<void> _initializeDecoder() async {
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
+    if (!mounted || _closing) return;
 
-    final decoder = createVideoDecoder();
-    decoder.onKeyframeNeeded = widget.proxy.requestKeyframe;
-    decoder.onChanged = () {
-      if (mounted) setState(() {});
-    };
-    await decoder.initialize(fps: _settings.fps);
-    _session.decoder = decoder;
+    var decoder = _session.decoder;
+    if (!platformCapabilities.isWeb || decoder == null) {
+      await _session.disposeDecoder();
+      decoder = createVideoDecoder();
+      decoder.onKeyframeNeeded = widget.proxy.requestKeyframe;
+      decoder.onChanged = () {
+        if (mounted) setState(() {});
+      };
+      await decoder.initialize(fps: _settings.fps);
+      if (!mounted || _closing) {
+        await decoder.dispose();
+        return;
+      }
+      _session.decoder = decoder;
+    } else {
+      await decoder.reset();
+    }
 
     _accessUnitSub = widget.proxy.accessUnits.listen((data) {
       _session.handleAccessUnit(
@@ -618,7 +694,7 @@ class _StreamScreenState extends State<StreamScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _input.releaseAll();
+    _releaseInputs();
     _accessUnitSub?.cancel();
     _nudgeSub?.cancel();
     _heartbeatAckSub?.cancel();
@@ -630,6 +706,14 @@ class _StreamScreenState extends State<StreamScreen>
     _screenStateSub?.cancel();
     _worldStateSub?.cancel();
     _notificationCheckTimer?.cancel();
+    _resizeTimer?.cancel();
+    _stopPageVisibility?.call();
+    _browserLifecycle.dispose();
+    _browserPointerLock.dispose();
+    _browserFullscreen.dispose();
+    if (platformCapabilities.isWeb && !_handingOff) {
+      unawaited(_timedCoordinator.cancelAndClose());
+    }
     _session.disposeDecoder();
     _session.dispose();
     _liveActivityService.dispose();
@@ -657,11 +741,18 @@ class _StreamScreenState extends State<StreamScreen>
           mcParksV1Service.softRefresh();
           _session.setForeground(true);
           await _resumeIfNeeded();
+          if (platformCapabilities.isWeb && widget.proxy.isConnected) {
+            await _session.refreshVideo();
+          }
         } else if (currentState == AppLifecycleState.inactive ||
             currentState == AppLifecycleState.paused ||
             currentState == AppLifecycleState.hidden ||
             currentState == AppLifecycleState.detached) {
-          _input.releaseAll();
+          _releaseInputs();
+          if (platformCapabilities.isWeb &&
+              currentState != AppLifecycleState.inactive) {
+            _session.setForeground(false);
+          }
           if (!platformCapabilities.isWeb) {
             _session.setForeground(false);
             await _pauseStreaming();
@@ -678,7 +769,7 @@ class _StreamScreenState extends State<StreamScreen>
     if (_closing) {
       return;
     }
-    _input.releaseAll();
+    _releaseInputs();
     await _accessUnitSub?.cancel();
     _accessUnitSub = null;
     await _nudgeSub?.cancel();
@@ -692,6 +783,7 @@ class _StreamScreenState extends State<StreamScreen>
 
   Future<void> _onConnectionRestored() async {
     if (!mounted || _closing) return;
+    openAudioMcService.reportState();
     _session.updateConnectionState(true);
     _session.reattachToProxy();
     _attachProxyStreams();
@@ -717,7 +809,7 @@ class _StreamScreenState extends State<StreamScreen>
     if (_closing) return;
     _closing = true;
 
-    _input.releaseAll();
+    _releaseInputs();
     SystemChrome.setPreferredOrientations([]);
 
     await _accessUnitSub?.cancel();
@@ -726,9 +818,9 @@ class _StreamScreenState extends State<StreamScreen>
     _nudgeSub = null;
 
     await _session.disposeDecoder();
-    await widget.proxy.stop();
     await openAudioMcService.disconnect();
     await mcParksV1Service.disconnect();
+    await widget.proxy.stop();
 
     if (mounted) {
       Navigator.of(context).pop();
@@ -746,15 +838,23 @@ class _StreamScreenState extends State<StreamScreen>
     );
   }
 
+  int get _videoWidth {
+    final width = _session.decoder?.stats.displayWidth ?? 0;
+    return width > 0 ? width : _session.streamWidth;
+  }
+
+  int get _videoHeight {
+    final height = _session.decoder?.stats.displayHeight ?? 0;
+    return height > 0 ? height : _session.streamHeight;
+  }
+
   Widget _buildTextureWithAspectRatio(EdgeInsets pad) {
-    final sw = _session.streamWidth;
-    final sh = _session.streamHeight;
+    final sw = _videoWidth;
+    final sh = _videoHeight;
     if (sw <= 0 || sh <= 0) {
       return Padding(
         padding: pad,
-        child: SizedBox.expand(
-          child: VideoSurface(decoder: _session.decoder),
-        ),
+        child: SizedBox.expand(child: VideoSurface(decoder: _session.decoder)),
       );
     }
     final mq = MediaQuery.of(context);
@@ -802,17 +902,23 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openSettings() async {
+    _releaseInputs();
     final next = await Navigator.of(context).push<StreamSettingsResult>(
       MaterialPageRoute(
         builder: (context) => StreamSettingsScreen(
           initial: _settings,
           dataSaverSupported: widget.proxy.serverSupports('DATA_SAVER'),
+          onExactAlarmGranted: _rescheduleTimedAfterExactAlarmGrant,
         ),
       ),
     );
     if (next == null) return;
     if (next.logout) {
-      await CredentialStore.clearPassword();
+      if (platformCapabilities.isWeb) {
+        await CredentialStore.clearServer(widget.server);
+      } else {
+        await CredentialStore.clearPassword();
+      }
       if (!mounted) return;
       await _closeScreenAndReturnToLogin();
       return;
@@ -825,14 +931,27 @@ class _StreamScreenState extends State<StreamScreen>
       _settings = settings;
       _session.updateSettings(settings);
     });
-    _input.releaseAll();
-    await _pauseStreaming();
-    if (mounted) {
-      await _resumeIfNeeded();
+    _releaseInputs();
+    if (platformCapabilities.isWeb) {
+      _syncClientStatus();
+    } else {
+      await _pauseStreaming();
+      if (mounted) await _resumeIfNeeded();
     }
   }
 
+  Future<void> _rescheduleTimedAfterExactAlarmGrant() async {
+    final notification = _session.state.timedNotification;
+    if (notification == null) return;
+    await _timedCoordinator.rescheduleIfFuture(notification);
+  }
+
   void _toggleOrientation() {
+    if (platformCapabilities.isWeb) {
+      _releaseInputs();
+      _browserFullscreen.toggle();
+      return;
+    }
     setState(() {
       _forcedOrientation = _forcedOrientation == null
           ? true
@@ -851,6 +970,7 @@ class _StreamScreenState extends State<StreamScreen>
   }
 
   Future<void> _openCommandPalette() async {
+    _releaseInputs();
     if (!mounted) return;
     await showCommandPalette(context: context, proxy: widget.proxy);
   }
@@ -955,8 +1075,8 @@ class _StreamScreenState extends State<StreamScreen>
           hotbarPanelHeight,
         );
 
-        final sw = _session.streamWidth;
-        final sh = _session.streamHeight;
+        final sw = _videoWidth;
+        final sh = _videoHeight;
         Rect videoDisplayRect = Rect.zero;
         if (sw > 0 && sh > 0) {
           final availableWidth = safeW;
@@ -1008,11 +1128,15 @@ class _StreamScreenState extends State<StreamScreen>
         _lastIsPortrait = isPortrait;
         _lastScreenSize = screenSize;
         if (shouldSend && state.shouldStreamVideo) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted && _session.state.shouldStreamVideo) {
-              _restartStream();
-            }
-          });
+          _resizeTimer?.cancel();
+          _resizeTimer = Timer(
+            Duration(milliseconds: platformCapabilities.isWeb ? 500 : 100),
+            () {
+              if (mounted && !_closing && _session.state.shouldStreamVideo) {
+                _restartStream();
+              }
+            },
+          );
         }
 
         final showTouchControls = shouldShowTouchOverlay(
@@ -1023,264 +1147,350 @@ class _StreamScreenState extends State<StreamScreen>
 
         return Focus(
           autofocus: true,
+          onFocusChange: (focused) {
+            if (!focused) _releaseInputs();
+          },
           onKeyEvent: _handleKeyEvent,
           child: Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              if (state.shouldShowVideo && _session.hasVideoSurface)
-                Center(child: _buildTextureWithAspectRatio(pad)),
-              if (_session.decoder?.lastError != null)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      _session.decoder!.lastError!,
-                      style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      textAlign: TextAlign.center,
+            backgroundColor: Colors.black,
+            body: Stack(
+              children: [
+                if (state.shouldShowVideo && _session.hasVideoSurface)
+                  Center(child: _buildTextureWithAspectRatio(pad)),
+                if (_session.decoder?.lastError != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        _session.decoder!.lastError!,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
-              if (state.shouldShowHibernation)
-                HibernationOverlay(message: state.videoStateMessage),
-              if (state.shouldShowWaiting) const WaitingOverlay(),
-              if (state.isReconnecting)
-                const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 16),
-                      Text(
-                        'Reconnecting...',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                    ],
+                if (state.shouldShowHibernation)
+                  HibernationOverlay(message: state.videoStateMessage),
+                if (state.shouldShowWaiting) const WaitingOverlay(),
+                if (state.isReconnecting)
+                  const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(height: 16),
+                        Text(
+                          'Reconnecting...',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              if (state.shouldShowResolutionMismatch)
-                ResolutionMismatchOverlay(
-                  message: state.resolutionMismatchMessage,
-                ),
-              if (state.shouldShowVideo && _isScreenOpen)
-                GameContextMenuGuard(
-                  child: ScreenTouchHandler(
-                    proxy: widget.proxy,
-                    clickMode: _clickMode,
-                    shiftActive: _shiftActive,
-                    videoDisplayRect: videoDisplayRect,
-                    onPointerKind: _handlePointerKind,
+                if (state.shouldShowResolutionMismatch)
+                  ResolutionMismatchOverlay(
+                    message: state.resolutionMismatchMessage,
                   ),
-                ),
-              if (state.shouldShowVideo && !_isScreenOpen)
-                GameContextMenuGuard(
-                  child: LookPad(
-                    excludedRegions: [
-                      ...safeAreaExclusions,
-                      if (showTouchControls) joystickRect,
-                      if (showTouchControls) jumpRect,
-                      if (showTouchControls) shiftRect,
-                      if (showTouchControls) hotbarToggleRect,
-                      if (showTouchControls && _hotbarExpanded) hotbarPanelRect,
-                      closeRectSafe,
-                      settingsRectSafe,
-                      commandRectSafe,
-                      rotateRectSafe,
-                    ],
-                    invertY: _settings.invertLookY,
-                    onDelta: (yaw, pitch) => widget.proxy.sendCommand({
-                      'type': 'LOOK_DELTA',
-                      'yaw': yaw,
-                      'pitch': pitch,
-                    }),
-                    onClick: (button) => widget.proxy.sendCommand({
-                      'type': 'CLICK',
-                      'button': button,
-                    }),
-                    onPointerKind: _handlePointerKind,
+                if (state.shouldShowVideo && _isScreenOpen)
+                  GameContextMenuGuard(
+                    child: ScreenTouchHandler(
+                      proxy: widget.proxy,
+                      clickMode: _clickMode,
+                      shiftActive: _shiftActive,
+                      videoDisplayRect: videoDisplayRect,
+                      onPointerKind: _handlePointerKind,
+                    ),
                   ),
-                ),
-              if (showTouchControls && state.shouldShowVideo)
+                if (state.shouldShowVideo && !_isScreenOpen)
+                  GameContextMenuGuard(
+                    child: LookPad(
+                      pointerLock: _browserPointerLock,
+                      enablePointerLock:
+                          platformCapabilities.isWeb && !_isScreenOpen,
+                      excludedRegions: [
+                        ...safeAreaExclusions,
+                        if (showTouchControls) joystickRect,
+                        if (showTouchControls) jumpRect,
+                        if (showTouchControls) shiftRect,
+                        if (showTouchControls) hotbarToggleRect,
+                        if (showTouchControls && _hotbarExpanded)
+                          hotbarPanelRect,
+                        closeRectSafe,
+                        settingsRectSafe,
+                        commandRectSafe,
+                        rotateRectSafe,
+                        Rect.fromLTWH(
+                          screenSize.width - pad.right - 276,
+                          topBarY,
+                          48,
+                          48,
+                        ),
+                        Rect.fromLTWH(
+                          screenSize.width - pad.right - 328,
+                          topBarY,
+                          48,
+                          48,
+                        ),
+                      ],
+                      invertY: _settings.invertLookY,
+                      onDelta: (yaw, pitch) => widget.proxy.sendCommand({
+                        'type': 'LOOK_DELTA',
+                        'yaw': yaw,
+                        'pitch': pitch,
+                      }),
+                      onClick: (button) => widget.proxy.sendCommand({
+                        'type': 'CLICK',
+                        'button': button,
+                      }),
+                      onPointerKind: _handlePointerKind,
+                    ),
+                  ),
+                if (showTouchControls && state.shouldShowVideo)
+                  Positioned(
+                    top: topBarY,
+                    left: pad.left + 20,
+                    child: HotbarToggleButton(
+                      size: hotbarToggleSize,
+                      expanded: _hotbarExpanded,
+                      onPressed: () =>
+                          setState(() => _hotbarExpanded = !_hotbarExpanded),
+                    ),
+                  ),
+                if (showTouchControls &&
+                    _hotbarExpanded &&
+                    state.shouldShowVideo)
+                  Positioned(
+                    top: topBarY + hotbarToggleSize + 8,
+                    left: pad.left + 20,
+                    child: HotbarGrid(
+                      buttonSize: hotbarButtonSize,
+                      gap: hotbarGap,
+                      selectedSlot: _selectedHotbarSlot,
+                      singleRow: !isPortrait,
+                      onSelect: (slot) {
+                        setState(() {
+                          _selectedHotbarSlot = slot;
+                          _hotbarExpanded = false;
+                        });
+                        widget.proxy.sendCommand({
+                          'type': 'HOTBAR_SELECT',
+                          'slot': slot,
+                        });
+                      },
+                      onKey: !_isScreenOpen
+                          ? (key) {
+                              widget.proxy.sendCommand({
+                                'type': 'INPUT',
+                                'key': key,
+                                'pressed': true,
+                              });
+                              Future.delayed(
+                                const Duration(milliseconds: 50),
+                                () {
+                                  widget.proxy.sendCommand({
+                                    'type': 'INPUT',
+                                    'key': key,
+                                    'pressed': false,
+                                  });
+                                },
+                              );
+                            }
+                          : null,
+                    ),
+                  ),
                 Positioned(
                   top: topBarY,
-                  left: pad.left + 20,
-                  child: HotbarToggleButton(
-                    size: hotbarToggleSize,
-                    expanded: _hotbarExpanded,
-                    onPressed: () =>
-                        setState(() => _hotbarExpanded = !_hotbarExpanded),
+                  right: pad.right + 20,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    tooltip: 'Disconnect',
+                    onPressed: _closeScreen,
                   ),
                 ),
-              if (showTouchControls && _hotbarExpanded && state.shouldShowVideo)
                 Positioned(
-                  top: topBarY + hotbarToggleSize + 8,
-                  left: pad.left + 20,
-                  child: HotbarGrid(
-                    buttonSize: hotbarButtonSize,
-                    gap: hotbarGap,
-                    selectedSlot: _selectedHotbarSlot,
-                    singleRow: !isPortrait,
-                    onSelect: (slot) {
-                      setState(() {
-                        _selectedHotbarSlot = slot;
-                        _hotbarExpanded = false;
-                      });
-                      widget.proxy.sendCommand({
-                        'type': 'HOTBAR_SELECT',
-                        'slot': slot,
-                      });
-                    },
-                    onKey: !_isScreenOpen
-                        ? (key) {
-                            widget.proxy.sendCommand({
-                              'type': 'INPUT',
-                              'key': key,
-                              'pressed': true,
-                            });
-                            Future.delayed(
-                              const Duration(milliseconds: 50),
-                              () {
-                                widget.proxy.sendCommand({
-                                  'type': 'INPUT',
-                                  'key': key,
-                                  'pressed': false,
-                                });
-                              },
-                            );
-                          }
-                        : null,
+                  top: topBarY,
+                  right: pad.right + 72,
+                  child: IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.white),
+                    tooltip: 'Settings',
+                    onPressed: _openSettings,
                   ),
                 ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 20,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  tooltip: 'Disconnect',
-                  onPressed: _closeScreen,
+                Positioned(
+                  top: topBarY,
+                  right: pad.right + 124,
+                  child: IconButton(
+                    icon: const Icon(Icons.code, color: Colors.white),
+                    tooltip: 'Commands',
+                    onPressed: _openCommandPalette,
+                  ),
                 ),
-              ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 72,
-                child: IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white),
-                  onPressed: _openSettings,
+                Positioned(
+                  top: topBarY,
+                  right: pad.right + 176,
+                  child: IconButton(
+                    tooltip: platformCapabilities.isWeb
+                        ? 'Fullscreen'
+                        : 'Rotate screen',
+                    icon: Icon(
+                      platformCapabilities.isWeb
+                          ? Icons.fullscreen
+                          : Icons.screen_rotation,
+                      color: Colors.white,
+                    ),
+                    onPressed: _toggleOrientation,
+                  ),
                 ),
-              ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 124,
-                child: IconButton(
-                  icon: const Icon(Icons.code, color: Colors.white),
-                  onPressed: _openCommandPalette,
+                Positioned(
+                  top: topBarY,
+                  right: pad.right + 228,
+                  child: IconButton(
+                    icon: const Icon(Icons.chat, color: Colors.white),
+                    tooltip: 'Chat',
+                    onPressed: _openChatScreen,
+                  ),
                 ),
-              ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 176,
-                child: IconButton(
-                  icon: const Icon(Icons.screen_rotation, color: Colors.white),
-                  onPressed: _toggleOrientation,
+                Positioned(
+                  top: topBarY,
+                  right: pad.right + 280,
+                  child: IconButton(
+                    icon: const Icon(Icons.map, color: Colors.white),
+                    tooltip: 'Map',
+                    onPressed: _openMapScreen,
+                  ),
                 ),
-              ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 228,
-                child: IconButton(
-                  icon: const Icon(Icons.chat, color: Colors.white),
-                  onPressed: _openChatScreen,
-                ),
-              ),
-              Positioned(
-                top: topBarY,
-                right: pad.right + 280,
-                child: IconButton(
-                  icon: const Icon(Icons.map, color: Colors.white),
-                  onPressed: _openMapScreen,
-                ),
-              ),
-              if (showTouchControls && state.shouldShowVideo && !_isScreenOpen)
-                SafeArea(
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 16,
-                        bottom: 16,
-                        child: VirtualJoystick(
-                          size: joystickSize,
-                          onChanged: _input.updateMoveVector,
+                if (showTouchControls &&
+                    state.shouldShowVideo &&
+                    !_isScreenOpen)
+                  SafeArea(
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 16,
+                          bottom: 16,
+                          child: VirtualJoystick(
+                            size: joystickSize,
+                            onChanged: _input.updateMoveVector,
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        right: 16,
-                        bottom: 16,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            JumpButton(
-                              size: jumpSize,
-                              onChanged: _input.setJumpPressed,
-                            ),
-                            const SizedBox(height: buttonGap),
-                            ShiftButton(
-                              size: shiftSize,
-                              onChanged: _input.setShiftPressed,
-                            ),
-                          ],
+                        Positioned(
+                          right: 16,
+                          bottom: 16,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              JumpButton(
+                                size: jumpSize,
+                                onChanged: _input.setJumpPressed,
+                              ),
+                              const SizedBox(height: buttonGap),
+                              ShiftButton(
+                                size: shiftSize,
+                                onChanged: _input.setShiftPressed,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              if (showTouchControls &&
-                  state.shouldShowVideo &&
-                  _isScreenOpen) ...[
-                ScreenControlToggle(
-                  expanded: _screenControlsExpanded,
-                  onToggle: () => setState(
-                    () => _screenControlsExpanded = !_screenControlsExpanded,
-                  ),
-                  position: _screenControlPosition,
-                  onPositionChanged: (pos) =>
-                      setState(() => _screenControlPosition = pos),
-                  screenSize: screenSize,
-                  safePadding: pad,
-                ),
-                if (_screenControlsExpanded)
-                  SmartPalettePosition(
-                    togglePosition: _screenControlPosition,
-                    toggleSize: kToggleSize,
+                if (state.shouldShowVideo && _isScreenOpen) ...[
+                  ScreenControlToggle(
+                    expanded: _screenControlsExpanded,
+                    onToggle: () => setState(
+                      () => _screenControlsExpanded = !_screenControlsExpanded,
+                    ),
+                    position: _screenControlPosition,
+                    onPositionChanged: (pos) =>
+                        setState(() => _screenControlPosition = pos),
                     screenSize: screenSize,
                     safePadding: pad,
-                    child: ScreenControlPalette(
-                      onEsc: () {
-                        setState(() => _screenControlsExpanded = false);
-                        widget.proxy.sendScreenKey('ESCAPE', true);
-                      },
-                      shiftActive: _shiftActive,
-                      onShiftToggle: () {
-                        setState(() => _shiftActive = !_shiftActive);
-                        widget.proxy.sendScreenModifier('SHIFT', _shiftActive);
-                      },
-                      clickMode: _clickMode,
-                      onClickModeChange: (mode) =>
-                          setState(() => _clickMode = mode),
+                  ),
+                  if (_screenControlsExpanded)
+                    SmartPalettePosition(
+                      togglePosition: _screenControlPosition,
+                      toggleSize: kToggleSize,
+                      screenSize: screenSize,
+                      safePadding: pad,
+                      child: ScreenControlPalette(
+                        onEsc: () {
+                          setState(() => _screenControlsExpanded = false);
+                          widget.proxy.sendScreenKey('ESCAPE', true);
+                          widget.proxy.sendScreenKey('ESCAPE', false);
+                        },
+                        shiftActive: _shiftActive,
+                        onShiftToggle: () {
+                          setState(() => _shiftActive = !_shiftActive);
+                          widget.proxy.sendScreenModifier(
+                            'SHIFT',
+                            _shiftActive,
+                          );
+                        },
+                        clickMode: _clickMode,
+                        onClickModeChange: (mode) =>
+                            setState(() => _clickMode = mode),
+                      ),
+                    ),
+                ],
+                if (platformCapabilities.isWeb && !state.shouldShowHibernation)
+                  Positioned(
+                    left: pad.left + 12,
+                    right: pad.right + 12,
+                    bottom: pad.bottom + (showTouchControls ? 176 : 16),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: TimedReminderCountdown(
+                        notification: state.timedNotification,
+                      ),
+                    ),
+                  ),
+                if (_showDiagnostics)
+                  Positioned(
+                    left: 8,
+                    bottom: pad.bottom + 8,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: Colors.black87,
+                        child: Text(
+                          'Stream diagnostics: '
+                          'decoded ${_session.decoder?.stats.decodedFrames ?? 0} '
+                          'errors ${_session.decoder?.stats.decoderErrors ?? 0} '
+                          'received ${_session.decoder?.stats.receivedAccessUnits ?? 0}\n'
+                          'video ${_videoWidth}x$_videoHeight '
+                          'connected ${widget.proxy.isConnected} '
+                          'screen $_isScreenOpen',
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],
-            ],
+            ),
           ),
-        ),
         );
       },
     );
   }
 
+  void _releaseInputs() {
+    _browserKeyboard.releaseAll();
+    _browserPointerLock.release();
+    if (_shiftActive) {
+      widget.proxy.sendScreenModifier('SHIFT', false);
+      _shiftActive = false;
+    }
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (ModalRoute.of(context)?.isCurrent != true) {
+      return KeyEventResult.ignored;
+    }
     final primary = FocusManager.instance.primaryFocus;
-    if (primary != null &&
-        primary.context?.widget is EditableText) {
+    if (primary != null && primary.context?.widget is EditableText) {
       return KeyEventResult.ignored;
     }
     if (event is! KeyDownEvent && event is! KeyUpEvent) {
@@ -1288,7 +1498,7 @@ class _StreamScreenState extends State<StreamScreen>
     }
     final pressed = event is KeyDownEvent;
     final label = event.logicalKey.keyLabel;
-    if (_input.handlePhysicalKey(label, pressed)) {
+    if (_browserKeyboard.handle(event)) {
       return KeyEventResult.handled;
     }
     final digit = int.tryParse(label);

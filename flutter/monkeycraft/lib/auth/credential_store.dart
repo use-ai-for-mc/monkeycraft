@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:monkeycraft_client/stream/transport/server_url.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CredentialEntry {
@@ -47,6 +48,8 @@ class CredentialStore {
   static const _serverKey = 'server';
   static const _passwordKey = 'password';
   static const _vaultKey = 'credentialVault';
+  static const _webServerKey = 'webServerV2';
+  static const _webVaultKey = 'webCredentialVaultV2';
   static const _tailscaleNodeIdKey = 'tailscaleNodeId';
   static const _rememberCredentialsKey = 'rememberCredentials';
   static const _defaultServer = '127.0.0.1:9600';
@@ -67,25 +70,44 @@ class CredentialStore {
     try {
       prefs = await SharedPreferences.getInstance();
     } catch (_) {}
-    final server = prefs?.getString(_serverKey) ?? _defaultServer;
-    final vault = await _readVault(prefs);
+    final server = kIsWeb
+        ? prefs?.getString(_webServerKey) ?? ''
+        : prefs?.getString(_serverKey) ?? _defaultServer;
+    final vault = kIsWeb ? await _readWebVault(prefs) : await _readVault(prefs);
     return (
       server: server,
-      password: _displayPassword(vault),
+      password: kIsWeb
+          ? _displayPasswordForServer(vault, server)
+          : _displayPassword(vault),
       tailscaleNodeId: prefs?.getString(_tailscaleNodeIdKey),
       rememberCredentials: prefs?.getBool(_rememberCredentialsKey) ?? true,
     );
   }
 
-  static Future<CredentialSnapshot> snapshot() async {
+  static Future<CredentialSnapshot> snapshot({String? server}) async {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
     } catch (_) {}
-    final vault = await _readVault(prefs);
+    final vault = kIsWeb ? await _readWebVault(prefs) : await _readVault(prefs);
+    if (kIsWeb) return webSnapshot(vault, server ?? '');
     return CredentialSnapshot({
       for (final entry in vault.entries)
         if (entry.value.password.isNotEmpty) entry.key: entry.value.password,
+    });
+  }
+
+  static CredentialSnapshot webSnapshot(
+    Map<String, CredentialEntry> vault,
+    String server,
+  ) {
+    final target = _webTarget(server);
+    if (target == null) return const CredentialSnapshot({});
+    return CredentialSnapshot({
+      for (final entry in vault.entries)
+        if (entry.value.password.isNotEmpty &&
+            entry.key.startsWith('$target\u0000'))
+          entry.key.substring(target.length + 1): entry.value.password,
     });
   }
 
@@ -103,25 +125,37 @@ class CredentialStore {
     try {
       prefs = await SharedPreferences.getInstance();
     } catch (_) {}
-    final vault = await _readVault(prefs);
-    vault[keyId] = CredentialEntry(
+    final vault = kIsWeb ? await _readWebVault(prefs) : await _readVault(prefs);
+    final storageKey = kIsWeb ? _webSlot(lastServer, keyId) : keyId;
+    if (kIsWeb && storageKey.isEmpty) return;
+    vault[storageKey] = CredentialEntry(
       password: password,
       lastServer: lastServer,
       lastSeen: DateTime.now().millisecondsSinceEpoch,
     );
     _evict(vault);
-    await _writeVault(prefs, vault);
-    await _writePasswordKey(prefs, password);
+    if (kIsWeb) {
+      await _writeWebVault(prefs, vault);
+    } else {
+      await _writeVault(prefs, vault);
+      await _writePasswordKey(prefs, password);
+    }
   }
 
-  static Future<void> remove(String keyId) async {
+  static Future<void> remove(String keyId, {String? server}) async {
     if (keyId.isEmpty) return;
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
     } catch (_) {}
-    final vault = await _readVault(prefs);
-    vault.remove(keyId);
+    final vault = kIsWeb ? await _readWebVault(prefs) : await _readVault(prefs);
+    final storageKey = kIsWeb ? _webSlot(server ?? '', keyId) : keyId;
+    if (kIsWeb && storageKey.isEmpty) return;
+    vault.remove(storageKey);
+    if (kIsWeb) {
+      await _writeWebVault(prefs, vault);
+      return;
+    }
     await _writeVault(prefs, vault);
     final display = _displayPassword(vault);
     if (display.isEmpty) {
@@ -135,7 +169,7 @@ class CredentialStore {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_serverKey, server);
+      await prefs.setString(kIsWeb ? _webServerKey : _serverKey, server);
     } catch (_) {}
     if (password.isEmpty) return;
     await put(keyId: legacyKeyId, password: password, lastServer: server);
@@ -152,15 +186,34 @@ class CredentialStore {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_passwordKey);
-      await prefs.remove(_vaultKey);
+      if (kIsWeb) {
+        await prefs.remove(_webVaultKey);
+      } else {
+        await prefs.remove(_passwordKey);
+        await prefs.remove(_vaultKey);
+      }
     } catch (_) {}
     try {
-      await _storage.delete(key: _passwordKey);
+      if (!kIsWeb) await _storage.delete(key: _passwordKey);
+      await _storage.delete(key: kIsWeb ? _webVaultKey : _vaultKey);
     } catch (_) {}
+  }
+
+  static Future<void> clearServer(String server) async {
+    if (!kIsWeb) {
+      await clearPassword();
+      return;
+    }
+    final target = _webTarget(server);
+    if (target == null) return;
+    SharedPreferences? prefs;
     try {
-      await _storage.delete(key: _vaultKey);
+      prefs = await SharedPreferences.getInstance();
     } catch (_) {}
+    final vault = await _readWebVault(prefs);
+    final prefix = '$target\u0000';
+    vault.removeWhere((key, _) => key.startsWith(prefix));
+    await _writeWebVault(prefs, vault);
   }
 
   static Future<void> saveTailscaleNodeId(String? nodeId) async {
@@ -185,6 +238,55 @@ class CredentialStore {
     return best?.password ?? '';
   }
 
+  static String _displayPasswordForServer(
+    Map<String, CredentialEntry> vault,
+    String server,
+  ) {
+    final target = _webTarget(server);
+    if (target == null) return '';
+    final prefix = '$target\u0000';
+    return _displayPassword({
+      for (final entry in vault.entries)
+        if (entry.key.startsWith(prefix)) entry.key: entry.value,
+    });
+  }
+
+  static String? _webTarget(String server) =>
+      canonicalMonkeycraftServerTarget(server);
+
+  static String _webSlot(String server, String keyId) {
+    final target = _webTarget(server);
+    if (target == null || keyId.isEmpty) return '';
+    return '$target\u0000$keyId';
+  }
+
+  static String webCredentialSlot(String server, String keyId) =>
+      _webSlot(server, keyId);
+
+  static Future<Map<String, CredentialEntry>> _readWebVault(
+    SharedPreferences? prefs,
+  ) async {
+    String? raw;
+    try {
+      raw = await _storage.read(key: _webVaultKey);
+    } catch (_) {}
+    raw ??= prefs?.getString(_webVaultKey);
+    return _decodeVault(raw);
+  }
+
+  static Future<void> _writeWebVault(
+    SharedPreferences? prefs,
+    Map<String, CredentialEntry> vault,
+  ) async {
+    final raw = _encodeVault(vault);
+    try {
+      await _storage.write(key: _webVaultKey, value: raw);
+    } catch (_) {}
+    try {
+      await prefs?.setString(_webVaultKey, raw);
+    } catch (_) {}
+  }
+
   static Future<Map<String, CredentialEntry>> _readVault(
     SharedPreferences? prefs,
   ) async {
@@ -193,25 +295,7 @@ class CredentialStore {
       raw = await _storage.read(key: _vaultKey);
     } catch (_) {}
     raw ??= prefs?.getString(_vaultKey);
-    final vault = <String, CredentialEntry>{};
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          for (final entry in decoded.entries) {
-            final value = entry.value;
-            if (value is Map) {
-              final parsed = CredentialEntry.fromJson(
-                value.map((key, val) => MapEntry(key.toString(), val)),
-              );
-              if (parsed.password.isNotEmpty) {
-                vault[entry.key.toString()] = parsed;
-              }
-            }
-          }
-        }
-      } catch (_) {}
-    }
+    final vault = _decodeVault(raw);
     if (vault.isNotEmpty) return vault;
 
     String? password;
@@ -239,9 +323,7 @@ class CredentialStore {
     SharedPreferences? prefs,
     Map<String, CredentialEntry> vault,
   ) async {
-    final raw = jsonEncode({
-      for (final entry in vault.entries) entry.key: entry.value.toJson(),
-    });
+    final raw = _encodeVault(vault);
     try {
       await _storage.write(key: _vaultKey, value: raw);
       if (kIsWeb) {
@@ -297,4 +379,29 @@ class CredentialStore {
       vault.remove(oldestKey);
     }
   }
+
+  static Map<String, CredentialEntry> _decodeVault(String? raw) {
+    final vault = <String, CredentialEntry>{};
+    if (raw == null || raw.isEmpty) return vault;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        for (final entry in decoded.entries) {
+          final value = entry.value;
+          if (value is! Map) continue;
+          final parsed = CredentialEntry.fromJson(
+            value.map((key, val) => MapEntry(key.toString(), val)),
+          );
+          if (parsed.password.isNotEmpty) {
+            vault[entry.key.toString()] = parsed;
+          }
+        }
+      }
+    } catch (_) {}
+    return vault;
+  }
+
+  static String _encodeVault(Map<String, CredentialEntry> vault) => jsonEncode({
+    for (final entry in vault.entries) entry.key: entry.value.toJson(),
+  });
 }

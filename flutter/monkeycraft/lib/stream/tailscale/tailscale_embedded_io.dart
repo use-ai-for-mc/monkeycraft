@@ -7,17 +7,15 @@ import 'package:monkeycraft_client/stream/transport/connection_transport.dart';
 import 'tailscale_models.dart';
 
 class TailscaleEmbeddedClient implements TailscaleClient {
-  TailscaleEmbeddedClient({
-    MethodChannel? methods,
-    EventChannel? events,
-  }) : _methods = methods ?? const MethodChannel('monkeycraft/tailscale'),
-       _events = events ?? const EventChannel('monkeycraft/tailscale_events');
+  TailscaleEmbeddedClient({MethodChannel? methods, EventChannel? events})
+    : _methods = methods ?? const MethodChannel('monkeycraft/tailscale'),
+      _events = events ?? const EventChannel('monkeycraft/tailscale_events');
 
   final MethodChannel _methods;
   final EventChannel _events;
 
   @override
-  bool get isSupported => Platform.isIOS;
+  bool get isSupported => Platform.isIOS || Platform.isAndroid;
 
   @override
   TransportFactory? get gameTransportFactory => null;
@@ -40,7 +38,7 @@ class TailscaleEmbeddedClient implements TailscaleClient {
         available: false,
         libtailscaleLinked: false,
         statusJsonAvailable: false,
-        reason: 'embedded Tailscale is iOS-only in this round',
+        reason: 'embedded Tailscale is unavailable on this platform',
       );
     }
     final raw = await _methods.invokeMethod<Map<dynamic, dynamic>>(
@@ -106,7 +104,9 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     int port = 9600,
   }) async {
     if (!isSupported) {
-      throw UnsupportedError('embedded Tailscale is iOS-only in this round');
+      throw UnsupportedError(
+        'embedded Tailscale is unavailable on this platform',
+      );
     }
     final raw = await _methods.invokeMethod<Map<dynamic, dynamic>>(
       'openBridge',

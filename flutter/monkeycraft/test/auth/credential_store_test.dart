@@ -8,6 +8,42 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('CredentialStore', () {
+    test(
+      'web vault snapshots are isolated by normalized target and key id',
+      () {
+        final vault = <String, CredentialEntry>{
+          CredentialStore.webCredentialSlot(
+            'https://ALPHA.example:9600/',
+            'key-a',
+          ): const CredentialEntry(
+            password: 'alpha',
+          ),
+          CredentialStore.webCredentialSlot('wss://beta.example:9600', 'key-a'):
+              const CredentialEntry(password: 'beta'),
+          CredentialStore.webCredentialSlot(
+            'wss://alpha.example:9600',
+            'legacy',
+          ): const CredentialEntry(
+            password: 'alpha-legacy',
+          ),
+        };
+
+        final alpha = CredentialStore.webSnapshot(
+          vault,
+          ' wss://alpha.example:9600 ',
+        );
+        final beta = CredentialStore.webSnapshot(
+          vault,
+          'wss://beta.example:9600',
+        );
+
+        expect(alpha.lookup('key-a'), 'alpha');
+        expect(alpha.lookup(null), 'alpha-legacy');
+        expect(beta.lookup('key-a'), 'beta');
+        expect(beta.lookup(null), isNull);
+      },
+    );
+
     test('load returns defaults when nothing is stored', () async {
       SharedPreferences.setMockInitialValues({});
       FlutterSecureStorage.setMockInitialValues({});
@@ -33,23 +69,28 @@ void main() {
       expect(credentials.password, 'legacy-secret');
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('password'), isNull,
-          reason: 'legacy copy is removed after migration');
+      expect(
+        prefs.getString('password'),
+        isNull,
+        reason: 'legacy copy is removed after migration',
+      );
       expect(
         await const FlutterSecureStorage().read(key: 'password'),
         'legacy-secret',
       );
     });
 
-    test('load prefers the secure-storage password over a stale copy',
-        () async {
-      SharedPreferences.setMockInitialValues({'password': 'stale'});
-      FlutterSecureStorage.setMockInitialValues({'password': 'current'});
+    test(
+      'load prefers the secure-storage password over a stale copy',
+      () async {
+        SharedPreferences.setMockInitialValues({'password': 'stale'});
+        FlutterSecureStorage.setMockInitialValues({'password': 'current'});
 
-      final credentials = await CredentialStore.load();
+        final credentials = await CredentialStore.load();
 
-      expect(credentials.password, 'current');
-    });
+        expect(credentials.password, 'current');
+      },
+    );
 
     test('save writes the password only to secure storage', () async {
       SharedPreferences.setMockInitialValues({'password': 'legacy-secret'});

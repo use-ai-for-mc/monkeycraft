@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'package:monkeycraft_client/platform/browser_input.dart';
 import 'package:monkeycraft_client/stream/look_delta_coalescer.dart';
 import 'package:monkeycraft_client/stream/pointer_kind.dart';
 
@@ -19,6 +20,8 @@ class LookPad extends StatefulWidget {
   final PointerKindSender? onPointerKind;
   final Duration longPressDelay;
   final double moveThreshold;
+  final BrowserPointerLockController? pointerLock;
+  final bool enablePointerLock;
 
   const LookPad({
     super.key,
@@ -31,6 +34,8 @@ class LookPad extends StatefulWidget {
     this.onPointerKind,
     this.longPressDelay = const Duration(milliseconds: 200),
     this.moveThreshold = 800,
+    this.pointerLock,
+    this.enablePointerLock = false,
   });
 
   @override
@@ -49,6 +54,22 @@ class _LookPadState extends State<LookPad> {
   bool _longPressTriggered = false;
   bool _clickCancelled = false;
   bool _lookStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.pointerLock?.setEnabled(widget.enablePointerLock);
+    widget.pointerLock?.setMoveHandler(_handlePointerLockMove);
+  }
+
+  void _handlePointerLockMove(double dx, double dy) {
+    if (!mounted || !widget.enablePointerLock) return;
+    _startCoalescer();
+    final yaw = dx * widget.sensitivityX;
+    final pitchRaw = dy * widget.sensitivityY;
+    final pitch = widget.invertY ? pitchRaw : -pitchRaw;
+    _coalescer?.add(yaw: yaw, pitch: pitch);
+  }
 
   void _startCoalescer() {
     _coalescer ??= LookDeltaCoalescer(onFlush: widget.onDelta);
@@ -78,9 +99,22 @@ class _LookPadState extends State<LookPad> {
 
   @override
   void dispose() {
+    widget.pointerLock?.setMoveHandler(null);
+    widget.pointerLock?.release();
     _longPressTimer?.cancel();
     _stopCoalescer();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant LookPad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    widget.pointerLock?.setEnabled(widget.enablePointerLock);
+    if (oldWidget.pointerLock != widget.pointerLock) {
+      oldWidget.pointerLock?.setMoveHandler(null);
+      widget.pointerLock?.setMoveHandler(_handlePointerLockMove);
+    }
+    if (!widget.enablePointerLock) widget.pointerLock?.release();
   }
 
   @override
@@ -98,6 +132,9 @@ class _LookPadState extends State<LookPad> {
           _last = event.localPosition;
           _downPos = event.localPosition;
           _mouseLike = isMouseLike(event.kind);
+          if (_mouseLike && widget.enablePointerLock) {
+            widget.pointerLock?.request();
+          }
           _downButton = mouseButtonIndex(event.buttons) ?? 0;
           _longPressTriggered = false;
           _clickCancelled = false;
@@ -121,8 +158,10 @@ class _LookPadState extends State<LookPad> {
           final down = _downPos;
           if (last == null || down == null) return;
           final current = event.localPosition;
-          final dx = current.dx - last.dx;
-          final dy = current.dy - last.dy;
+          final pointerLocked =
+              _mouseLike && (widget.pointerLock?.isLocked ?? false);
+          final dx = pointerLocked ? event.delta.dx : current.dx - last.dx;
+          final dy = pointerLocked ? event.delta.dy : current.dy - last.dy;
           _last = current;
 
           final moveSq =
@@ -134,7 +173,9 @@ class _LookPadState extends State<LookPad> {
             _cancelClick();
           }
 
-          final shouldLook = _mouseLike ? dragged || _lookStarted : true;
+          final shouldLook =
+              pointerLocked || (_mouseLike ? dragged || _lookStarted : true);
+          if (pointerLocked) return;
           if (shouldLook) {
             _lookStarted = true;
             final yaw = dx * widget.sensitivityX;

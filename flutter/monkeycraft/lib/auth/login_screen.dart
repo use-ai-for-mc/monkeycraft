@@ -17,7 +17,14 @@ import 'package:monkeycraft_client/stream/tailscale/tailscale_embedded.dart';
 import 'package:monkeycraft_client/stream/tailscale/tailscale_login_sheet.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.platformCapabilitiesOverride,
+    this.tailscaleClient,
+  });
+
+  final PlatformCapabilities? platformCapabilitiesOverride;
+  final TailscaleClient? tailscaleClient;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -41,16 +48,35 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   PairingCode? _pairingCode;
   Timer? _clipboardClearTimer;
   String? _copiedPassword;
-  final TailscaleEmbeddedClient _tailscale = TailscaleEmbeddedClient();
+  late final TailscaleClient _tailscale;
+
+  PlatformCapabilities get _platformCapabilities =>
+      widget.platformCapabilitiesOverride ?? platformCapabilities;
 
   @override
   void initState() {
     super.initState();
+    _tailscale = widget.tailscaleClient ?? TailscaleEmbeddedClient();
     WidgetsBinding.instance.addObserver(this);
-    _serverController.addListener(_onFieldsChanged);
-    _passController.addListener(_onFieldsChanged);
+    _serverController.addListener(_onServerChanged);
+    _passController.addListener(_onPasswordChanged);
     _passwordFocus.addListener(_onPasswordFocusChanged);
     _loadCredentials();
+  }
+
+  final _webPasswordAutofill = WebPasswordAutofill('');
+  bool _settingAutofilledPassword = false;
+
+  void _onServerChanged() {
+    if (kIsWeb && _webPasswordAutofill.clearForTarget(_serverController.text)) {
+      _passController.clear();
+    }
+    _onFieldsChanged();
+  }
+
+  void _onPasswordChanged() {
+    if (!_settingAutofilledPassword) _webPasswordAutofill.clear();
+    _onFieldsChanged();
   }
 
   void _onFieldsChanged() {
@@ -98,14 +124,22 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final credentials = await CredentialStore.load();
     if (!mounted) return;
     setState(() {
-      _serverController.text =
-          kIsWeb ? webOriginServer(Uri.base) : credentials.server;
+      final server = kIsWeb
+          ? webInitialServer(Uri.base, credentials.server)
+          : credentials.server;
+      _serverController.text = server;
+      _settingAutofilledPassword = true;
       _passController.text = credentials.password;
+      _settingAutofilledPassword = false;
+      _webPasswordAutofill.clear();
+      if (kIsWeb && credentials.password.isNotEmpty) {
+        _webPasswordAutofill.setTarget(server);
+      }
       _savedTailscaleNodeId = credentials.tailscaleNodeId;
       _rememberCredentials = credentials.rememberCredentials;
       _mode = LoginAuthPolicy.defaultMode(
         hasPassword: credentials.password.isNotEmpty,
-        addressPairingEligible: isPairingEligibleServer(credentials.server),
+        addressPairingEligible: isPairingEligibleServer(server),
       );
     });
   }
@@ -113,7 +147,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   Future<void> _saveCredentials() async {
     await CredentialStore.saveRememberCredentials(_rememberCredentials);
     if (_rememberCredentials) {
-      await CredentialStore.save(_serverController.text, _passController.text);
+      await CredentialStore.save(
+        _serverController.text,
+        kIsWeb ? '' : _passController.text,
+      );
     } else {
       await CredentialStore.save(_serverController.text, '');
       await CredentialStore.clearPassword();
@@ -121,8 +158,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _persistPairedPassword(String password) async {
+    _webPasswordAutofill.clear();
     _passController.text = password;
-    if (_rememberCredentials) {
+    if (_rememberCredentials && !kIsWeb) {
       await CredentialStore.save(_serverController.text, password);
     }
   }
@@ -132,10 +170,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool get _addressPairingEligible =>
       isPairingEligibleServer(_serverController.text);
 
-  bool get _showPasswordField => LoginAuthPolicy.showPasswordField(
-    mode: _mode,
-    hasPassword: _hasPassword,
-  );
+  bool get _showPasswordField =>
+      LoginAuthPolicy.showPasswordField(mode: _mode, hasPassword: _hasPassword);
 
   void _cancelConnect() {
     _connectAttempt += 1;
@@ -161,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _exitApp() {
-    if (platformCapabilities.isAndroid) {
+    if (_platformCapabilities.isAndroid) {
       SystemNavigator.pop();
       return;
     }
@@ -193,7 +229,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
-  Widget _connectButton({required VoidCallback? onPressed, required bool expanded}) {
+  Widget _connectButton({
+    required VoidCallback? onPressed,
+    required bool expanded,
+  }) {
     final child = _isLoading
         ? const Row(
             mainAxisSize: MainAxisSize.min,
@@ -208,10 +247,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             ],
           )
         : const Text('Connect');
-    final button = ElevatedButton(
-      onPressed: onPressed,
-      child: child,
-    );
+    final button = ElevatedButton(onPressed: onPressed, child: child);
     if (expanded) {
       return SizedBox(width: double.infinity, child: button);
     }
@@ -265,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       hasPassword: password.isNotEmpty,
       tailscalePath: tailscalePath,
     );
-    final snapshot = await CredentialStore.snapshot();
+    final snapshot = await CredentialStore.snapshot(server: target);
     final proxy = StreamProxy(
       transportFactory: tailscalePath ? _tailscale.gameTransportFactory : null,
     );
@@ -304,6 +340,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       if (attempt != _connectAttempt) {
         await proxy.stop();
         return;
+      }
+
+      if (kIsWeb && _rememberCredentials) {
+        await CredentialStore.put(
+          keyId: CredentialStore.legacyKeyId,
+          password: _passController.text,
+          lastServer: target,
+        );
       }
 
       final worldState = await proxy.awaitWorldState(
@@ -350,7 +394,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('This address needs a password. Enter it or scan the QR code.'),
+            content: Text(
+              'This address needs a password. Enter it or scan the QR code.',
+            ),
           ),
         );
       }
@@ -362,9 +408,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         if (e.isInvalidSignature) {
           final keyId = e.keyId;
           if (keyId != null && keyId.isNotEmpty) {
-            await CredentialStore.remove(keyId);
+            await CredentialStore.remove(keyId, server: target);
+            if (kIsWeb) {
+              await CredentialStore.remove(
+                CredentialStore.legacyKeyId,
+                server: target,
+              );
+            }
           } else {
-            await CredentialStore.remove(CredentialStore.legacyKeyId);
+            await CredentialStore.remove(
+              CredentialStore.legacyKeyId,
+              server: target,
+            );
           }
           if (!mounted) return;
           _passController.clear();
@@ -394,7 +449,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         final msg = e is TimeoutException
             ? 'Connection timed out. Check server address and try again.'
             : 'Connection failed: $e';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (attempt == _connectAttempt) {
@@ -445,10 +502,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       _closeBridge();
       if (!mounted) return;
       final detail = e is PlatformException
-          ? [e.code, e.message]
-                .whereType<String>()
-                .where((s) => s.isNotEmpty)
-                .join(': ')
+          ? [
+              e.code,
+              e.message,
+            ].whereType<String>().where((s) => s.isNotEmpty).join(': ')
           : '$e';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Built-in Tailscale failed: $detail')),
@@ -481,8 +538,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _clipboardClearTimer?.cancel();
-    _serverController.removeListener(_onFieldsChanged);
-    _passController.removeListener(_onFieldsChanged);
+    _serverController.removeListener(_onServerChanged);
+    _passController.removeListener(_onPasswordChanged);
     _passwordFocus.removeListener(_onPasswordFocusChanged);
     _serverController.dispose();
     _passController.dispose();
@@ -506,11 +563,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               children: [
                 TextFormField(
                   controller: _serverController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Server address',
-                    hintText: '192.168.0.3:9600 or example.ngrok-free.app',
+                    hintText: kIsWeb
+                        ? 'wss://your-computer.tailnet.ts.net:9600'
+                        : '192.168.0.3:9600 or example.ngrok-free.app',
                   ),
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    return kIsWeb ? webServerError(Uri.base, v) : null;
+                  },
                 ),
                 if (_showPasswordField) ...[
                   const SizedBox(height: 16),
@@ -542,7 +604,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             icon: const Icon(Icons.copy),
                             tooltip: 'Copy password',
                           ),
-                          if (platformCapabilities.supportsQrScanner)
+                          if (_platformCapabilities.supportsQrScanner)
                             IconButton(
                               onPressed: _isLoading ? null : _scanPassword,
                               icon: const Icon(Icons.qr_code_scanner),
@@ -592,7 +654,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       : (value) {
                           setState(() => _rememberCredentials = value ?? true);
                         },
-                  title: const Text('Remember password on this phone'),
+                  title: const Text(
+                    kIsWeb
+                        ? 'Remember password in this browser'
+                        : 'Remember password on this phone',
+                  ),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
                 if (_pairingCode != null) ...[
@@ -604,7 +670,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'On the computer, Allow this phone',
+                            kIsWeb
+                                ? 'On the computer, allow this browser'
+                                : 'On the computer, Allow this phone',
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 8),
@@ -617,13 +685,15 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (platformCapabilities.isAndroid)
+                if (_platformCapabilities.isAndroid)
                   Row(
                     children: [
                       Expanded(
                         child: _connectButton(
                           expanded: false,
-                          onPressed: _isLoading ? _cancelConnect : () => _connect(),
+                          onPressed: _isLoading
+                              ? _cancelConnect
+                              : () => _connect(),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -643,7 +713,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     expanded: isPortrait,
                     onPressed: _isLoading ? _cancelConnect : () => _connect(),
                   ),
-                if (platformCapabilities.isIOS) ...[
+                if (_platformCapabilities.isIOS ||
+                    _platformCapabilities.isAndroid) ...[
                   const SizedBox(height: 24),
                   const Divider(),
                   const SizedBox(height: 8),

@@ -99,7 +99,11 @@ void main() {
       resolution: const StreamResolution(640, 360),
     );
 
-    controller.handleAccessUnit(Uint8List.fromList([1]), frameWidth: 320, frameHeight: 180);
+    controller.handleAccessUnit(
+      Uint8List.fromList([1]),
+      frameWidth: 320,
+      frameHeight: 180,
+    );
     expect(decoder.pushed, isEmpty);
 
     controller.handleAccessUnit(Uint8List.fromList([2]));
@@ -107,4 +111,57 @@ void main() {
 
     controller.dispose();
   });
+
+  test('browser decodes server sizes across a resize without resetting', () {
+    final decoder = _FakeDecoder();
+    final controller = SessionController(
+      proxy: StreamProxy(),
+      settingsStore: StreamSettingsStore(),
+      browserSession: true,
+    )..decoder = decoder;
+    controller.setMode(
+      ClientMode.streaming,
+      resolution: const StreamResolution(640, 360),
+    );
+    controller.handleAccessUnit(
+      Uint8List.fromList([1]),
+      frameWidth: 320,
+      frameHeight: 180,
+    );
+    controller.syncStatus(resolution: const StreamResolution(360, 640));
+    controller.handleAccessUnit(Uint8List.fromList([2]));
+    controller.handleAccessUnit(
+      Uint8List.fromList([3]),
+      frameWidth: 360,
+      frameHeight: 640,
+    );
+    expect(decoder.pushed.map((data) => data.single), [1, 2, 3]);
+    expect(decoder.resetCount, 0);
+    expect(controller.state.resolutionMismatch, isFalse);
+    controller.dispose();
+  });
+
+  test(
+    'hidden browser stops video and resumes without accepting stale work',
+    () {
+      final decoder = _FakeDecoder();
+      final controller = SessionController(
+        proxy: StreamProxy(),
+        settingsStore: StreamSettingsStore(),
+        browserSession: true,
+      )..decoder = decoder;
+      controller.setMode(
+        ClientMode.streaming,
+        resolution: const StreamResolution(640, 360),
+      );
+      controller.setForeground(false);
+      controller.handleAccessUnit(Uint8List.fromList([1]));
+      expect(decoder.pushed, isEmpty);
+      controller.setForeground(true);
+      controller.handleAccessUnit(Uint8List.fromList([2]));
+      controller.dispose();
+      controller.handleAccessUnit(Uint8List.fromList([3]));
+      expect(decoder.pushed.map((data) => data.single), [2]);
+    },
+  );
 }

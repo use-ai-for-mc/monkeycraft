@@ -5,9 +5,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:monkeycraft_client/audio/mcparks_v1_service.dart';
 import 'package:monkeycraft_client/main.dart';
 import 'package:monkeycraft_client/notifications/banner_style_settings_tile.dart';
+import 'package:monkeycraft_client/notifications/exact_alarm_settings_tile.dart';
 import 'package:monkeycraft_client/platform/platform_capabilities.dart';
 import 'package:monkeycraft_client/shared/app_settings.dart';
 import 'package:monkeycraft_client/stream/stream_settings.dart';
+import 'package:monkeycraft_client/stream/widgets/browser_reminder_settings.dart';
 
 class StreamSettingsResult {
   const StreamSettingsResult.settings(this.settings) : logout = false;
@@ -20,11 +22,13 @@ class StreamSettingsResult {
 class StreamSettingsScreen extends StatefulWidget {
   final StreamSettings initial;
   final bool dataSaverSupported;
+  final Future<void> Function()? onExactAlarmGranted;
 
   const StreamSettingsScreen({
     super.key,
     required this.initial,
     this.dataSaverSupported = true,
+    this.onExactAlarmGranted,
   });
 
   @override
@@ -91,7 +95,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Phone Name'),
+        title: Text(platformCapabilities.isWeb ? 'Client Name' : 'Phone Name'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +106,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
               maxLength: 40,
               decoration: InputDecoration(
                 hintText: appSettings.deviceModel.isEmpty
-                    ? 'e.g. My iPhone'
+                    ? platformCapabilities.isWeb
+                          ? 'e.g. My browser'
+                          : 'e.g. My iPhone'
                     : 'Default: ${appSettings.deviceModel}',
               ),
               onSubmitted: (_) => Navigator.pop(dialogContext, true),
@@ -140,8 +146,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
         title: const Text('Stream Settings'),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(StreamSettingsResult.settings(_settings)),
+            onPressed: () => Navigator.of(
+              context,
+            ).pop(StreamSettingsResult.settings(_settings)),
             child: const Text('Apply'),
           ),
         ],
@@ -152,8 +159,10 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Log out'),
-            subtitle: const Text(
-              'Forget the saved password on this phone. Disconnecting does not log out.',
+            subtitle: Text(
+              platformCapabilities.isWeb
+                  ? 'Forget the saved password for this server in this browser. Disconnecting does not log out.'
+                  : 'Forget the saved password on this phone. Disconnecting does not log out.',
             ),
             trailing: const Icon(Icons.logout),
             onTap: () async {
@@ -161,8 +170,10 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Log out?'),
-                  content: const Text(
-                    'This forgets the saved MonkeyCraft password on this phone. You will need to pair or enter it again next time. Disconnecting without logging out keeps the password if Remember password is on.',
+                  content: Text(
+                    platformCapabilities.isWeb
+                        ? 'This forgets the saved password for this server in this browser. You will need to pair or enter it again next time. Disconnecting without logging out keeps the password if Remember password is on.'
+                        : 'This forgets the saved MonkeyCraft password on this phone. You will need to pair or enter it again next time. Disconnecting without logging out keeps the password if Remember password is on.',
                   ),
                   actions: [
                     TextButton(
@@ -184,7 +195,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Phone Name'),
+            title: Text(
+              platformCapabilities.isWeb ? 'Client Name' : 'Phone Name',
+            ),
             subtitle: Text(
               appSettings.phoneNameOverride == null
                   ? '${appSettings.phoneName} (device default)'
@@ -260,14 +273,8 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             const SizedBox(height: 8),
             SegmentedButton<ControlLayout>(
               segments: const [
-                ButtonSegment(
-                  value: ControlLayout.auto,
-                  label: Text('Auto'),
-                ),
-                ButtonSegment(
-                  value: ControlLayout.touch,
-                  label: Text('Touch'),
-                ),
+                ButtonSegment(value: ControlLayout.auto, label: Text('Auto')),
+                ButtonSegment(value: ControlLayout.touch, label: Text('Touch')),
                 ButtonSegment(
                   value: ControlLayout.mouseKeyboard,
                   label: Text('Mouse'),
@@ -329,121 +336,145 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             ),
             value: _settings.dataSaver,
             onChanged: widget.dataSaverSupported
-                ? (v) =>
-                      setState(() => _settings = _settings.copyWith(dataSaver: v))
+                ? (v) => setState(
+                    () => _settings = _settings.copyWith(dataSaver: v),
+                  )
                 : null,
           ),
-          if (platformCapabilities.supportsLocalFiles) const Divider(height: 32),
           if (platformCapabilities.supportsLocalFiles)
-          ListTile(
-            title: const Text('Chat Background'),
-            subtitle: Text(
-              appSettings.chatBackgroundPath != null ? 'Custom image' : 'Default',
-            ),
-            trailing: const Icon(Icons.image),
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                builder: (ctx) => SafeArea(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.photo_library),
-                        title: const Text('Choose Image'),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          final picker = ImagePicker();
-                          final picked = await picker.pickImage(
-                            source: ImageSource.gallery,
-                          );
-                          if (picked != null) {
-                            await appSettings.setChatBackground(picked.path);
-                            setState(() {});
-                          }
-                        },
-                      ),
-                      if (appSettings.chatBackgroundPath != null)
+            const Divider(height: 32),
+          if (platformCapabilities.supportsLocalFiles)
+            ListTile(
+              title: const Text('Chat Background'),
+              subtitle: Text(
+                appSettings.chatBackgroundPath != null
+                    ? 'Custom image'
+                    : 'Default',
+              ),
+              trailing: const Icon(Icons.image),
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         ListTile(
-                          leading: const Icon(Icons.delete_outline),
-                          title: const Text('Reset to Default'),
+                          leading: const Icon(Icons.photo_library),
+                          title: const Text('Choose Image'),
                           onTap: () async {
                             Navigator.pop(ctx);
-                            await appSettings.clearChatBackground();
-                            setState(() {});
+                            final picker = ImagePicker();
+                            final picked = await picker.pickImage(
+                              source: ImageSource.gallery,
+                            );
+                            if (picked != null) {
+                              await appSettings.setChatBackground(picked.path);
+                              setState(() {});
+                            }
                           },
                         ),
-                    ],
+                        if (appSettings.chatBackgroundPath != null)
+                          ListTile(
+                            leading: const Icon(Icons.delete_outline),
+                            title: const Text('Reset to Default'),
+                            onTap: () async {
+                              Navigator.pop(ctx);
+                              await appSettings.clearChatBackground();
+                              setState(() {});
+                            },
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
           if (openAudioMcService.isActive) const Divider(height: 32),
           if (openAudioMcService.isActive)
             ListTile(
-              title: const Text('Audio Connection'),
+              title: Text(
+                platformCapabilities.isWeb
+                    ? 'OpenAudioMc opening requested in a new tab'
+                    : 'Audio Connection',
+              ),
               subtitle: Text(
-                openAudioMcService.isConnected
-                    ? 'Connected to OpenAudioMc'
-                    : 'Connecting...',
+                platformCapabilities.isWeb
+                    ? 'The separate page manages its connection and playback. Allow popups if it did not appear.'
+                    : (openAudioMcService.isConnected
+                          ? 'Connected to OpenAudioMc'
+                          : 'Connecting...'),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () async {
-                      await openAudioMcService.disconnect();
-                      setState(() {});
-                    },
-                    child: Text(
-                      openAudioMcService.isConnected ? 'Disconnect' : 'Cancel',
+              trailing: platformCapabilities.isWeb
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            await openAudioMcService.disconnect();
+                            setState(() {});
+                          },
+                          child: Text(
+                            openAudioMcService.isConnected
+                                ? 'Disconnect'
+                                : 'Cancel',
+                          ),
+                        ),
+                        if (openAudioMcService.isConnected)
+                          TextButton(
+                            onPressed: () async {
+                              await openAudioMcService.reconnect();
+                              setState(() {});
+                            },
+                            child: const Text('Refresh'),
+                          ),
+                      ],
                     ),
-                  ),
-                  if (openAudioMcService.isConnected)
-                    TextButton(
-                      onPressed: () async {
-                        await openAudioMcService.reconnect();
-                        setState(() {});
-                      },
-                      child: const Text('Refresh'),
-                    ),
-                ],
-              ),
             ),
           if (mcParksV1Service.isActive) const Divider(height: 32),
           if (mcParksV1Service.isActive)
             ListTile(
-              title: const Text('Audio Connection'),
+              title: Text(
+                platformCapabilities.isWeb
+                    ? 'MCParks opening requested in a new tab'
+                    : 'Audio Connection',
+              ),
               subtitle: Text(
-                mcParksV1Service.isConnected
-                    ? 'Connected to MCParks'
-                    : 'Connecting...',
+                platformCapabilities.isWeb
+                    ? 'The separate page manages its connection, playback, and volume. Allow popups if it did not appear.'
+                    : (mcParksV1Service.isConnected
+                          ? 'Connected to MCParks'
+                          : 'Connecting...'),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () async {
-                      await mcParksV1Service.disconnect();
-                      setState(() {});
-                    },
-                    child: Text(
-                      mcParksV1Service.isConnected ? 'Disconnect' : 'Cancel',
+              trailing: platformCapabilities.isWeb
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            await mcParksV1Service.disconnect();
+                            setState(() {});
+                          },
+                          child: Text(
+                            mcParksV1Service.isConnected
+                                ? 'Disconnect'
+                                : 'Cancel',
+                          ),
+                        ),
+                        if (mcParksV1Service.isConnected)
+                          TextButton(
+                            onPressed: () async {
+                              await mcParksV1Service.reconnect();
+                              setState(() {});
+                            },
+                            child: const Text('Refresh'),
+                          ),
+                      ],
                     ),
-                  ),
-                  if (mcParksV1Service.isConnected)
-                    TextButton(
-                      onPressed: () async {
-                        await mcParksV1Service.reconnect();
-                        setState(() {});
-                      },
-                      child: const Text('Refresh'),
-                    ),
-                ],
-              ),
             ),
-          if (mcParksV1Service.isActive)
+          if (mcParksV1Service.isActive && !platformCapabilities.isWeb)
             ListenableBuilder(
               listenable: appSettings,
               builder: (context, _) {
@@ -463,16 +494,16 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
                   ),
                   trailing: SizedBox(
                     width: 48,
-                    child: Text(
-                      '$pct%',
-                      textAlign: TextAlign.right,
-                    ),
+                    child: Text('$pct%', textAlign: TextAlign.right),
                   ),
                 );
               },
             ),
-          if (mcParksV1Service.isActive) ..._buildMcParksTrackList(),
+          if (mcParksV1Service.isActive && !platformCapabilities.isWeb)
+            ..._buildMcParksTrackList(),
           const BannerStyleSettingsTile(),
+          if (platformCapabilities.isWeb) const BrowserReminderSettings(),
+          ExactAlarmSettingsTile(onGranted: widget.onExactAlarmGranted),
         ],
       ),
     );

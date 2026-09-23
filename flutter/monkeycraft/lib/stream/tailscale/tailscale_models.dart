@@ -25,12 +25,14 @@ class TailscalePeer {
     required this.hostName,
     required this.online,
     this.dnsName,
+    this.tailscaleIPs = const [],
   });
 
   final String nodeId;
   final String hostName;
   final bool online;
   final String? dnsName;
+  final List<String> tailscaleIPs;
 
   factory TailscalePeer.fromMap(Map<dynamic, dynamic> map) {
     String? str(Object? value) {
@@ -44,6 +46,12 @@ class TailscalePeer {
       hostName: str(map['hostName']) ?? '',
       online: map['online'] == true,
       dnsName: str(map['dnsName']),
+      tailscaleIPs: map['tailscaleIPs'] is Iterable
+          ? (map['tailscaleIPs'] as Iterable)
+                .map(str)
+                .whereType<String>()
+                .toList(growable: false)
+          : const [],
     );
   }
 
@@ -54,6 +62,13 @@ class TailscalePeer {
       return dns.endsWith('.') ? dns.substring(0, dns.length - 1) : dns;
     }
     return nodeId;
+  }
+
+  String? get addressSummary {
+    if (tailscaleIPs.isEmpty) return null;
+    final ipv4 = tailscaleIPs.where((ip) => !ip.contains(':'));
+    final ipv6 = tailscaleIPs.where((ip) => ip.contains(':'));
+    return [...ipv4, ...ipv6].join(' · ');
   }
 }
 

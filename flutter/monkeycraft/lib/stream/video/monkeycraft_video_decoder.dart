@@ -7,6 +7,8 @@ class VideoDecoderStats {
   final int decoderErrors;
   final int keyframeRequests;
   final int decodeQueueSize;
+  final int displayWidth;
+  final int displayHeight;
 
   const VideoDecoderStats({
     this.receivedAccessUnits = 0,
@@ -15,6 +17,8 @@ class VideoDecoderStats {
     this.decoderErrors = 0,
     this.keyframeRequests = 0,
     this.decodeQueueSize = 0,
+    this.displayWidth = 0,
+    this.displayHeight = 0,
   });
 }
 

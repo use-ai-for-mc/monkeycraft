@@ -1,42 +1,134 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:live_activities/live_activities.dart';
 
-/// The ride countdown. On iOS this is an ActivityKit Live Activity; on Android
-/// it is an ongoing chronometer notification posted through the shared
-/// `monkeycraft/notifications` channel. Same public API on both platforms.
+abstract class LiveActivityBackend {
+  Future<bool> initialize(String appGroupId);
+  Future<void> clear();
+  Future<void> createOrUpdate(String id, Map<String, dynamic> payload);
+  Future<void> update(String id, Map<String, dynamic> payload);
+  Future<void> end(String id);
+}
+
+class _IosLiveActivityBackend implements LiveActivityBackend {
+  _IosLiveActivityBackend(this._activities);
+
+  final LiveActivities _activities;
+
+  @override
+  Future<bool> initialize(String appGroupId) async {
+    if (!await _activities.areActivitiesEnabled()) return false;
+    await _activities.init(appGroupId: appGroupId);
+    return true;
+  }
+
+  @override
+  Future<void> clear() => _activities.endAllActivities();
+
+  @override
+  Future<void> createOrUpdate(String id, Map<String, dynamic> payload) {
+    return _activities.createOrUpdateActivity(
+      id,
+      payload,
+      removeWhenAppIsKilled: true,
+    );
+  }
+
+  @override
+  Future<void> update(String id, Map<String, dynamic> payload) {
+    return _activities.updateActivity(id, payload);
+  }
+
+  @override
+  Future<void> end(String id) => _activities.endActivity(id);
+}
+
+class _AndroidLiveActivityBackend implements LiveActivityBackend {
+  _AndroidLiveActivityBackend(this._channel);
+
+  final MethodChannel _channel;
+
+  @override
+  Future<bool> initialize(String appGroupId) async => true;
+
+  @override
+  Future<void> clear() => _channel.invokeMethod('cancelCountdown');
+
+  @override
+  Future<void> createOrUpdate(String id, Map<String, dynamic> payload) {
+    return _channel.invokeMethod('startCountdown', payload);
+  }
+
+  @override
+  Future<void> update(String id, Map<String, dynamic> payload) {
+    return _channel.invokeMethod('updateCountdown', payload);
+  }
+
+  @override
+  Future<void> end(String id) => _channel.invokeMethod('cancelCountdown');
+}
+
+class _UnavailableLiveActivityBackend implements LiveActivityBackend {
+  @override
+  Future<bool> initialize(String appGroupId) async => false;
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<void> createOrUpdate(String id, Map<String, dynamic> payload) async {}
+
+  @override
+  Future<void> update(String id, Map<String, dynamic> payload) async {}
+
+  @override
+  Future<void> end(String id) async {}
+}
+
 class LiveActivityService {
   static const String _appGroupId = 'group.com.chenweikeng.monkeycraft';
   static const String _timedCountdownActivityId = 'timed_countdown';
-  static const MethodChannel _androidChannel =
-      MethodChannel('monkeycraft/notifications');
+  static const MethodChannel _androidChannel = MethodChannel(
+    'monkeycraft/notifications',
+  );
 
-  final LiveActivities _liveActivities = LiveActivities();
+  LiveActivityService({LiveActivityBackend? backend, DateTime Function()? now})
+    : _backend = backend ?? _defaultBackend(),
+      _now = now ?? DateTime.now;
+
+  final LiveActivityBackend _backend;
+  final DateTime Function() _now;
   bool _initialized = false;
-  int? _currentFireAtEpochMs;
+  String? _currentSignature;
+  Future<void> _operations = Future<void>.value();
+  Future<void>? _initializing;
 
-  Future<void> init() async {
-    if (Platform.isIOS) {
-      final enabled = await _liveActivities.areActivitiesEnabled();
-      if (!enabled) return;
-      await _liveActivities.init(appGroupId: _appGroupId);
-      // Clear a countdown orphaned by a previous instance (duplicate-countdown fix).
+  static LiveActivityBackend _defaultBackend() {
+    if (Platform.isIOS) return _IosLiveActivityBackend(LiveActivities());
+    if (Platform.isAndroid) return _AndroidLiveActivityBackend(_androidChannel);
+    return _UnavailableLiveActivityBackend();
+  }
+
+  Future<void> init() {
+    if (_initialized) return Future.value();
+    final pending = _initializing;
+    if (pending != null) return pending;
+    final initializing = _enqueue(() async {
       try {
-        await _liveActivities.endAllActivities();
-      } catch (e) {
-        debugPrint('Live activity cleanup on init failed: $e');
+        if (!await _backend.initialize(_appGroupId)) return;
+        await _backend.clear();
+        _initialized = true;
+      } catch (error) {
+        debugPrint('Live activity initialization failed: $error');
       }
-      _initialized = true;
-    } else if (Platform.isAndroid) {
-      // Same anti-duplicate cleanup: drop any stale countdown notification.
-      try {
-        await _androidChannel.invokeMethod('cancelCountdown');
-      } catch (e) {
-        debugPrint('Countdown cleanup on init failed: $e');
-      }
-      _initialized = true;
-    }
+    });
+    _initializing = initializing;
+    initializing.whenComplete(() {
+      if (identical(_initializing, initializing)) _initializing = null;
+    });
+    return initializing;
   }
 
   Map<String, dynamic> _payload(
@@ -53,38 +145,38 @@ class LiveActivityService {
     };
   }
 
+  String _signature(Map<String, dynamic> payload) {
+    return '${payload['fireAtEpochMs']}\u0000${payload['title']}\u0000${payload['body']}\u0000${payload['countDownText']}';
+  }
+
+  Future<void> _enqueue(Future<void> Function() operation) {
+    final next = _operations.then((_) => operation());
+    _operations = next.catchError((_) {});
+    return next;
+  }
+
   Future<void> startCountdown({
     required int fireAtEpochMs,
     required String title,
     String body = '',
     String countDownText = 'TBA',
-  }) async {
-    if (!_initialized) return;
-    if (fireAtEpochMs <= DateTime.now().millisecondsSinceEpoch) {
-      // The target time has already passed — never post (or re-post) a
-      // chronometer that would tick into negative values. The server can
-      // keep sending TIMED_STATUS updates with the same past fireAt; just
-      // ensure any stale countdown is cleared.
-      await cancel();
-      return;
-    }
-    if (_currentFireAtEpochMs == fireAtEpochMs) return;
-    _currentFireAtEpochMs = fireAtEpochMs;
-
+  }) {
     final payload = _payload(fireAtEpochMs, title, body, countDownText);
-    try {
-      if (Platform.isIOS) {
-        await _liveActivities.createOrUpdateActivity(
-          _timedCountdownActivityId,
-          payload,
-          removeWhenAppIsKilled: true,
-        );
-      } else if (Platform.isAndroid) {
-        await _androidChannel.invokeMethod('startCountdown', payload);
+    return _enqueue(() async {
+      if (!_initialized) return;
+      if (fireAtEpochMs <= _now().millisecondsSinceEpoch) {
+        await _cancelNow();
+        return;
       }
-    } catch (e) {
-      debugPrint('Countdown create/update failed: $e');
-    }
+      final signature = _signature(payload);
+      if (_currentSignature == signature) return;
+      try {
+        await _backend.createOrUpdate(_timedCountdownActivityId, payload);
+        _currentSignature = signature;
+      } catch (error) {
+        debugPrint('Countdown create/update failed: $error');
+      }
+    });
   }
 
   Future<void> updateCountdown({
@@ -92,40 +184,40 @@ class LiveActivityService {
     required String title,
     String body = '',
     String countDownText = 'TBA',
-  }) async {
-    if (!_initialized) return;
-    if (fireAtEpochMs <= DateTime.now().millisecondsSinceEpoch) {
-      await cancel();
-      return;
-    }
-
+  }) {
     final payload = _payload(fireAtEpochMs, title, body, countDownText);
-    try {
-      if (Platform.isIOS) {
-        await _liveActivities.updateActivity(_timedCountdownActivityId, payload);
-      } else if (Platform.isAndroid) {
-        await _androidChannel.invokeMethod('updateCountdown', payload);
+    return _enqueue(() async {
+      if (!_initialized) return;
+      if (fireAtEpochMs <= _now().millisecondsSinceEpoch) {
+        await _cancelNow();
+        return;
       }
-    } catch (e) {
-      debugPrint('Countdown update failed: $e');
+      final signature = _signature(payload);
+      if (_currentSignature == signature) return;
+      try {
+        await _backend.update(_timedCountdownActivityId, payload);
+        _currentSignature = signature;
+      } catch (error) {
+        debugPrint('Countdown update failed: $error');
+      }
+    });
+  }
+
+  Future<void> _cancelNow() async {
+    _currentSignature = null;
+    try {
+      await _backend.end(_timedCountdownActivityId);
+    } catch (error) {
+      debugPrint('Countdown cancel failed: $error');
     }
   }
 
-  Future<void> cancel() async {
-    if (!_initialized) return;
-    _currentFireAtEpochMs = null;
-    try {
-      if (Platform.isIOS) {
-        await _liveActivities.endActivity(_timedCountdownActivityId);
-      } else if (Platform.isAndroid) {
-        await _androidChannel.invokeMethod('cancelCountdown');
-      }
-    } catch (e) {
-      debugPrint('Countdown cancel failed: $e');
-    }
+  Future<void> cancel() {
+    return _enqueue(() async {
+      if (!_initialized) return;
+      await _cancelNow();
+    });
   }
 
-  Future<void> dispose() async {
-    await cancel();
-  }
+  Future<void> dispose() => cancel();
 }

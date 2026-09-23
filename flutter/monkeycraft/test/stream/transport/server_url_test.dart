@@ -22,10 +22,7 @@ void main() {
         parseMonkeycraftServerUrl('ws://host:1'),
         Uri.parse('ws://host:1'),
       );
-      expect(
-        parseMonkeycraftServerUrl('wss://host'),
-        Uri.parse('wss://host'),
-      );
+      expect(parseMonkeycraftServerUrl('wss://host'), Uri.parse('wss://host'));
     });
 
     test('host:port becomes ws', () {
@@ -40,6 +37,27 @@ void main() {
         parseMonkeycraftServerUrl('pc.tailnet.ts.net'),
         Uri.parse('wss://pc.tailnet.ts.net'),
       );
+    });
+
+    test('canonical target normalizes scheme, host case, and a root slash', () {
+      expect(
+        canonicalMonkeycraftServerTarget(' HTTPS://HOST.example:9600/ '),
+        'wss://host.example:9600',
+      );
+      expect(
+        canonicalMonkeycraftServerTarget('wss://host.example:9600'),
+        'wss://host.example:9600',
+      );
+    });
+
+    test('rejects invalid server URLs', () {
+      expect(tryParseMonkeycraftServerUrl('https:///missing-host'), isNull);
+      expect(
+        tryParseMonkeycraftServerUrl('wss://host.example/#fragment'),
+        isNull,
+      );
+      expect(tryParseMonkeycraftServerUrl('wss://user@host.example'), isNull);
+      expect(tryParseMonkeycraftServerUrl('not a URL'), isNull);
     });
   });
 }

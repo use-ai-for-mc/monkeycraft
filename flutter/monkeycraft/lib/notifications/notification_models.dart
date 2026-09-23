@@ -14,6 +14,10 @@ class TimedNotification {
   });
 }
 
+String timedNotificationSignature(TimedNotification notification) {
+  return '${notification.fireAtEpochMs}\u0000${notification.title}\u0000${notification.body}\u0000${notification.sound}\u0000${notification.countDownText}';
+}
+
 class ImmediateNotification {
   final String? body;
 

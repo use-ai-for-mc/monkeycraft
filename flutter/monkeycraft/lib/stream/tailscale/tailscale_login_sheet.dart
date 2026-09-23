@@ -58,7 +58,9 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
   );
   String? _savedNodeId;
   Object? _error;
-  bool _busy = false;
+  bool _busy = true;
+  bool _keepNode = false;
+  bool _cancelRequested = false;
 
   @override
   void initState() {
@@ -78,22 +80,37 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
       setState(() => _diagnostics = diagnostics);
       if (!diagnostics.available) return;
       await widget.client.start();
+      if (!mounted) return;
       final status = await widget.client.status();
       if (!mounted) return;
       setState(() => _snapshot = status);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    if (!_keepNode) _requestCancel();
     super.dispose();
   }
 
-  bool get _showSpinner => _busy || _snapshot.phase == 'starting';
+  void _requestCancel() {
+    if (_cancelRequested) return;
+    _cancelRequested = true;
+    unawaited(widget.client.cancel().catchError((_) {}));
+  }
+
+  bool get _requestInFlight => _busy || _snapshot.phase == 'starting';
+
+  bool get _showSpinner =>
+      _requestInFlight || (_snapshot.needsLogin && !_hasAuthUrl);
+
+  bool get _hasAuthUrl => _snapshot.authUrlHost?.isNotEmpty ?? false;
 
   String get _statusText {
     if (_diagnostics != null && !_diagnostics!.available) {
@@ -103,7 +120,14 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
       case 'starting':
         return 'Starting embedded Tailscale…';
       case 'needsLogin':
-        return 'Sign in on the Tailscale page that just opened. This screen waits until the node is running.';
+        if (_snapshot.errorCode == 'auth_url_open_failed') {
+          return _snapshot.errorMessage ??
+              'Could not open the Tailscale sign-in page. Tap to try again.';
+        }
+        if (!_hasAuthUrl) {
+          return 'Preparing Tailscale sign-in. The sign-in page will open automatically. Keep this screen open while Tailscale responds.';
+        }
+        return 'Finish signing in with Tailscale, then return here. You can open Tailscale login again if the page did not appear.';
       case 'needsApproval':
         return 'This device is waiting for a tailnet admin to approve it. If you signed into the wrong account, sign out and try again.';
       case 'running':
@@ -118,12 +142,14 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
   }
 
   Future<void> _retry() async {
+    if (_busy || (_snapshot.needsLogin && !_hasAuthUrl)) return;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       await widget.client.start();
+      if (!mounted) return;
       await widget.client.loginInteractive();
     } catch (e) {
       if (!mounted) return;
@@ -134,8 +160,8 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
   }
 
   Future<void> _cancelLogin() async {
+    _requestCancel();
     if (mounted) Navigator.of(context).pop();
-    unawaited(widget.client.cancel().catchError((_) {}));
   }
 
   bool get _canLogout {
@@ -171,8 +197,9 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     await CredentialStore.saveTailscaleNodeId(null);
+    if (!mounted) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -185,6 +212,7 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
         _snapshot = const TailscaleEmbeddedSnapshot(phase: 'stopped');
       });
       await widget.client.start();
+      if (!mounted) return;
       await widget.client.loginInteractive();
     } catch (e) {
       if (!mounted) return;
@@ -195,6 +223,7 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
   }
 
   void _selectPeer(TailscalePeer peer) {
+    _keepNode = true;
     Navigator.of(context).pop(
       TailscaleLoginResult(
         nodeId: peer.nodeId,
@@ -232,24 +261,33 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
               const Center(child: CircularProgressIndicator()),
               const SizedBox(height: 16),
             ],
-            if (_snapshot.needsLogin ||
+            if ((_snapshot.needsLogin && _hasAuthUrl) ||
                 _snapshot.phase == 'failed' ||
                 _snapshot.phase == 'stopped')
               ElevatedButton(
-                onPressed: _showSpinner ? null : _retry,
-                child: const Text('Open Tailscale login'),
+                onPressed: _requestInFlight ? null : _retry,
+                child: Text(
+                  _snapshot.needsLogin
+                      ? 'Open Tailscale login again'
+                      : 'Open Tailscale login',
+                ),
               ),
             if (_snapshot.isRunning && peers.isEmpty)
               const Text('No other devices are visible on this tailnet yet.'),
             if (_snapshot.isRunning)
-              ...peers.map(
-                (peer) => ListTile(
+              ...peers.map((peer) {
+                final address = peer.addressSummary;
+                return ListTile(
                   title: Text(peer.displayName),
-                  subtitle: Text(peer.online ? 'Online' : 'Offline'),
+                  subtitle: Text(
+                    address == null
+                        ? (peer.online ? 'Online' : 'Offline')
+                        : '${peer.online ? 'Online' : 'Offline'} · $address',
+                  ),
                   selected: peer.nodeId == _savedNodeId,
                   onTap: () => _selectPeer(peer),
-                ),
-              ),
+                );
+              }),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -260,7 +298,7 @@ class _TailscaleLoginSheetState extends State<TailscaleLoginSheet> {
                 const Spacer(),
                 if (_canLogout)
                   TextButton(
-                    onPressed: _showSpinner ? null : _logout,
+                    onPressed: _requestInFlight ? null : _logout,
                     child: const Text('Sign out and retry'),
                   ),
               ],

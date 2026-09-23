@@ -8,6 +8,7 @@ import 'package:monkeycraft_client/platform/web_frame_keep_alive.dart';
 import 'package:monkeycraft_client/shared/keyboard_prewarmer.dart';
 import 'package:monkeycraft_client/notifications/timed_notification_service.dart';
 import 'package:monkeycraft_client/notifications/banner_style_nudge.dart';
+import 'package:monkeycraft_client/shared/browser_reminder_overlay.dart';
 
 final AppSettings appSettings = AppSettings();
 final OpenAudioMcService openAudioMcService = OpenAudioMcService();
@@ -43,6 +44,8 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'MonkeyCraft',
           debugShowCheckedModeBanner: false,
+          builder: (context, child) =>
+              BrowserReminderOverlay(child: child ?? const SizedBox.shrink()),
           theme: ThemeData(
             fontFamily: appSettings.font.familyName,
             fontFamilyFallback: AppSettings.emojiFallbackFamilies,

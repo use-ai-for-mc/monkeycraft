@@ -1,10 +1,10 @@
-class OpenAudioMcService {
-  static const _urlPrefix = 'https://session.openaudiomc.net/';
+import 'package:monkeycraft_client/audio/openaudiomc_url.dart';
 
+class OpenAudioMcService {
   void Function()? _onFailure;
 
   static bool isOpenAudioMcUrl(String url) {
-    return url.startsWith(_urlPrefix);
+    return isOpenAudioMcSessionUrl(url);
   }
 
   void setInfoPacketHandler(
@@ -14,6 +14,8 @@ class OpenAudioMcService {
   void setOnFailureHandler(void Function() handler) {
     _onFailure = handler;
   }
+
+  void reportState() {}
 
   Future<void> initialize() async {}
 

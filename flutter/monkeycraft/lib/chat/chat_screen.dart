@@ -272,6 +272,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _onConnectionRestored() {
     if (!mounted) return;
+    openAudioMcService.reportState();
     widget.session?.resetReconnectionState();
     setState(() {
       _playerListSupported = widget.proxy.serverSupports('PLAYER_LIST');
@@ -501,11 +502,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.people,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        const Icon(Icons.people, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           players.isEmpty
@@ -648,9 +645,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               if (bgPath != null)
                 Positioned.fill(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.65),
-                  ),
+                  child: Container(color: Colors.black.withValues(alpha: 0.65)),
                 ),
               SafeArea(
                 top: true,

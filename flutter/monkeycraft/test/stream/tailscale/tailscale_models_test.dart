@@ -20,6 +20,7 @@ void main() {
           'hostName': 'desk',
           'online': true,
           'dnsName': 'desk.ts.net.',
+          'tailscaleIPs': ['fd7a:115c:a1e0::2', '100.64.1.2'],
         },
       ],
     });
@@ -27,6 +28,10 @@ void main() {
     expect(running.nodeId, 'n123');
     expect(running.peers.single.displayName, 'desk');
     expect(running.peers.single.online, isTrue);
+    expect(
+      running.peers.single.addressSummary,
+      '100.64.1.2 · fd7a:115c:a1e0::2',
+    );
   });
 
   test('diagnostics decoder', () {

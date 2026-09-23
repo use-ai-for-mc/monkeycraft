@@ -17,41 +17,44 @@ on:
 permissions:
   contents: read
 
+env:
+  FLUTTER_FRAMEWORK_COMMIT: 90673a4eef275d1a6692c26ac80d6d746d41a73a
+
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
-        with:
-          version: 11.26.0
-          run_install: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-      - run: pnpm --dir web install --frozen-lockfile
-      - run: pnpm --dir web typecheck
-      - run: pnpm --dir web lint
-      - run: pnpm --dir web test
-      - run: pnpm --dir web test:pages-provenance
-      - run: pnpm --dir web build:pages
+      - name: Install the pinned Flutter SDK
+        run: |
+          git init "$RUNNER_TEMP/flutter"
+          git -C "$RUNNER_TEMP/flutter" remote add origin https://github.com/flutter/flutter.git
+          git -C "$RUNNER_TEMP/flutter" fetch --depth=1 origin "$FLUTTER_FRAMEWORK_COMMIT"
+          git -C "$RUNNER_TEMP/flutter" checkout --detach "$FLUTTER_FRAMEWORK_COMMIT"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_FRAMEWORK_COMMIT"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version --machine
+      - run: flutter --version --machine
+      - working-directory: flutter/monkeycraft
+        run: flutter pub get --enforce-lockfile
+      - working-directory: flutter/monkeycraft
+        run: flutter analyze
+      - name: Build the Flutter Pages artifact
+        working-directory: flutter/monkeycraft
+        run: tool/build_web_release.sh
         env:
           MONKEYCRAFT_PAGES_BASE: ${{ inputs.pages_base }}
-      - run: pnpm --dir web exec playwright install --with-deps chromium
-      - name: Verify the Pages client
-        run: pnpm --dir web exec playwright test test/browser/pages.spec.ts test/browser/credential.spec.ts test/browser/notifications.spec.ts test/browser/reconnect.spec.ts
-        env:
-          MONKEYCRAFT_PAGES: "1"
-          MONKEYCRAFT_PAGES_BASE: ${{ inputs.pages_base }}
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173${{ inputs.pages_base }}
+          MONKEYCRAFT_FLUTTER_FRAMEWORK_COMMIT: ${{ env.FLUTTER_FRAMEWORK_COMMIT }}
+          GITHUB_WORKFLOW_SHA: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
         with:
-          path: web/dist-pages
+          path: flutter/monkeycraft/build/pages
 
   deploy:
-    if: inputs.publish
+    if: inputs.publish && github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-24.04
     permissions:

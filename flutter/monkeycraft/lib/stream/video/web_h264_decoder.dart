@@ -31,6 +31,11 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
   int _consecutiveDrops = 0;
   String? _codec = defaultCodec;
   String? _error;
+  int _generation = 0;
+  bool _configuring = false;
+  Uint8List? _pendingKey;
+  int _displayWidth = 0;
+  int _displayHeight = 0;
 
   WebH264Decoder({DecodeQueuePolicy policy = const DecodeQueuePolicy()})
     : _policy = policy,
@@ -63,6 +68,8 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
     decoderErrors: _errors,
     keyframeRequests: _keyframeRequests,
     decodeQueueSize: _decoder?.decodeQueueSize ?? 0,
+    displayWidth: _displayWidth,
+    displayHeight: _displayHeight,
   );
 
   @override
@@ -87,6 +94,9 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
   }
 
   Future<void> _createDecoder({String? codec}) async {
+    if (_disposed) return;
+    final generation = ++_generation;
+    _configuring = true;
     _closeDecoder();
     _codec = codec ?? _codec ?? defaultCodec;
     _waitingForKey = true;
@@ -99,17 +109,21 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
 
     try {
       final support = await web.VideoDecoder.isConfigSupported(config).toDart;
+      if (_disposed || generation != _generation) return;
       if (support.supported != true) {
         _error =
             'This browser cannot decode $_codec. Use a recent desktop Chrome or Edge.';
         _ready = false;
+        _configuring = false;
         debugPrint('WebH264Decoder: config not supported: $_codec');
         onChanged?.call();
         return;
       }
     } catch (e) {
+      if (_disposed || generation != _generation) return;
       _error = 'WebCodecs is not available in this browser ($e).';
       _ready = false;
+      _configuring = false;
       debugPrint('WebH264Decoder: isConfigSupported failed: $e');
       onChanged?.call();
       return;
@@ -117,14 +131,27 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
 
     final decoder = web.VideoDecoder(
       web.VideoDecoderInit(
-        output: _onOutput.toJS,
-        error: _onDecoderError.toJS,
+        output: ((web.VideoFrame frame) {
+          if (_disposed || generation != _generation) {
+            frame.close();
+            return;
+          }
+          _onOutput(frame);
+        }).toJS,
+        error: ((web.DOMException error) {
+          if (_disposed || generation != _generation) return;
+          _onDecoderError(error);
+        }).toJS,
       ),
     );
     decoder.configure(config);
     _decoder = decoder;
     _ready = true;
+    _configuring = false;
     _error = null;
+    final pendingKey = _pendingKey;
+    _pendingKey = null;
+    if (pendingKey != null) _processAccessUnit(pendingKey);
     debugPrint('WebH264Decoder: configured $_codec');
   }
 
@@ -133,8 +160,12 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
       final width = frame.displayWidth;
       final height = frame.displayHeight;
       if (width > 0 && height > 0) {
+        final sizeChanged = width != _displayWidth || height != _displayHeight;
+        _displayWidth = width;
+        _displayHeight = height;
         if (_canvas.width != width) _canvas.width = width;
         if (_canvas.height != height) _canvas.height = height;
+        if (sizeChanged) onChanged?.call();
       }
       _ctx?.drawImage(frame, 0, 0);
       _decoded += 1;
@@ -163,7 +194,17 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
   void pushAccessUnit(Uint8List bytes) {
     if (_disposed) return;
     _received += 1;
+    _processAccessUnit(bytes);
+  }
+
+  void _processAccessUnit(Uint8List bytes) {
     if (!_ready || _decoder == null) {
+      if (_configuring && containsIdrNal(bytes)) {
+        if (_pendingKey != null) _dropped += 1;
+        _pendingKey = Uint8List.fromList(bytes);
+      } else {
+        _dropped += 1;
+      }
       if (_error != null) return;
       return;
     }
@@ -175,7 +216,7 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
         debugPrint(
           'WebH264Decoder: SPS codec ${sps.codecString} (was $_codec)',
         );
-        unawaited(_reconfigure(sps.codecString, bytes, isKey: true));
+        unawaited(_reconfigure(sps.codecString, bytes));
         return;
       }
     }
@@ -207,15 +248,9 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
     }
   }
 
-  Future<void> _reconfigure(
-    String codec,
-    Uint8List bytes, {
-    required bool isKey,
-  }) async {
+  Future<void> _reconfigure(String codec, Uint8List bytes) async {
+    _pendingKey = Uint8List.fromList(bytes);
     await _createDecoder(codec: codec);
-    if (_ready && isKey) {
-      _decode(bytes, isKey: true);
-    }
   }
 
   void _decode(Uint8List bytes, {required bool isKey}) {
@@ -266,6 +301,8 @@ class WebH264Decoder implements MonkeycraftVideoDecoder {
   @override
   Future<void> dispose() async {
     _disposed = true;
+    _generation += 1;
+    _pendingKey = null;
     _closeDecoder();
     _ready = false;
   }

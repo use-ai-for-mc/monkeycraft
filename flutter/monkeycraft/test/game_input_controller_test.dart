@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:monkeycraft_client/stream/game_input_controller.dart';
 
 void main() {
@@ -80,7 +81,7 @@ void main() {
     expect(controller.handlePhysicalKey('D', true), isTrue);
     expect(controller.handlePhysicalKey(' ', true), isTrue);
     expect(controller.handlePhysicalKey('ShiftLeft', true), isTrue);
-    expect(controller.handlePhysicalKey('q', true), isFalse);
+    expect(controller.handlePhysicalKey('q', true), isTrue);
     controller.releaseAll();
 
     expect(events, [
@@ -88,10 +89,84 @@ void main() {
       'D:true',
       'SPACE:true',
       'SHIFT:true',
+      'Q:true',
       'W:false',
       'D:false',
       'SPACE:false',
       'SHIFT:false',
+      'Q:false',
+    ]);
+  });
+
+  test('Flutter physical and logical keys preserve release mappings', () {
+    final events = <String>[];
+    final controller = GameInputController((key, pressed) {
+      events.add('$key:$pressed');
+    });
+
+    expect(
+      controller.handleFlutterKey(
+        PhysicalKeyboardKey.shiftLeft,
+        LogicalKeyboardKey.shiftLeft,
+        true,
+      ),
+      isTrue,
+    );
+    expect(
+      controller.handleFlutterKey(
+        PhysicalKeyboardKey.keyQ,
+        LogicalKeyboardKey.keyQ,
+        true,
+      ),
+      isTrue,
+    );
+    expect(
+      controller.handleFlutterKey(
+        PhysicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.arrowRight,
+        true,
+      ),
+      isTrue,
+    );
+    controller.handleFlutterKey(
+      PhysicalKeyboardKey.keyQ,
+      LogicalKeyboardKey.keyQ,
+      false,
+    );
+    controller.releaseAll();
+
+    expect(events, [
+      'SHIFT:true',
+      'Q:true',
+      'RIGHT:true',
+      'Q:false',
+      'SHIFT:false',
+      'RIGHT:false',
+    ]);
+  });
+
+  test('Q E F and arrows are mapped by legacy physical labels', () {
+    final events = <String>[];
+    final controller = GameInputController((key, pressed) {
+      events.add('$key:$pressed');
+    });
+
+    for (final key in ['KeyQ', 'KeyE', 'KeyF', 'ArrowLeft', 'ArrowUp']) {
+      expect(controller.handlePhysicalKey(key, true), isTrue);
+      expect(controller.handlePhysicalKey(key, false), isTrue);
+    }
+
+    expect(events, [
+      'Q:true',
+      'Q:false',
+      'E:true',
+      'E:false',
+      'F:true',
+      'F:false',
+      'LEFT:true',
+      'LEFT:false',
+      'UP:true',
+      'UP:false',
     ]);
   });
 }

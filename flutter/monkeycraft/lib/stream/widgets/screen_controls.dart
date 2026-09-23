@@ -6,7 +6,40 @@ import 'package:monkeycraft_client/stream/widgets/look_pad.dart';
 
 enum ClickMode { left, right, hover }
 
-class ScreenTouchHandler extends StatelessWidget {
+class ScreenHoverThrottle {
+  final Duration interval;
+  DateTime? _lastSent;
+
+  ScreenHoverThrottle({this.interval = const Duration(milliseconds: 34)});
+
+  bool shouldSend(DateTime now) {
+    final lastSent = _lastSent;
+    if (lastSent != null && now.difference(lastSent) < interval) return false;
+    _lastSent = now;
+    return true;
+  }
+}
+
+({double x, double y})? normalizeScreenPoint(
+  Offset globalPos,
+  Rect videoDisplayRect,
+) {
+  if (videoDisplayRect == Rect.zero) return null;
+  final localX = globalPos.dx - videoDisplayRect.left;
+  final localY = globalPos.dy - videoDisplayRect.top;
+  if (localX < 0 ||
+      localX > videoDisplayRect.width ||
+      localY < 0 ||
+      localY > videoDisplayRect.height) {
+    return null;
+  }
+  return (
+    x: (localX / videoDisplayRect.width).clamp(0.0, 1.0),
+    y: (localY / videoDisplayRect.height).clamp(0.0, 1.0),
+  );
+}
+
+class ScreenTouchHandler extends StatefulWidget {
   final StreamProxy proxy;
   final ClickMode clickMode;
   final bool shiftActive;
@@ -22,44 +55,33 @@ class ScreenTouchHandler extends StatelessWidget {
     this.onPointerKind,
   });
 
-  ({double x, double y})? _norm(Offset globalPos) {
-    if (videoDisplayRect == Rect.zero) return null;
+  @override
+  State<ScreenTouchHandler> createState() => _ScreenTouchHandlerState();
+}
 
-    final localX = globalPos.dx - videoDisplayRect.left;
-    final localY = globalPos.dy - videoDisplayRect.top;
-
-    if (localX < 0 ||
-        localX > videoDisplayRect.width ||
-        localY < 0 ||
-        localY > videoDisplayRect.height) {
-      return null;
-    }
-
-    return (
-      x: (localX / videoDisplayRect.width).clamp(0.0, 1.0),
-      y: (localY / videoDisplayRect.height).clamp(0.0, 1.0),
-    );
-  }
+class _ScreenTouchHandlerState extends State<ScreenTouchHandler> {
+  final _hoverThrottle = ScreenHoverThrottle();
 
   void _hover(Offset globalPos) {
-    final n = _norm(globalPos);
+    if (!_hoverThrottle.shouldSend(DateTime.now())) return;
+    final n = normalizeScreenPoint(globalPos, widget.videoDisplayRect);
     if (n == null) return;
-    proxy.sendScreenHover(n.x, n.y);
+    widget.proxy.sendScreenHover(n.x, n.y);
   }
 
   void _click(Offset globalPos, int button, {required bool haptic}) {
-    final n = _norm(globalPos);
+    final n = normalizeScreenPoint(globalPos, widget.videoDisplayRect);
     if (n == null) return;
-    proxy.sendScreenClick(button, n.x, n.y);
+    widget.proxy.sendScreenClick(button, n.x, n.y);
     if (haptic) HapticFeedback.lightImpact();
   }
 
   void _touchDown(Offset globalPos) {
-    if (clickMode == ClickMode.hover) {
+    if (widget.clickMode == ClickMode.hover) {
       _hover(globalPos);
       return;
     }
-    _click(globalPos, clickMode == ClickMode.left ? 0 : 1, haptic: true);
+    _click(globalPos, widget.clickMode == ClickMode.left ? 0 : 1, haptic: true);
   }
 
   @override
@@ -67,7 +89,7 @@ class ScreenTouchHandler extends StatelessWidget {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
-        onPointerKind?.call(event.kind, true);
+        widget.onPointerKind?.call(event.kind, true);
         if (isMouseLike(event.kind)) {
           final button = mouseButtonIndex(event.buttons) ?? 0;
           _click(event.position, button, haptic: false);
@@ -76,10 +98,10 @@ class ScreenTouchHandler extends StatelessWidget {
         _touchDown(event.position);
       },
       onPointerUp: (event) {
-        onPointerKind?.call(event.kind, false);
+        widget.onPointerKind?.call(event.kind, false);
       },
       onPointerCancel: (event) {
-        onPointerKind?.call(event.kind, false);
+        widget.onPointerKind?.call(event.kind, false);
       },
       onPointerHover: (event) {
         if (isMouseLike(event.kind)) _hover(event.position);
@@ -89,7 +111,7 @@ class ScreenTouchHandler extends StatelessWidget {
           _hover(event.position);
           return;
         }
-        if (clickMode == ClickMode.hover) {
+        if (widget.clickMode == ClickMode.hover) {
           _hover(event.position);
         }
       },

@@ -68,6 +68,60 @@ export async function toolchainIdentity(root) {
   return { node: process.version, packageManager, pnpmLockSha256: sha256(lockfile) };
 }
 
+export async function flutterToolchainIdentity(root, env = process.env) {
+  const versionPath = env.MONKEYCRAFT_FLUTTER_VERSION_JSON;
+  if (!versionPath) {
+    throw new Error("MONKEYCRAFT_FLUTTER_VERSION_JSON must identify Flutter's version.json");
+  }
+  const [versionText, lockfile] = await Promise.all([
+    readFile(versionPath, "utf8"),
+    readFile(resolve(root, "flutter/monkeycraft/pubspec.lock")),
+  ]);
+  const version = JSON.parse(versionText);
+  const required = [
+    "frameworkVersion",
+    "frameworkRevision",
+    "engineRevision",
+    "dartSdkVersion",
+    "repositoryUrl",
+  ];
+  for (const field of required) {
+    if (typeof version[field] !== "string" || version[field].length === 0) {
+      throw new Error(`Flutter version.json is missing ${field}`);
+    }
+  }
+  if (!shaPattern.test(version.frameworkRevision) || !shaPattern.test(version.engineRevision)) {
+    throw new Error("Flutter version.json must contain full framework and engine commit SHAs");
+  }
+  const expected = env.MONKEYCRAFT_FLUTTER_FRAMEWORK_COMMIT;
+  if (expected && (!shaPattern.test(expected) || expected !== version.frameworkRevision)) {
+    throw new Error("Flutter framework commit does not match MONKEYCRAFT_FLUTTER_FRAMEWORK_COMMIT");
+  }
+  return {
+    flavor: "flutter-web",
+    flutter: {
+      frameworkVersion: version.frameworkVersion,
+      frameworkRevision: version.frameworkRevision,
+      engineRevision: version.engineRevision,
+      repositoryUrl: version.repositoryUrl,
+    },
+    dartSdk: {
+      version: version.dartSdkVersion,
+      engineRevision: version.engineRevision,
+    },
+    pubspecLockSha256: sha256(lockfile),
+  };
+}
+
+export function assertNoEmbeddedTailscale(files) {
+  const embedded = files.find(
+    ({ path }) => path === "tailscale" || path.startsWith("tailscale/"),
+  );
+  if (embedded) {
+    throw new Error(`Pages artifact must not contain the ignored Tailscale experiment: ${embedded.path}`);
+  }
+}
+
 export function sourceIdentity(root, env) {
   const dirty = git(root, ["status", "--porcelain"]).length > 0;
   const head = git(root, ["rev-parse", "HEAD"]);
@@ -84,18 +138,26 @@ export function sourceIdentity(root, env) {
 export async function writePagesProvenance({ distDir, root, env = process.env }) {
   const output = resolve(distDir);
   const workflowPath = resolve(root, ".github/workflows/pages.yml");
+  const flavor = env.MONKEYCRAFT_PAGES_FLAVOR ?? "preact-web";
+  const toolchainPromise = flavor === "flutter-web"
+    ? flutterToolchainIdentity(root, env)
+    : flavor === "preact-web"
+      ? toolchainIdentity(root)
+      : Promise.reject(new Error(`Unsupported Pages client flavor: ${flavor}`));
   const [workflow, files, toolchain] = await Promise.all([
     readFile(workflowPath, "utf8"),
     artifactFiles(output),
-    toolchainIdentity(root),
+    toolchainPromise,
   ]);
+  assertNoEmbeddedTailscale(files);
   const source = sourceIdentity(root, env);
   const workflowCommit = env.GITHUB_WORKFLOW_SHA;
   if (workflowCommit && !shaPattern.test(workflowCommit)) {
     throw new Error("GITHUB_WORKFLOW_SHA must be a 40-character commit SHA");
   }
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    client: { flavor },
     source,
     workflow: {
       commit: workflowCommit ?? null,

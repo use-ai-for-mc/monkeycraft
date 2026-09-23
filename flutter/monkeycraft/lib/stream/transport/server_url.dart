@@ -1,20 +1,48 @@
 Uri parseMonkeycraftServerUrl(String server) {
-  server = server.trim();
-
-  if (server.startsWith('https://')) {
-    return Uri.parse(server.replaceFirst('https://', 'wss://'));
-  }
-  if (server.startsWith('http://')) {
-    return Uri.parse(server.replaceFirst('http://', 'ws://'));
-  }
-  if (server.startsWith('wss://') || server.startsWith('ws://')) {
-    return Uri.parse(server);
-  }
-
-  final hasPort = RegExp(r':\d+$').hasMatch(server);
-
-  if (hasPort) {
-    return Uri.parse('ws://$server');
-  }
-  return Uri.parse('wss://$server');
+  final uri = tryParseMonkeycraftServerUrl(server);
+  if (uri == null) throw FormatException('Invalid server address', server);
+  return uri;
 }
+
+Uri? tryParseMonkeycraftServerUrl(String server) {
+  server = server.trim();
+  if (server.isEmpty) return null;
+  if (server.contains(RegExp(r'\s'))) return null;
+  try {
+    final lower = server.toLowerCase();
+    Uri uri;
+    if (lower.startsWith('https://')) {
+      uri = Uri.parse(
+        server.replaceFirst(
+          RegExp(r'https://', caseSensitive: false),
+          'wss://',
+        ),
+      );
+    } else if (lower.startsWith('http://')) {
+      uri = Uri.parse(
+        server.replaceFirst(RegExp(r'http://', caseSensitive: false), 'ws://'),
+      );
+    } else if (lower.startsWith('wss://') || lower.startsWith('ws://')) {
+      uri = Uri.parse(server);
+    } else {
+      final hasPort = RegExp(r':\d+$').hasMatch(server);
+      uri = Uri.parse('${hasPort ? 'ws' : 'wss'}://$server');
+    }
+    if ((uri.scheme != 'ws' && uri.scheme != 'wss') ||
+        uri.host.isEmpty ||
+        uri.hasFragment ||
+        uri.userInfo.isNotEmpty) {
+      return null;
+    }
+    return uri.replace(
+      scheme: uri.scheme.toLowerCase(),
+      host: uri.host.toLowerCase(),
+      path: uri.path == '/' ? '' : uri.path,
+    );
+  } on FormatException {
+    return null;
+  }
+}
+
+String? canonicalMonkeycraftServerTarget(String server) =>
+    tryParseMonkeycraftServerUrl(server)?.toString();

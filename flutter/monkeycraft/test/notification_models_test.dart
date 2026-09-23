@@ -50,4 +50,42 @@ void main() {
     expect(timedFromJson({'type': 'X'}), isNull);
     expect(nudgeFromJson({'type': 'X'}), isNull);
   });
+
+  test('timed notification signature changes with every displayed field', () {
+    const base = TimedNotification(
+      fireAtEpochMs: 1730000000000,
+      title: 'A',
+      body: 'body',
+      sound: false,
+      countDownText: 'TBA',
+    );
+    expect(
+      timedNotificationSignature(base),
+      isNot(
+        timedNotificationSignature(
+          const TimedNotification(
+            fireAtEpochMs: 1730000000000,
+            title: 'B',
+            body: 'body',
+            sound: false,
+            countDownText: 'TBA',
+          ),
+        ),
+      ),
+    );
+    expect(
+      timedNotificationSignature(base),
+      isNot(
+        timedNotificationSignature(
+          const TimedNotification(
+            fireAtEpochMs: 1730000000000,
+            title: 'A',
+            body: 'body',
+            sound: true,
+            countDownText: 'Updated',
+          ),
+        ),
+      ),
+    );
+  });
 }

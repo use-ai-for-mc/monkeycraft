@@ -15,6 +15,7 @@ export 'package:monkeycraft_client/stream/session_state.dart';
 class SessionController extends ChangeNotifier {
   final StreamProxy proxy;
   final StreamSettingsStore settingsStore;
+  final bool browserSession;
 
   SessionState _state = SessionState.initial();
   SessionState get state => _state;
@@ -44,13 +45,18 @@ class SessionController extends ChangeNotifier {
   ConnectionEndpoint? _endpoint;
   String? _password;
   bool _disposed = false;
+  Future<void>? _connectionAttempt;
 
   int? get textureId => decoder?.textureId;
   bool get hasVideoSurface =>
       decoder?.textureId != null || decoder?.platformViewType != null;
   bool get supportedPlatform => platformCapabilities.supportsVideoDecoder;
 
-  SessionController({required this.proxy, required this.settingsStore});
+  SessionController({
+    required this.proxy,
+    required this.settingsStore,
+    bool? browserSession,
+  }) : browserSession = browserSession ?? platformCapabilities.isWeb;
 
   void initialize() {
     _attachToProxy();
@@ -67,6 +73,13 @@ class SessionController extends ChangeNotifier {
   }
 
   void _handleServerResolution(StreamResolution resolution) {
+    if (browserSession) {
+      streamWidth = resolution.width;
+      streamHeight = resolution.height;
+      _confirmedResolution = resolution;
+      _updateState(_state.copyWith(clearResolutionMismatch: true));
+      return;
+    }
     final expected = _expectedResolution;
     if (expected == null) return;
 
@@ -96,6 +109,7 @@ class SessionController extends ChangeNotifier {
   }
 
   bool shouldAcceptFrame(StreamResolution? frameResolution) {
+    if (browserSession) return _expectedResolution != null;
     if (frameResolution == null) {
       return _confirmedResolution != null && !_state.resolutionMismatch;
     }
@@ -106,6 +120,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void handleAccessUnit(Uint8List data, {int? frameWidth, int? frameHeight}) {
+    if (_disposed || (browserSession && !_state.foreground)) return;
     final expected = _expectedResolution;
     if (expected == null) {
       return;
@@ -142,6 +157,9 @@ class SessionController extends ChangeNotifier {
 
   void setForeground(bool foreground) {
     _updateState(_state.copyWith(foreground: foreground));
+    if (browserSession && !foreground) {
+      _reconnectRetryTimer?.cancel();
+    }
   }
 
   void setWaitingForStream(bool waiting) {
@@ -180,8 +198,10 @@ class SessionController extends ChangeNotifier {
   void setMode(ClientMode mode, {StreamResolution? resolution}) {
     if (resolution != null) {
       _expectedResolution = resolution;
-      streamWidth = resolution.width;
-      streamHeight = resolution.height;
+      if (!browserSession || streamWidth == 0) {
+        streamWidth = resolution.width;
+        streamHeight = resolution.height;
+      }
       _updateState(_state.copyWith(mode: mode, clearResolutionMismatch: true));
     } else {
       _updateState(_state.copyWith(mode: mode));
@@ -201,15 +221,17 @@ class SessionController extends ChangeNotifier {
     if (resolution != null) {
       final previousExpected = _expectedResolution;
       _expectedResolution = resolution;
-      streamWidth = resolution.width;
-      streamHeight = resolution.height;
+      if (!browserSession || streamWidth == 0) {
+        streamWidth = resolution.width;
+        streamHeight = resolution.height;
+      }
 
       final resolutionChanged =
           previousExpected == null ||
           previousExpected.width != resolution.width ||
           previousExpected.height != resolution.height;
 
-      if (resolutionChanged) {
+      if (resolutionChanged && !browserSession) {
         _confirmedResolution = null;
         decoder?.reset();
         final msg = 'Waiting for ${resolution.width}x${resolution.height}...';
@@ -302,15 +324,20 @@ class SessionController extends ChangeNotifier {
 
     _restarting = true;
 
-    streamWidth = target.width;
-    streamHeight = target.height;
-
-    syncStatus(resolution: target);
-
-    if (supportedPlatform) {
-      if (decoder == null && onDecoderNeeded != null) {
-        await onDecoderNeeded();
+    try {
+      if (!browserSession ||
+          _expectedResolution?.width != target.width ||
+          _expectedResolution?.height != target.height) {
+        syncStatus(resolution: target);
       }
+
+      if (supportedPlatform) {
+        if (decoder == null && onDecoderNeeded != null) {
+          await onDecoderNeeded();
+        }
+      }
+    } finally {
+      _restarting = false;
     }
 
     final pending = _pendingResolution;
@@ -324,8 +351,9 @@ class SessionController extends ChangeNotifier {
     _restarting = false;
   }
 
-  void refreshVideo() {
-    decoder?.reset();
+  Future<void> refreshVideo() async {
+    await decoder?.reset();
+    if (_disposed) return;
     proxy.requestKeyframe();
   }
 
@@ -358,6 +386,7 @@ class SessionController extends ChangeNotifier {
   void _scheduleReconnectRetry() {
     _reconnectRetryTimer?.cancel();
     if (_disposed) return;
+    if (browserSession && !_state.foreground) return;
 
     if (_state.reconnectRetryCount >= _maxReconnectRetries ||
         _state.authFailed) {
@@ -371,8 +400,15 @@ class SessionController extends ChangeNotifier {
     });
   }
 
-  Future<void> _attemptReconnect() async {
+  Future<void> _attemptReconnect() {
+    return _connectionAttempt ??= _connectAgain().whenComplete(() {
+      _connectionAttempt = null;
+    });
+  }
+
+  Future<void> _connectAgain() async {
     if (_disposed) return;
+    if (browserSession && !_state.foreground) return;
     if (_endpoint == null || _password == null) return;
 
     try {
@@ -388,10 +424,7 @@ class SessionController extends ChangeNotifier {
       proxy.sendPing();
 
       _updateState(
-        _state.copyWith(
-          connected: true,
-          clearReconnectionState: true,
-        ),
+        _state.copyWith(connected: true, clearReconnectionState: true),
       );
       _reconnectRetryTimer?.cancel();
 
@@ -426,6 +459,10 @@ class SessionController extends ChangeNotifier {
     if (_disposed) return;
     if (proxy.isConnected) return;
     if (_endpoint == null || _password == null) return;
+    if (browserSession) {
+      await _attemptReconnect();
+      return;
+    }
 
     _updateState(_state.copyWith(isReconnecting: true));
     try {
@@ -438,10 +475,7 @@ class SessionController extends ChangeNotifier {
       }
       proxy.sendPing();
       _updateState(
-        _state.copyWith(
-          connected: true,
-          clearReconnectionState: true,
-        ),
+        _state.copyWith(connected: true, clearReconnectionState: true),
       );
       _onConnectionRestored();
     } on AuthFailureException {

@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:collection';
-
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:monkeycraft_client/audio/audio_operation_queue.dart';
+import 'package:monkeycraft_client/audio/audio_background_session.dart';
+import 'package:monkeycraft_client/audio/audio_web_view.dart';
 import 'package:monkeycraft_client/audio/mcparks_models.dart';
 
 /// Headless WebView wrapper for the MCParks v1 audio web client
@@ -124,7 +125,11 @@ class McParksV1Service {
     forMainFrameOnly: true,
   );
 
-  HeadlessInAppWebView? _headlessWebView;
+  McParksV1Service({AudioWebViewFactory? webViewFactory})
+    : _webViewFactory = webViewFactory ?? createAudioWebView;
+
+  final AudioWebViewFactory _webViewFactory;
+  AudioWebView? _headlessWebView;
   String? _savedSessionUrl;
   bool _isConnected = false;
   bool _hasReportedFailure = false;
@@ -134,6 +139,10 @@ class McParksV1Service {
   double _volume = 0.5;
   void Function(Map<String, dynamic> infoPacket)? _onInfoPacket;
   void Function()? _onFailure;
+  final _operations = AudioOperationQueue();
+  bool _monitorScheduled = false;
+  final _backgroundSessionOwner = Object();
+  bool _backgroundSessionHeld = false;
 
   void setInfoPacketHandler(
     void Function(Map<String, dynamic> infoPacket) handler,
@@ -156,45 +165,54 @@ class McParksV1Service {
     }
   }
 
-  Future<void> initialize() async {
-    _headlessWebView = HeadlessInAppWebView(
-      initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
-        mediaPlaybackRequiresUserGesture: false,
-        allowsInlineMediaPlayback: true,
-        allowsPictureInPictureMediaPlayback: true,
-        ignoresViewportScaleLimits: true,
-        mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-      ),
-      initialUserScripts: UnmodifiableListView([_statsHookScript]),
-    );
+  Future<void> initialize() => _operations.enqueue(_initialize);
 
-    await _headlessWebView!.run();
+  Future<void> _initialize() async {
+    if (_headlessWebView != null) return;
+    final webView = _webViewFactory(initialScript: _statsHookScript);
+    _headlessWebView = webView;
+    try {
+      await webView.run();
+    } catch (_) {
+      if (identical(_headlessWebView, webView)) {
+        _headlessWebView = null;
+      }
+      rethrow;
+    }
   }
 
-  Future<void> connect(String sessionUrl) async {
-    // Replace any in-flight session — same shape as OpenAudioMC's connect().
+  Future<void> connect(String sessionUrl) {
+    return _operations.enqueue(() => _connect(sessionUrl));
+  }
+
+  Future<void> _connect(String sessionUrl) async {
+    if (_isActive && _savedSessionUrl == sessionUrl) {
+      return;
+    }
     if (_isActive) {
-      await disconnect();
+      await _disconnect();
     }
     _isActive = true;
-
-    if (_headlessWebView == null) {
-      await initialize();
-    }
-
     _savedSessionUrl = sessionUrl;
     _isConnected = false;
     _hasReportedFailure = false;
     _monitorElapsedMs = 0;
 
-    _sendInfoPacket('mcparks', {'connected': false});
-
-    await _headlessWebView!.webViewController?.loadUrl(
-      urlRequest: URLRequest(url: WebUri(sessionUrl)),
-    );
-
-    _startMonitoring();
+    try {
+      if (_headlessWebView == null) {
+        await _initialize();
+      }
+      _sendInfoPacket('mcparks', {'connected': false});
+      await _headlessWebView!.loadUrl(sessionUrl);
+      await _acquireBackgroundSession();
+      _startMonitoring();
+    } catch (_) {
+      _isActive = false;
+      _isConnected = false;
+      _monitorTimer?.cancel();
+      await _releaseBackgroundSession();
+      rethrow;
+    }
   }
 
   void _startMonitoring() {
@@ -203,23 +221,47 @@ class McParksV1Service {
     _monitorTimer = Timer.periodic(Duration(milliseconds: _monitorIntervalMs), (
       _,
     ) async {
-      await _monitorSession();
+      _scheduleMonitor();
     });
   }
 
-  Future<void> _monitorSession() async {
-    if (_headlessWebView == null) return;
+  void _scheduleMonitor() {
+    if (_monitorScheduled) return;
+    _monitorScheduled = true;
+    unawaited(
+      _operations
+          .enqueue(_monitorSession)
+          .then<void>(
+            (_) {
+              _monitorScheduled = false;
+            },
+            onError: (Object error, StackTrace stackTrace) {
+              _monitorScheduled = false;
+              _handleMonitorError();
+            },
+          ),
+    );
+  }
 
-    final controller = _headlessWebView!.webViewController;
-    if (controller == null) return;
+  void _handleMonitorError() {
+    if (!_isActive) return;
+    _isConnected = false;
+    try {
+      _sendInfoPacket('mcparks', {'connected': false, 'error': 'monitor'});
+    } catch (_) {}
+  }
+
+  Future<void> _monitorSession() async {
+    if (!_isActive || _headlessWebView == null) return;
+
+    final controller = _headlessWebView!;
 
     _monitorElapsedMs += _monitorIntervalMs;
 
     // Auto-click the "Connect" button if it's showing, and probe DOM for
     // the rendered status text. The React app puts status in a <b> child
     // of an item that contains the literal "Status:".
-    final result = await controller.evaluateJavascript(
-      source: '''
+    final result = await controller.evaluateJavascript('''
       (function() {
         var clickedConnect = false;
         var btns = document.querySelectorAll('button, .ui.button');
@@ -248,8 +290,11 @@ class McParksV1Service {
           howlerReady: howlerReady,
         };
       })();
-    ''',
-    );
+    ''');
+
+    if (!_isActive) {
+      return;
+    }
 
     if (result == null) {
       if (_monitorElapsedMs >= _connectionTimeoutMs &&
@@ -272,8 +317,11 @@ class McParksV1Service {
     // inside FlutterStandardCodecHelperWriteUTF8.
     if (howlerReady) {
       await controller.evaluateJavascript(
-        source: '(function(){ window.Howler.volume($_volume); })();',
+        '(function(){ window.Howler.volume($_volume); })();',
       );
+      if (!_isActive) {
+        return;
+      }
     }
 
     if (status == 'connected') {
@@ -304,6 +352,7 @@ class McParksV1Service {
     _hasReportedFailure = true;
     _isActive = false;
     _monitorTimer?.cancel();
+    await _releaseBackgroundSession();
     _sendInfoPacket('mcparks', {'connected': false, 'error': error});
 
     await _headlessWebView?.dispose();
@@ -318,37 +367,42 @@ class McParksV1Service {
   /// Cached for the next page-load too.
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
-    final controller = _headlessWebView?.webViewController;
+    final controller = _headlessWebView;
     if (controller == null) return;
     await controller.evaluateJavascript(
-      source:
-          '(function(){ if (window.Howler && typeof window.Howler.volume === "function") { window.Howler.volume($_volume); } })();',
+      '(function(){ if (window.Howler && typeof window.Howler.volume === "function") { window.Howler.volume($_volume); } })();',
     );
   }
 
-  Future<void> disconnect() async {
+  Future<void> disconnect() {
+    _isActive = false;
+    _monitorTimer?.cancel();
+    return _operations.enqueue(_disconnect);
+  }
+
+  Future<void> _disconnect() async {
     _monitorTimer?.cancel();
     _isConnected = false;
     _hasReportedFailure = false;
     _isActive = false;
+    await _releaseBackgroundSession();
     _sendInfoPacket('mcparks', {'connected': false});
 
-    final controller = _headlessWebView?.webViewController;
+    final controller = _headlessWebView;
     if (controller != null) {
       // Politeness: stop audio cleanly before navigating away. unload()
       // tears down all active Howl instances and closes their HTMLAudio.
       // IIFE with no return — see monitor's Howler.volume() call for why.
       await controller.evaluateJavascript(
-        source:
-            '(function(){ if (window.Howler && typeof window.Howler.unload === "function") { try { window.Howler.unload(); } catch(e){} } })();',
+        '(function(){ if (window.Howler && typeof window.Howler.unload === "function") { try { window.Howler.unload(); } catch(e){} } })();',
       );
-      await controller.loadUrl(
-        urlRequest: URLRequest(url: WebUri('about:blank')),
-      );
+      await controller.loadUrl('about:blank');
     }
   }
 
-  Future<void> reconnect() async {
+  Future<void> reconnect() => _operations.enqueue(_reconnect);
+
+  Future<void> _reconnect() async {
     if (_savedSessionUrl == null) return;
 
     _isActive = true;
@@ -357,21 +411,30 @@ class McParksV1Service {
     _monitorElapsedMs = 0;
     _sendInfoPacket('mcparks', {'connected': false});
 
-    await _headlessWebView?.webViewController?.loadUrl(
-      urlRequest: URLRequest(url: WebUri(_savedSessionUrl!)),
-    );
+    await _headlessWebView?.loadUrl(_savedSessionUrl!);
+    await _acquireBackgroundSession();
 
     _startMonitoring();
   }
 
-  Future<void> dispose() async {
-    _monitorTimer?.cancel();
-    await _headlessWebView?.dispose();
-    _headlessWebView = null;
-    _savedSessionUrl = null;
-    _isConnected = false;
-    _hasReportedFailure = false;
+  Future<void> dispose() {
     _isActive = false;
+    _monitorTimer?.cancel();
+    return _operations.enqueue(_dispose);
+  }
+
+  Future<void> _dispose() async {
+    _monitorTimer?.cancel();
+    try {
+      await _headlessWebView?.dispose();
+    } finally {
+      _headlessWebView = null;
+      _savedSessionUrl = null;
+      _isConnected = false;
+      _hasReportedFailure = false;
+      _isActive = false;
+      await _releaseBackgroundSession();
+    }
   }
 
   bool get isConnected => _isConnected;
@@ -385,18 +448,16 @@ class McParksV1Service {
   /// React app is rendering "Connected!" or "Connecting..." — otherwise
   /// the page is gone, broken, or has flipped to a "Disconnected." /
   /// "Error!" state and we should re-establish.
-  Future<void> softRefresh() async {
+  Future<void> softRefresh() => _operations.enqueue(_softRefresh);
+
+  Future<void> _softRefresh() async {
     if (!_isActive || _headlessWebView == null || _savedSessionUrl == null) {
       return;
     }
 
-    final controller = _headlessWebView!.webViewController;
-    if (controller == null) {
-      return;
-    }
+    final controller = _headlessWebView!;
 
-    final result = await controller.evaluateJavascript(
-      source: '''
+    final result = await controller.evaluateJavascript('''
       (function() {
         var healthy = false;
         var nodes = document.querySelectorAll('h5, .item, b');
@@ -409,16 +470,19 @@ class McParksV1Service {
         }
         return { healthy: healthy };
       })();
-    ''',
-    );
+    ''');
+
+    if (!_isActive) {
+      return;
+    }
 
     if (result == null) {
-      await reconnect();
+      await _reconnect();
       return;
     }
 
     if (result['healthy'] != true) {
-      await reconnect();
+      await _reconnect();
     }
   }
 
@@ -428,11 +492,10 @@ class McParksV1Service {
   /// by the document-start WebSocket hook. Same shape as the reference
   /// mod's ActiveTrack record.
   Future<List<McParksActiveTrack>> snapshotActive() async {
-    final controller = _headlessWebView?.webViewController;
+    final controller = _headlessWebView;
     if (controller == null) return const [];
 
-    final result = await controller.evaluateJavascript(
-      source: r'''
+    final result = await controller.evaluateJavascript(r'''
         (function(){
           var out = [];
           var howls = window.Howler && window.Howler._howls;
@@ -483,8 +546,7 @@ class McParksV1Service {
           });
           return out;
         })();
-      ''',
-    );
+      ''');
 
     if (result is! List) return const [];
     return result
@@ -498,7 +560,7 @@ class McParksV1Service {
   /// Howler registry. Mirrors the reference mod's stopSoundByName
   /// shape (pre-check, fade with the 3s window, drop stats entry).
   Future<bool> stopSoundByName(String name) async {
-    final controller = _headlessWebView?.webViewController;
+    final controller = _headlessWebView;
     if (controller == null) return false;
 
     // The name travels inside a JS string literal; server names are
@@ -509,9 +571,7 @@ class McParksV1Service {
         .replaceAll('\n', '')
         .replaceAll('\r', '');
 
-    final result = await controller.evaluateJavascript(
-      source:
-          '''
+    final result = await controller.evaluateJavascript('''
         (function(){
           var target = '$escaped';
           var howls = window.Howler && window.Howler._howls;
@@ -546,9 +606,23 @@ class McParksV1Service {
           }
           return false;
         })();
-      ''',
-    );
+      ''');
 
     return result == true;
   }
+
+  Future<void> _acquireBackgroundSession() async {
+    if (_backgroundSessionHeld) return;
+    _backgroundSessionHeld = await AudioBackgroundSession.acquire(
+      _backgroundSessionOwner,
+    );
+  }
+
+  Future<void> _releaseBackgroundSession() async {
+    if (!_backgroundSessionHeld) return;
+    _backgroundSessionHeld = !await AudioBackgroundSession.release(
+      _backgroundSessionOwner,
+    );
+  }
+
 }

@@ -33,7 +33,7 @@ class KeyboardPrewarmer {
               child: TextField(
                 focusNode: _focusNode,
                 autofocus: true,
-                style: const TextStyle(fontSize: 0, color: Colors.transparent),
+                style: const TextStyle(fontSize: 1, color: Colors.transparent),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,

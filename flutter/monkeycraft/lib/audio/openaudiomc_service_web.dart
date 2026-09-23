@@ -1,14 +1,20 @@
 import 'package:url_launcher/url_launcher.dart';
+import 'package:monkeycraft_client/audio/openaudiomc_url.dart';
+
+typedef BrowserExternalUrlOpener = Future<bool> Function(Uri url);
 
 class OpenAudioMcService {
-  static const _urlPrefix = 'https://session.openaudiomc.net/';
+  OpenAudioMcService({BrowserExternalUrlOpener? externalUrlOpener})
+    : _externalUrlOpener = externalUrlOpener ?? _openExternalUrl;
 
   void Function()? _onFailure;
+  final BrowserExternalUrlOpener _externalUrlOpener;
   String? _savedSessionUrl;
   bool _isActive = false;
+  int _operationGeneration = 0;
 
   static bool isOpenAudioMcUrl(String url) {
-    return url.startsWith(_urlPrefix);
+    return isOpenAudioMcSessionUrl(url);
   }
 
   void setInfoPacketHandler(
@@ -19,6 +25,8 @@ class OpenAudioMcService {
     _onFailure = handler;
   }
 
+  void reportState() {}
+
   Future<void> initialize() async {}
 
   Future<void> connect(String sessionUrl) async {
@@ -27,19 +35,26 @@ class OpenAudioMcService {
       _onFailure?.call();
       return;
     }
-    _savedSessionUrl = sessionUrl;
-    _isActive = true;
-    final opened = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-      webOnlyWindowName: '_blank',
-    );
-    if (!opened) {
+    final generation = ++_operationGeneration;
+    try {
+      final opened = await _externalUrlOpener(uri);
+      if (generation != _operationGeneration) return;
+      if (opened) {
+        _savedSessionUrl = sessionUrl;
+        _isActive = true;
+      } else {
+        _isActive = false;
+        _onFailure?.call();
+      }
+    } catch (_) {
+      if (generation != _operationGeneration) return;
+      _isActive = false;
       _onFailure?.call();
     }
   }
 
   Future<void> disconnect() async {
+    _operationGeneration++;
     _isActive = false;
   }
 
@@ -50,13 +65,22 @@ class OpenAudioMcService {
   }
 
   Future<void> dispose() async {
+    _operationGeneration++;
     _isActive = false;
     _savedSessionUrl = null;
   }
 
   Future<void> softRefresh() async {}
 
-  bool get isConnected => _isActive;
+  bool get isConnected => false;
   bool get isActive => _isActive;
   String? get savedSessionUrl => _savedSessionUrl;
+
+  static Future<bool> _openExternalUrl(Uri url) {
+    return launchUrl(
+      url,
+      mode: LaunchMode.externalApplication,
+      webOnlyWindowName: '_blank',
+    );
+  }
 }
