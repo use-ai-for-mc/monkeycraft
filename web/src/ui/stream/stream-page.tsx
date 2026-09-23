@@ -17,6 +17,7 @@ import { CanvasRenderer, type DisplayRect } from "../../video/renderer.ts";
 import type { AppContext } from "../app.tsx";
 import { Hotbar } from "./hotbar.tsx";
 import { ScreenPalette } from "./palette.tsx";
+import { ToolbarIcon } from "./toolbar-icons.tsx";
 import { HoldButton, Joystick } from "./touch-pads.tsx";
 
 interface Props {
@@ -370,7 +371,7 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
       )}
       <div class="toolbar" onPointerDown={(e) => e.stopPropagation()}>
         <button type="button" onClick={onOpenChat} title="Chat" aria-label="Chat">
-          💬
+          <ToolbarIcon name="chat" />
         </button>
         <button
           type="button"
@@ -379,20 +380,21 @@ export function StreamPage({ ctx, onLeave, onOpenChat, onOpenSettings }: Props) 
           aria-label="Map"
           class={mapMode ? "active" : ""}
         >
-          🗺
+          <ToolbarIcon name="map" />
         </button>
         <button type="button" onClick={onOpenSettings} title="Settings" aria-label="Settings">
-          ⚙
+          <ToolbarIcon name="settings" />
         </button>
         <button
           type="button"
           onClick={() => pageRef.current && toggleFullscreen(pageRef.current)}
           title={fullscreen.value ? "Exit fullscreen" : "Fullscreen"}
+          aria-label={fullscreen.value ? "Exit fullscreen" : "Fullscreen"}
         >
-          {fullscreen.value ? "⤡" : "⤢"}
+          <ToolbarIcon name={fullscreen.value ? "fullscreenExit" : "fullscreen"} />
         </button>
-        <button type="button" onClick={onLeave} title="Disconnect">
-          ✕
+        <button type="button" onClick={onLeave} title="Disconnect" aria-label="Disconnect">
+          <ToolbarIcon name="close" />
         </button>
       </div>
       {view.showVideo && (

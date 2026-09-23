@@ -261,6 +261,9 @@ class Client {
     const [head, verb, ...rest] = command.trim().split(/\s+/);
     if (head !== "/replay") return;
     switch (verb) {
+      case "emit":
+        this.send(JSON.parse(rest.join(" ")) as Record<string, unknown>);
+        break;
       case "screen":
         this.screenOpen = rest[0] === "open";
         this.pending = 0;

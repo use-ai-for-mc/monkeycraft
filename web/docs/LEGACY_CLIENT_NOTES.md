@@ -1,5 +1,6 @@
 # What the Flutter client does, and what not to copy
 
+> 2026-09-19 用户最新决定：浏览器改为 Flutter 与 iOS/Android 共用界面和业务逻辑，仅浏览器适配分层。独立 `web/` 停止继续开发验收及发布，保留为行为参考与测试资产。本文后续有关独立重写、Flutter Web 放弃或冻结的描述属于历史，不再作为当前实施指令。当前执行见 `doc/PRODUCT_ROADMAP_EXECUTION.md`。
 The Flutter app under `flutter/monkeycraft/` is frozen and kept as a behavioural
 reference. This file records the behaviours the web client must reproduce and the
 defects it must not. File references are to `flutter/monkeycraft/lib/`.

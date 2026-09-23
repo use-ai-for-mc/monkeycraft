@@ -2,6 +2,8 @@
 
 ## 2026-09-19 — Android Chrome notifications and resume
 
+- Replace the gameplay toolbar emoji with monochrome white Material-style SVG icons for chat, map, settings, fullscreen and disconnect; retain the existing actions, order, accessible labels and titles.
+
 - Use a scoped notification Service Worker for Android Chrome and resolve its icon under the build base; preserve unrelated workers and caches. Keep user-gesture permission requests and avoid an extra page sound after a system notification.
 - Pause reconnect retries while hidden, resume when visible, and ignore stale retries after disconnect or a new connection. Move the reminder banner below the game toolbar.
 - Web unit suite: 160 passed. Chromium: 20 passed; WebKit: 19 passed. Pages project: 19 passed; Pages root focused suite: 4 passed. Notification-display tests explicitly skip when the headless browser denies the requested permission.

@@ -1,5 +1,6 @@
 # MonkeyCraft web client: engineering plan
 
+> 2026-09-19 用户最新决定：浏览器改为 Flutter 与 iOS/Android 共用界面和业务逻辑，仅浏览器适配分层。独立 `web/` 停止继续开发验收及发布，保留为行为参考与测试资产。本文后续有关独立重写、Flutter Web 放弃或冻结的描述属于历史，不再作为当前实施指令。当前执行见 `doc/PRODUCT_ROADMAP_EXECUTION.md`。
 Status: active. The M0–M4 statements below are historical (2026-09-16), not current-run evidence.
 The current product authority is `../doc/PRODUCT_ROADMAP_2026-09.md`; results and
 remaining acceptance checks are tracked in `../doc/PRODUCT_ROADMAP_EXECUTION.md`.
