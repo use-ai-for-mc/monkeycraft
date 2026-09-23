@@ -355,6 +355,7 @@ func (e *Engine) cmdLogout(msg *protocol.Message) {
 		return
 	}
 	e.stopProxyOnly()
+	e.setState(protocol.StateNeedsLogin)
 	e.emitEvent(&protocol.Message{
 		RequestID: msg.RequestID,
 		Event:     protocol.EventStateChanged,

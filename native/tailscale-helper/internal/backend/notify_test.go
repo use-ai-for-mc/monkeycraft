@@ -21,6 +21,17 @@ func TestEventFromNotifyBrowseToURL(t *testing.T) {
 	}
 }
 
+func TestEventFromNotifyBrowseToURLWithoutStateNeedsLogin(t *testing.T) {
+	url := "https://login.tailscale.com/a/not-a-real-token"
+	ev := eventFromNotify(ipn.Notify{BrowseToURL: &url})
+	if ev.State != StateNeedsLogin || ev.Status.State != StateNeedsLogin {
+		t.Fatalf("BrowseToURL state = %q / %q, want needsLogin", ev.State, ev.Status.State)
+	}
+	if ev.AuthURL != url || ev.Status.AuthURL != url {
+		t.Fatal("missing structured auth url")
+	}
+}
+
 func TestMapIPNStates(t *testing.T) {
 	cases := map[ipn.State]State{
 		ipn.NeedsLogin:       StateNeedsLogin,

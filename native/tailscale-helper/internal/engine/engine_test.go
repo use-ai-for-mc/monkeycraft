@@ -91,6 +91,36 @@ func (h *harness) waitEvent(name string) protocol.Message {
 	}
 }
 
+func (h *harness) waitState(state string) protocol.Message {
+	h.t.Helper()
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case msg := <-h.evs:
+			if msg.State == state {
+				return msg
+			}
+		case <-deadline:
+			h.t.Fatalf("timeout waiting for state %s stderr=%s", state, h.errB.String())
+		}
+	}
+}
+
+func (h *harness) waitRequestState(requestID, state string) protocol.Message {
+	h.t.Helper()
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case msg := <-h.evs:
+			if msg.RequestID == requestID && msg.State == state {
+				return msg
+			}
+		case <-deadline:
+			h.t.Fatalf("timeout waiting for request %s state %s stderr=%s", requestID, state, h.errB.String())
+		}
+	}
+}
+
 func TestHandshakeReadyAndStart(t *testing.T) {
 	h := startHarness(t)
 	dir := t.TempDir()
@@ -301,6 +331,37 @@ func TestStderrDoesNotContainAuthURL(t *testing.T) {
 	if strings.Contains(h.errB.String(), "super-secret-path") {
 		t.Fatalf("stderr leaked auth url: %s", h.errB.String())
 	}
+}
+
+func TestLogoutChangesSubsequentStatusToNeedsLogin(t *testing.T) {
+	h := startHarness(t)
+	h.send(map[string]any{
+		"protocolVersion": 1,
+		"sessionNonce":    "n",
+		"requestId":       "1",
+		"command":         "start",
+		"target":          "127.0.0.1:9600",
+		"listenPort":      9600,
+		"stateDir":        t.TempDir(),
+	})
+	_ = h.waitEvent(protocol.EventReady)
+	_ = h.waitState(protocol.StateStarting)
+	h.fake.Emit(backend.Event{State: backend.StateRunning, Status: backend.Status{State: backend.StateRunning}})
+	_ = h.waitEvent(protocol.EventListening)
+	h.send(map[string]any{
+		"protocolVersion": 1,
+		"sessionNonce":    "n",
+		"requestId":       "2",
+		"command":         "logout",
+	})
+	_ = h.waitState(protocol.StateNeedsLogin)
+	h.send(map[string]any{
+		"protocolVersion": 1,
+		"sessionNonce":    "n",
+		"requestId":       "3",
+		"command":         "status",
+	})
+	_ = h.waitRequestState("3", protocol.StateNeedsLogin)
 }
 
 func TestShutdownStops(t *testing.T) {

@@ -130,6 +130,23 @@ func (t *Tsnet) Watch(ctx context.Context) (<-chan Event, error) {
 		defer close(ch)
 		defer watcher.Close()
 		loginRequested := false
+		requestLogin := func() bool {
+			if loginRequested {
+				return true
+			}
+			loginRequested = true
+			if err := lc.StartLoginInteractive(watchCtx); err != nil {
+				select {
+				case ch <- Event{State: StateFailed, Err: fmt.Errorf("StartLoginInteractive: %w", err), Status: Status{State: StateFailed}}:
+				case <-watchCtx.Done():
+				}
+				return false
+			}
+			return true
+		}
+		if st, err := lc.StatusWithoutPeers(watchCtx); err == nil && st.BackendState == "NeedsLogin" {
+			requestLogin()
+		}
 		for {
 			n, err := watcher.Next()
 			if err != nil {
@@ -144,12 +161,18 @@ func (t *Tsnet) Watch(ctx context.Context) (<-chan Event, error) {
 			}
 			ev := eventFromNotify(n)
 			if ev.State == StateNeedsLogin && ev.AuthURL == "" && !loginRequested {
-				loginRequested = true
-				_ = lc.StartLoginInteractive(watchCtx)
+				requestLogin()
 			}
-			if ev.State == "" && ev.AuthURL == "" && ev.Err == nil {
+			needsStatus := ev.State == "" || (ev.State == StateRunning &&
+				(ev.Status.TailnetIP == "" || ev.Status.NodeID == ""))
+			if needsStatus && ev.AuthURL == "" && ev.Err == nil {
 				if st, err := lc.StatusWithoutPeers(watchCtx); err == nil {
-					ev = eventFromIPNStatus(st)
+					statusEvent := eventFromIPNStatus(st)
+					if ev.State == "" {
+						ev = statusEvent
+					} else {
+						ev.Status = statusEvent.Status
+					}
 				}
 			}
 			select {
@@ -246,6 +269,10 @@ func eventFromNotify(n ipn.Notify) Event {
 		}
 		ev.Status.TailnetIP = fromStatus.Status.TailnetIP
 		ev.Status.NodeID = fromStatus.Status.NodeID
+	}
+	if ev.AuthURL != "" && ev.State == "" {
+		ev.State = StateNeedsLogin
+		ev.Status.State = StateNeedsLogin
 	}
 	return ev
 }
