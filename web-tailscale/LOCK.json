@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "tailscale": {
+    "module": "tailscale.com",
+    "tag": "v1.102.3",
+    "commit": "53a0d659afa51835dd7a9283873cca44261454f8",
+    "tarballUrl": "https://github.com/tailscale/tailscale/archive/53a0d659afa51835dd7a9283873cca44261454f8.tar.gz",
+    "license": "BSD-3-Clause",
+    "licenseFile": "third_party/tailscale/LICENSE"
+  },
+  "go": {
+    "wanted": "go1.26.6",
+    "wantedReason": "tailscale.com@v1.102.3 go.mod declares go 1.26.6",
+    "localObserved": "go1.26.3 (GOTOOLCHAIN=auto downloaded go1.26.6 for wasm)",
+    "wasmExecPathUnderGOROOT": "lib/wasm/wasm_exec.js",
+    "note": "wasm_exec.js MUST come from the same Go toolchain that compiled main.wasm. Never load from a CDN or mix toolchains.",
+    "wasmBuildObserved": "go1.26.6"
+  },
+  "npm": {
+    "officialConnectPackage": "@tailscale/connect",
+    "usedInThisPoc": false,
+    "reason": "Public package exposes login/logout/ssh/fetch only; no arbitrary TCP dial. This POC patches cmd/tsconnect/wasm instead."
+  },
+  "patches": [
+    {
+      "file": "patches/0001-dialtcp-stable-node-id.patch",
+      "purpose": "Narrow dialTcp/read/write/close plus StableID/NodeID on NetMap. No SOCKS, UDP, Funnel, exit node, or port scan."
+    }
+  ],
+  "cdn": "forbidden",
+  "artifacts": {
+    "main.wasm": {
+      "sha256": "65c3ba7321d0ad9363faa44f6e374a9bf8133093706b2d46c70b9cca6703731a",
+      "bytes": 36764111,
+      "gzipBytes": 8336377,
+      "gitignored": true,
+      "rebuild": "./scripts/build-wasm.sh"
+    },
+    "wasm_exec.js": {
+      "sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+      "source": "go1.26.6 GOROOT/lib/wasm/wasm_exec.js"
+    }
+  }
+}

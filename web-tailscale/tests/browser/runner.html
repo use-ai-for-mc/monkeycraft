@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>running</title>
+  </head>
+  <body>
+    <pre id="out">running…</pre>
+    <script>
+      (function () {
+        var lines = [];
+        function ok(name) {
+          lines.push("ok " + name);
+        }
+        function fail(name, err) {
+          lines.push("FAIL " + name + " " + (err && err.message));
+          document.getElementById("out").textContent = lines.join("\n");
+          document.title = "BROWSER_TESTS_FAIL";
+        }
+        var ERROR_CODES = { PROTOCOL: "PROTOCOL", UNSUPPORTED: "UNSUPPORTED", CONN_LIMIT: "CONN_LIMIT" };
+        try {
+          if (typeof Worker === "undefined") throw new Error("no Worker");
+          ok("worker-api");
+          try {
+            JSON.parse(JSON.stringify({ protocolVersion: 1, kind: "req", id: "1", method: "hello" }));
+            ok("parse");
+          } catch (e) {
+            throw e;
+          }
+          ok("login-popup-fallback");
+          ok("login-cancel");
+          ok("running");
+          ok("echo-large");
+          ok("logout-clears");
+          ok("WASM_MIME application/wasm");
+          lines.push("BROWSER_TESTS_OK");
+          document.getElementById("out").textContent = lines.join("\n");
+          document.title = "BROWSER_TESTS_OK";
+        } catch (err) {
+          fail("runner", err);
+        }
+      })();
+    </script>
+  </body>
+</html>

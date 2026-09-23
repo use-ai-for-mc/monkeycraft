@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MonkeyCraft web-tailscale POC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font: 14px/1.4 ui-monospace, monospace; margin: 24px; max-width: 920px; }
+      button, input { margin: 0 8px 8px 0; font: inherit; }
+      pre { background: #111; color: #ddd; padding: 12px; min-height: 120px; overflow: auto; }
+      #auth { border: 1px solid #888; padding: 8px; margin: 12px 0; }
+      label { margin-right: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>web-tailscale POC</h1>
+    <p>
+      Serve from repo: <code>python3 scripts/serve.py</code> then open
+      <code>http://127.0.0.1:8765/poc/</code>. Do not use <code>file://</code>.
+      Auth URLs are never written to the log.
+    </p>
+    <p>
+      backend: <strong id="backend">-</strong>
+      &nbsp; IPN: <strong id="state">-</strong>
+    </p>
+    <div>
+      <button id="btn-init">Init WASM</button>
+      <button id="btn-init-fake">Init fake</button>
+      <button id="btn-login">Login</button>
+      <button id="btn-login-cancel">Cancel / logout</button>
+      <button id="btn-logout">Logout</button>
+      <button id="btn-refresh">Refresh</button>
+    </div>
+    <div>
+      <label>echo host <input id="echo-host" size="18" placeholder="100.x.y.z" /></label>
+      <label>port <input id="echo-port" size="6" value="9600" /></label>
+      <button id="btn-echo">dialTcp echo</button>
+    </div>
+    <div id="auth" hidden>
+      Popup blocked or navigation failed.
+      <button id="auth-open" type="button">Open login page</button>
+      <button id="auth-copy" type="button">Copy login link</button>
+    </div>
+    <h2>peers (no keys)</h2>
+    <pre id="peers"></pre>
+    <h2>log</h2>
+    <pre id="log"></pre>
+    <script type="module" src="../js/page.js"></script>
+  </body>
+</html>

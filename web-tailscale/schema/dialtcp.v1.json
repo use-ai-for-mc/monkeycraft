@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monkeycraft.dev/web-tailscale/schema/dialtcp.v1.json",
+  "title": "Restricted dialTcp bridge v1",
+  "description": "Narrow TCP byte-stream API over the WASM userspace netstack. Not SOCKS. Not UDP. Not a fetch gateway. Not a port scanner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["host", "port"],
+  "properties": {
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 253,
+      "description": "Tailnet IPv4/IPv6 or MagicDNS name previously selected by the user. The bridge does not enumerate or probe other hosts."
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "Single destination port, typically MonkeyCraft 9600. No port ranges."
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000,
+      "default": 15000
+    }
+  }
+}

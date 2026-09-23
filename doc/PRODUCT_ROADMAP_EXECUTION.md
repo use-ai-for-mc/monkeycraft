@@ -1046,3 +1046,13 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 第二次Pages运行[35898773720](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35898773720)的build及deploy均成功，公开地址 https://use-ai-for-mc.github.io/monkeycraft/ 已更新为共享Flutter客户端。线上build-provenance.json的source为d4b3e0a00716dca31b99f98ef9a9c8860623c435、dirty=false、run为35898773720、Flutter为3.41.2、base为/monkeycraft/。从公开网址实际下载index.html、main.dart.js、flutter_bootstrap.js和manifest.json，其SHA256均匹配发布来源清单；main.dart.js为f1dc25d7e3523a786f2e19e43d8f1c91eab2287f72e7c9aec8d5a807cef74d26，与用户已验收的Mod自动连接版一致。
 
 用无头Chromium直接打开公开页面，Flutter连接表单加载成功，标题MonkeyCraft、Server address首次为空、Connect和Remember and connect automatically可见，无页面异常或资源请求失败。这只计公开页面加载验证，没有连接用户游戏，也没有操作当前Minecraft、手机或系统Tailscale。剩余仅一次Pages入口到可达HTTPS/WSS游戏电脑的连接确认，不重测声音、倒计时、后台或旧Safari矩阵。Pages保持HTTPS、无自定义域名。证据位于outputs/pages-publish-2026-09-24/（首次失败日志、成功运行记录、线上来源清单、公开资源哈希、浏览器结果和截图）。
+
+### 2026-09-24 浏览器 Tailscale WASM 真实联调
+
+用户确认线上Pages连接成功，随后要求核查既有WASM并联合测试。保留原未跟踪实验源码备份后，将web-tailscale原型及本轮修复纳入版本管理；不开发第二套产品UI，不更改线上Pages、App或Mod。原型基于固定Tailscale v1.102.3的cmd/tsconnect/wasm，添加TCP接口，由Dedicated Worker经RPC交给页面。修复JS拒绝64位长度大帧的问题，新增TCP→WebSocket拆包/升级适配及只接收视频的诊断程序。
+
+用户批准monkeycraft-web临时节点后，真实Chrome中的WASM节点Running，取得peer列表。先验证tailnet echo和PC内嵌节点的真实HELLO，再经系统节点承载20秒录像（197帧成功解码、错误0），最后直连PC内嵌节点→26.2运行中Mod，HMAC双方认证成功。等待ride自然结束休眠后，20秒视频观察接收165帧、解码160帧、错误0，约1.30MB。最大解码帧间隔1.99秒，不能宣称无卡顿。全程未发送游戏输入、未结束ride、未重启Minecraft；路径没有使用Funnel。
+
+本轮Node RPC/WS/大帧拆包回归与Go wsframe/tcpbridge定向检查通过；Go1.26.6重新构建WASM成功。实际联调保留旧Worker身份，运行旧基线二进制；重编译产物仅记构建成功。临时节点已Logout，Worker连接数0、游戏客户端连接false、仍在服务器中。身份目前仅在Worker内存，正式Flutter接入、持久身份和连接恢复仍待实施，手机Safari WASM尚未测试；不重开原生声音或旧Safari验收。详情、命令与本轮界限见[tailscale-integration/evidence/2026-09-24-browser-wasm.md](tailscale-integration/evidence/2026-09-24-browser-wasm.md)。
+
+临时本地HTTP、签名、echo、录像及tailnet代理进程均已停止，实验页关闭；未更改系统Tailscale/Funnel设置。原型patch文件保留标准unified diff的上下文空格及Go制表符，diff空白检查仅排除该patch，其余通过。

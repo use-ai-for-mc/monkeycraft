@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>worker-rpc</title>
+  </head>
+  <body>
+    <pre id="out">running…</pre>
+    <script type="module">
+      import { createFakeBackend } from "../../js/fake-backend.js";
+      const events = [];
+      const fake = createFakeBackend((e) => events.push(e));
+      await fake.handle({ id: "i", method: "init", payload: {} });
+      const blocked = await fake.handle({ id: "p", method: "login", payload: { popupBlocked: true } });
+      const cancel = await fake.handle({ id: "c", method: "login", payload: { cancel: true } });
+      await fake.handle({ id: "l", method: "login", payload: {} });
+      const st = await fake.handle({ id: "s", method: "status", payload: {} });
+      const d = await fake.handle({ id: "d", method: "dialTcp", payload: { host: "100.64.0.1", port: 9600 } });
+      const big = new Uint8Array(70 * 1024);
+      await fake.handle({ id: "w", method: "connWrite", payload: { connId: d.payload.connId } }, big.buffer);
+      const rd = await fake.handle({ id: "r", method: "connRead", payload: { connId: d.payload.connId } });
+      await fake.handle({ id: "lo", method: "logout", payload: {} });
+      const after = await fake.handle({ id: "s2", method: "status", payload: {} });
+      const ok =
+        blocked.ok &&
+        cancel.payload.cancelled &&
+        st.payload.ipn === "Running" &&
+        rd.payload.n === big.length &&
+        after.payload.loggedOut;
+      document.getElementById("out").textContent = ok ? "WORKER_RPC_OK" : "WORKER_RPC_FAIL";
+      document.title = ok ? "WORKER_RPC_OK" : "WORKER_RPC_FAIL";
+    </script>
+  </body>
+</html>

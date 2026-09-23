@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-09-23T18:13:25Z",
+  "tailscaleTag": "v1.102.3",
+  "tailscaleCommit": "53a0d659afa51835dd7a9283873cca44261454f8",
+  "goVersion": "go1.26.6",
+  "goos": "js",
+  "goarch": "wasm",
+  "ldflags": "-s -w",
+  "wasm": {
+    "path": "dist/main.wasm",
+    "sha256": "60233fb246bb55f8fdeaa477dbfb61b6ab3313da87457c01e5b9ee953d4f7003",
+    "bytes": 36764111,
+    "gzipBytes": 8336376
+  },
+  "wasmExec": {
+    "path": "dist/wasm_exec.js",
+    "sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "source": "GOROOT/lib/wasm/wasm_exec.js"
+  },
+  "license": "BSD-3-Clause",
+  "cdn": "forbidden"
+}

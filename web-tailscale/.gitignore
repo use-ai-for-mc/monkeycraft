@@ -1,0 +1,17 @@
+dist/*.wasm
+dist/*.wasm.gz
+dist/wasm_exec.js
+dist/build-info.json
+dist/live-probe.js
+/tmp/
+.tmp-chrome/
+.upstream/
+.build/
+testdata/fuzz/
+*.exe
+*.test
+*.out
+.gocache/
+.gomodcache/
+node_modules/
+.DS_Store
