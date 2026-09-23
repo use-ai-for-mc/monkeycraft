@@ -1034,3 +1034,7 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 用户授权编译并原子替换 ImagineFun Add-Ons 的 Mod，明确禁止关闭当前游戏。本轮从83bdb01运行 mods/26.2/build-and-deploy.sh，使用Java25，Go与Gradle并行度限制为2；重新生成根路径Flutter Web和四平台helper，spotless及clean build成功，66项Mod测试全部通过、无跳过。旧JAR先备份至 outputs/deploy-26.2-autoconnect-2026-09-23/previous/，脚本校验真实Prism实例、临时JAR完整性后同目录原子rename替换。
 
 部署后JAR SHA256为6e1dd7fbd7330842844b505da8ce9c8736353f4418374369bbbf47e851147d67；内置main.dart.js SHA256为f1dc25d7e3523a786f2e19e43d8f1c91eab2287f72e7c9aec8d5a807cef74d26，与本轮Flutter输出一致并包含自动连接界面；四平台helper提交标记83bdb01且哈希均匹配。版本号仍为1.4.2-26.2，不以版本号区分此次资源更新。原游戏进程40721仍在运行，没有关闭、重启或接管游戏。新包等待用户结束本局后自行重启加载，不记运行时已生效。证据：outputs/deploy-26.2-autoconnect-2026-09-23/build.log、deployment.json；Pages未更新。
+
+### 2026-09-24 用户确认新版浏览器入口
+
+用户自行重启26.2后确认，手机Safari刷新网页会自动进入游戏；随后自行尝试未登录情形并反馈成功。将本次自动连接入口记为用户实际验收通过，不增加重复声音、后台或跨版本检查。只读核对：83bdb01的CI运行35843379962已成功；Pages配置为workflow发布、HTTPS开启、无自定义域名，最近部署仍是2026-08-30的1c333679。剩余Pages步骤为发布当前Flutter候选、核对公开来源文件与资源，以及一次公开入口到可达HTTPS/WSS游戏电脑的连接确认。Pages与Mod页面不同源，不复用其浏览器凭证，首次仍需设置目标并认证；未将Mod入口验收冒充Pages线上验收。本轮没有触发部署。
