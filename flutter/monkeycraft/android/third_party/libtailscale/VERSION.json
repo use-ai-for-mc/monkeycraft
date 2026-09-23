@@ -1,0 +1,31 @@
+{
+  "libtailscaleCommit": "80771313ac4127973677c993889fe215abcf1fbd",
+  "libtailscaleRepository": "https://github.com/tailscale/libtailscale",
+  "tailscaleGoModule": "tailscale.com v1.94.1",
+  "goVersion": "go1.25.5 (upstream minimum); CI go1.26.3; exact builder recorded in out/MANIFEST.json",
+  "ndkVersion": "28.2.13676358",
+  "androidApi": 24,
+  "license": "BSD-3-Clause",
+  "licensePath": "LICENSE",
+  "embeddingChoice": "libtailscale C shared library + JNI, not gomobile AAR, not VpnService",
+  "overlay": {
+    "file": "overlay/android_netmon.go",
+    "sha256": "aebb669ab2bdf31a311babf4814d64bbdfa90b5f8224edf2255e81ad23d0aa8e",
+    "purpose": "Use getifaddrs directly so Android app SELinux never reaches netlink route sockets; initialize TS_LOGS_DIR to the app-private state directory before tsnet starts; expose a context-bounded dial entry point.",
+    "exit": "Delete when upstream PR 19455 or tsnet rework lands in the pinned libtailscale."
+  },
+  "abis": [
+    "arm64-v8a",
+    "armeabi-v7a"
+  ],
+  "interactiveLogin": {
+    "authURL": "ipnstate.Status.AuthURL via tailscale_status_json",
+    "loginInteractive": "POST /localapi/v0/login-interactive",
+    "nodeId": "Status.Self.ID is Tailcfg.StableNodeID",
+    "authKey": "not used; no reusable auth key is embedded"
+  },
+  "productPatch": {
+    "file": "product-userlog-discard.patch",
+    "purpose": "Disable tsnet UserLogf so AuthURL is never printed by the default logger; backend Logf is separately discarded through the C API."
+  }
+}

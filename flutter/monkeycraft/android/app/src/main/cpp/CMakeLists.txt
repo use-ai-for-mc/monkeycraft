@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(monkeycraft_tailscale)
+
+set(OUT_DIR "${LIBTAILSCALE_OUT}/${ANDROID_ABI}")
+if(NOT EXISTS "${OUT_DIR}/libtailscale_monkeycraft.so")
+  message(FATAL_ERROR "Missing ${ANDROID_ABI} libtailscale. Run android/third_party/libtailscale/build.sh before building MonkeyCraft.")
+endif()
+add_library(tailscale_jni SHARED tailscale_jni.c)
+target_include_directories(tailscale_jni PRIVATE "${OUT_DIR}")
+add_library(libtailscale SHARED IMPORTED)
+set_target_properties(libtailscale PROPERTIES IMPORTED_LOCATION "${OUT_DIR}/libtailscale_monkeycraft.so" IMPORTED_NO_SONAME TRUE)
+find_library(log-lib log)
+target_link_libraries(tailscale_jni libtailscale ${log-lib})

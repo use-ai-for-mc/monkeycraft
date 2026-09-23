@@ -1,0 +1,75 @@
+diff --git a/tailscale.c b/tailscale.c
+--- a/tailscale.c
++++ b/tailscale.c
+@@ -25,5 +25,7 @@ extern int TsnetAccept(int ld, int* connOut);
+ extern int TsnetLoopback(int sd, char* addrOut, size_t addrLen, char* proxyOut, char* localOut);
+ extern int TsnetStatusJSON(int sd, char** jsonOut);
++extern void TsnetDiagnosticReset(void);
++extern int TsnetDiagnosticJSON(char** jsonOut);
+ extern int TsnetEnableFunnelToLocalhostPlaintextHttp1(int sd, int localhostPort);
+ 
+ tailscale tailscale_new() {
+@@ -97,3 +99,6 @@ int tailscale_errmsg(tailscale sd, char* buf, size_t buflen) {
+ int tailscale_enable_funnel_to_localhost_plaintext_http1(tailscale sd, int localhostPort) {
+ 	return TsnetEnableFunnelToLocalhostPlaintextHttp1(sd, localhostPort);
+ }
++
++void tailscale_diagnostic_reset(void) { TsnetDiagnosticReset(); }
++int tailscale_diagnostic_json(char **json_out) { return TsnetDiagnosticJSON(json_out); }
+diff --git a/tailscale.go b/tailscale.go
+--- a/tailscale.go
++++ b/tailscale.go
+@@ -23,6 +23,7 @@ import (
+ 	"unsafe"
+ 
+ 	"golang.org/x/sys/unix"
++	"tailscale.com/control/controlclient"
+ 	"tailscale.com/hostinfo"
+ 	"tailscale.com/ipn"
+ 	"tailscale.com/tsnet"
+@@ -100,10 +101,32 @@ func TsnetNewServer() C.int {
+ 	sd := servers.next
+ 	servers.next++
+-	s := &server{s: &tsnet.Server{}}
++	s := &server{s: &tsnet.Server{UserLogf: logger.Discard}}
+ 	servers.m[sd] = s
+ 	return (C.int)(sd)
+ }
+ 
++//export TsnetDiagnosticReset
++func TsnetDiagnosticReset() {
++	controlclient.MonkeycraftDiagnosticReset()
++}
++
++//export TsnetDiagnosticJSON
++func TsnetDiagnosticJSON(jsonOut **C.char) C.int {
++	if jsonOut == nil {
++		return C.EINVAL
++	}
++	*jsonOut = nil
++	data, err := controlclient.MonkeycraftDiagnosticJSON()
++	if err != nil {
++		return C.EIO
++	}
++	*jsonOut = C.CString(string(data))
++	if *jsonOut == nil {
++		return C.ENOMEM
++	}
++	return 0
++}
++
+ //export TsnetStart
+ func TsnetStart(sd C.int) C.int {
+ 	s := getServer(sd)
+diff --git a/tailscale.h b/tailscale.h
+--- a/tailscale.h
++++ b/tailscale.h
+@@ -39,6 +39,8 @@ extern tailscale tailscale_new();
+ //
+ // Returns zero on success or -1 on error, call tailscale_errmsg for details.
+ extern int tailscale_start(tailscale sd);
++extern void tailscale_diagnostic_reset(void);
++extern int tailscale_diagnostic_json(char** json_out);
+ 
+ // tailscale_up connects the server to the tailnet and waits for it to be usable.
+ //

@@ -46,7 +46,42 @@ flutter run
    flutter run --release
    ```
 
+### Live LAN stream integration (simulators)
+
+The opt-in live fixture authenticates against a locally running Minecraft server and verifies the native decoder. It does not run without an explicit command. Supply a password-only JSON file with mode `0600`; the runner reads it at runtime, creates a random single-use loopback route, and passes only that temporary route to Flutter.
+
+```bash
+python3 tool/run_live_native_stream.py \
+  --config-path /private/path/password-only.json \
+  --server ws://127.0.0.1:9600 \
+  --device <booted-ios-simulator-udid> \
+  --reconnect
+```
+
+For a booted Android emulator, use its emulator serial and the host alias:
+
+```bash
+python3 tool/run_live_native_stream.py \
+  --config-path /private/path/password-only.json \
+  --server ws://10.0.2.2:9600 \
+  --device emulator-5554 \
+  --reconnect
+```
+
+The runner accepts a booted iOS simulator or an `emulator-*` Android emulator, never a physical device. For Android it creates and removes its own random-port `adb reverse` mapping for the one-time configuration route. It is not physical-device validation. Do not place passwords in `--dart-define` values or test output.
+
 ## Building for Release
+
+### iOS device-signed package
+
+Build a signed device `Runner.app` with the repeatable helper:
+
+```bash
+FLUTTER_BIN=/Users/cusgadmin/if-local/flutter/bin/flutter \
+  tool/build_ios_device_release.sh
+```
+
+The helper always runs `clean`, `pub get`, a signed `build ios --release`, and `tool/verify_ios_app.py`. It has no unsigned-build option. Flutter stores iOS native assets in a shared `build/native_assets/ios` directory, so do not run simulator and device builds from the same checkout without this clean device-build boundary. The verifier rejects simulator slices and nested bundles whose signing team differs from Runner before an archive is installed.
 
 ### iOS (Apple App Store)
 

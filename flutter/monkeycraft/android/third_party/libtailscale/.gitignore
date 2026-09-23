@@ -1,0 +1,8 @@
+src/
+out/
+spike/.gradle/
+spike/build/
+spike/app/build/
+spike/local.properties
+spike/.cxx/
+!spike/gradle/wrapper/gradle-wrapper.jar

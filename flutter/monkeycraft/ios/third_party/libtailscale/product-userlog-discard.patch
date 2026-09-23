@@ -1,0 +1,13 @@
+diff --git a/tailscale.go b/tailscale.go
+index 78df2d9..6fbd4aa 100644
+--- a/tailscale.go
++++ b/tailscale.go
+@@ -99,7 +99,7 @@ func TsnetNewServer() C.int {
+ 	}
+ 	sd := servers.next
+ 	servers.next++
+-	s := &server{s: &tsnet.Server{}}
++	s := &server{s: &tsnet.Server{UserLogf: logger.Discard}}
+ 	servers.m[sd] = s
+ 	return (C.int)(sd)
+ }

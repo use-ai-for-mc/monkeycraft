@@ -7,7 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -37,6 +39,8 @@ class NotificationsPlugin(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "requestPermission" -> requestPermission(result)
+            "getExactAlarmAccess" -> result.success(exactAlarmAccess())
+            "openExactAlarmSettings" -> openExactAlarmSettings(result)
             "scheduleTimed" -> {
                 val fireAt = call.argument<Number>("fireAtEpochMs")?.toLong()
                 if (fireAt == null) {
@@ -57,9 +61,9 @@ class NotificationsPlugin(
                 result.success(null)
             }
             "showImmediate" -> {
-                NotificationSupport.postAlert(
+                immediateIdCounter = NotificationSupport.postImmediate(
                     context,
-                    ++immediateIdCounter,
+                    immediateIdCounter,
                     call.argument<String>("title") ?: "MonkeyCraft",
                     call.argument<String>("body") ?: "",
                     call.argument<Boolean>("sound") ?: true,
@@ -161,6 +165,35 @@ class NotificationsPlugin(
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAtEpochMs, pendingIntent)
             else ->
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, fireAtEpochMs, pendingIntent)
+        }
+    }
+
+    private fun exactAlarmAccess(): Map<String, Boolean> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return mapOf("supported" to false, "granted" to true)
+        }
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+        return mapOf(
+            "supported" to true,
+            "granted" to (alarmManager?.canScheduleExactAlarms() == true),
+        )
+    }
+
+    private fun openExactAlarmSettings(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            result.success(false)
+            return
+        }
+        try {
+            activity.startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:${context.packageName}"),
+                ),
+            )
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("exact_alarm_settings_failed", e.message, null)
         }
     }
 

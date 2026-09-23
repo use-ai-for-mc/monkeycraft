@@ -52,8 +52,9 @@ final class FakeBackend: TailscaleNodeBackend {
 
 final class FakePresenter: TailscaleAuthPresenter {
   var urls: [URL] = []
-  func presentAuthURL(_ url: URL) throws {
+  func presentAuthURL(_ url: URL, completion: @escaping (Result<Void, Error>) -> Void) {
     urls.append(url)
+    completion(.success(()))
   }
 }
 
@@ -108,6 +109,53 @@ final class TailscaleNodeManagerTests: XCTestCase {
     XCTAssertEqual(manager.currentSnapshot().errorCode, "already_starting")
   }
 
+  func testRepeatedStartKeepsKnownPeers() {
+    let json: [String: Any] = [
+      "BackendState": "Running",
+      "Self": ["ID": "self", "HostName": "phone"],
+      "Peer": ["pc": ["ID": "pc1", "HostName": "desk", "Online": true]],
+    ]
+    let backend = FakeBackend(statusPayloads: [
+      try! JSONSerialization.data(withJSONObject: json),
+    ])
+    let (manager, _) = makeManager(backend: backend)
+    manager.start()
+    manager.start()
+    XCTAssertEqual(manager.currentSnapshot().peers.map(\.nodeId), ["pc1"])
+    XCTAssertEqual(manager.currentSnapshot().errorCode, "already_starting")
+  }
+
+  func testInteractiveRetryPresentsTheSameAuthURLAgain() {
+    let authURL = "https://login.tailscale.com/a/abc"
+    let backend = FakeBackend(statusPayloads: [
+      statusJSON(state: "NeedsLogin", authURL: authURL),
+      statusJSON(state: "NeedsLogin", authURL: authURL),
+    ])
+    let (manager, presenter) = makeManager(backend: backend)
+    manager.start()
+    manager.loginInteractive()
+    XCTAssertEqual(backend.loginCount, 1)
+    XCTAssertEqual(presenter.urls.count, 2)
+    XCTAssertEqual(presenter.urls.map(\.absoluteString), [authURL, authURL])
+  }
+
+  func testRetryAfterLoginFailureClosesFailedBackendBeforeCreatingAnother() {
+    let first = FakeBackend(statusPayloads: [statusJSON(state: "NeedsLogin")])
+    first.loginError = NSError(domain: "test", code: 4)
+    let second = FakeBackend(statusPayloads: [statusJSON(state: "Starting")])
+    var backends = [first, second]
+    let manager = TailscaleNodeManager(
+      backendFactory: { backends.isEmpty ? nil : backends.removeFirst() },
+      presenter: FakePresenter()
+    )
+    manager.start()
+    manager.loginInteractive()
+    XCTAssertEqual(manager.currentSnapshot().phase, .failed)
+    manager.start()
+    XCTAssertEqual(first.closeCount, 1)
+    XCTAssertEqual(second.startCount, 1)
+  }
+
   func testCancelWhileStartingStopsAndCloses() {
     let backend = FakeBackend(statusPayloads: [statusJSON(state: "Starting")])
     let (manager, _) = makeManager(backend: backend)
@@ -150,6 +198,78 @@ final class TailscaleNodeManagerTests: XCTestCase {
     manager.start()
     XCTAssertEqual(manager.currentSnapshot().phase, .unavailable)
     XCTAssertEqual(manager.currentSnapshot().errorCode, "not_linked")
+  }
+
+  func testSystemAuthPresenterReportsAnOpenFailure() {
+    let presenter = SystemAuthPresenter(opener: { _, completion in completion(false) })
+    let completion = expectation(description: "open failure")
+    presenter.presentAuthURL(URL(string: "https://login.tailscale.com")!) { result in
+      if case .success = result {
+        XCTFail("expected an open failure")
+      }
+      completion.fulfill()
+    }
+    wait(for: [completion], timeout: 1)
+  }
+
+  func testNativeLoginRequestTiming() throws {
+    guard UserDefaults.standard.bool(forKey: "MonkeyCraftRunNativeTailscaleTest") else {
+      throw XCTSkip("set MonkeyCraftRunNativeTailscaleTest in the test app defaults to run the native network timing test")
+    }
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let lock = NSLock()
+    var timings: [String: UInt64] = [:]
+    let backend = LibtailscaleBackend(
+      hostname: "monkeycraft-ios-simulator-test",
+      timingReporter: { stage, startedAt in
+        let elapsed = DispatchTime.now().uptimeNanoseconds - startedAt.uptimeNanoseconds
+        lock.lock()
+        timings[stage] = elapsed / 1_000_000
+        lock.unlock()
+      }
+    )
+    defer {
+      backend.close()
+      try? FileManager.default.removeItem(at: directory)
+    }
+    try backend.startNode(stateDirectory: directory)
+    XCTAssertFalse(try backend.statusJSON().isEmpty)
+    let loginStartedAt = DispatchTime.now()
+    try backend.loginInteractive()
+    var authURLObservedAt: UInt64?
+    let deadline = Date().addingTimeInterval(60)
+    while Date() < deadline {
+      let data = try backend.statusJSON()
+      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+      if let authURL = json?["AuthURL"] as? String, !authURL.isEmpty {
+        authURLObservedAt = (DispatchTime.now().uptimeNanoseconds - loginStartedAt.uptimeNanoseconds) / 1_000_000
+        break
+      }
+      Thread.sleep(forTimeInterval: 0.25)
+    }
+    XCTAssertNotNil(authURLObservedAt, "AuthURL was not observed within 60 seconds")
+    lock.lock()
+    let localAPI = timings["localapi_request"]
+    let start = timings["tailscale_start"]
+    let status = timings["tailscale_status_json"]
+    lock.unlock()
+    XCTAssertNotNil(localAPI)
+    XCTAssertNotNil(start)
+    XCTAssertNotNil(status)
+    XCTAssertLessThan(localAPI ?? .max, 20_000)
+    let report: [String: UInt64] = [
+      "startMs": start ?? .max,
+      "statusMs": status ?? .max,
+      "localApiRequestMs": localAPI ?? .max,
+      "firstAuthURLMs": authURLObservedAt ?? .max,
+    ]
+    let attachment = XCTAttachment(
+      data: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]),
+      uniformTypeIdentifier: "public.json"
+    )
+    attachment.name = "native-tailscale-timing"
+    attachment.lifetime = .keepAlways
+    add(attachment)
   }
 
   func testParsesPeersAndSkipsSelf() {

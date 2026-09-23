@@ -47,7 +47,120 @@ protocol TailscaleNodeBackend: AnyObject, TailscaleDialer {
 }
 
 protocol TailscaleAuthPresenter {
-  func presentAuthURL(_ url: URL) throws
+  func presentAuthURL(_ url: URL, completion: @escaping (Result<Void, Error>) -> Void)
+}
+
+enum TailscaleTiming {
+  static func defaultRecord(_ stage: String, _ startedAt: DispatchTime) {
+    record(stage, startedAt: startedAt)
+  }
+
+  static func instant(_ stage: String, phase: TailscalePhase? = nil) {
+    append(stage: stage, elapsedMs: 0, phase: phase)
+  }
+
+  static func record(_ stage: String, startedAt: DispatchTime, phase: TailscalePhase? = nil) {
+    let elapsed = DispatchTime.now().uptimeNanoseconds - startedAt.uptimeNanoseconds
+    append(stage: stage, elapsedMs: elapsed / 1_000_000, phase: phase)
+  }
+
+  static func native(stage: UInt8, elapsedMs: Int64, offsetMs: Int64, attempt: UInt64, status: Int) {
+    #if MONKEYCRAFT_TAILSCALE_TIMING
+    guard (1...4).contains(stage), elapsedMs >= 0, offsetMs >= 0, status >= 0 else { return }
+    appendNative(stage: stage, elapsedMs: elapsedMs, offsetMs: offsetMs, attempt: attempt, status: status)
+    #endif
+  }
+
+  #if MONKEYCRAFT_TAILSCALE_TIMING
+  private static let lock = NSLock()
+  private static let maximumBytes: UInt64 = 64 * 1024
+
+  private static func append(stage: String, elapsedMs: UInt64, phase: TailscalePhase?) {
+    let monotonicMs = DispatchTime.now().uptimeNanoseconds / 1_000_000
+    var event: [String: Any] = [
+      "stage": stage,
+      "monotonicMs": monotonicMs,
+      "elapsedMs": elapsedMs,
+    ]
+    if let phase {
+      event["phase"] = phase.rawValue
+    }
+    guard var data = try? JSONSerialization.data(withJSONObject: event, options: [.sortedKeys]) else { return }
+    data.append(0x0A)
+    lock.lock()
+    defer { lock.unlock() }
+    do {
+      let caches = try FileManager.default.url(
+        for: .cachesDirectory,
+        in: .userDomainMask,
+        appropriateFor: nil,
+        create: true
+      )
+      let directory = caches.appendingPathComponent("MonkeyCraftDiagnostics", isDirectory: true)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let file = directory.appendingPathComponent("tailscale-timing.jsonl")
+      if let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+        let size = attributes[.size] as? NSNumber,
+        size.uint64Value >= maximumBytes
+      {
+        try FileManager.default.removeItem(at: file)
+      }
+      if !FileManager.default.fileExists(atPath: file.path) {
+        FileManager.default.createFile(atPath: file.path, contents: nil)
+      }
+      let handle = try FileHandle(forWritingTo: file)
+      defer { try? handle.close() }
+      try handle.seekToEnd()
+      try handle.write(contentsOf: data)
+    } catch {}
+  }
+
+  private static func appendNative(stage: UInt8, elapsedMs: Int64, offsetMs: Int64, attempt: UInt64, status: Int) {
+    let names = ["", "register.do", "register.response", "register.body", "register.decode"]
+    let event: [String: Any] = [
+      "stage": names[Int(stage)],
+      "elapsedMs": elapsedMs,
+      "offsetMs": offsetMs,
+      "attempt": attempt,
+      "status": status,
+      "monotonicMs": DispatchTime.now().uptimeNanoseconds / 1_000_000,
+    ]
+    appendEvent(event)
+  }
+
+  private static func appendEvent(_ event: [String: Any]) {
+    guard var data = try? JSONSerialization.data(withJSONObject: event, options: [.sortedKeys]) else { return }
+    data.append(0x0A)
+    lock.lock()
+    defer { lock.unlock() }
+    do {
+      let caches = try FileManager.default.url(
+        for: .cachesDirectory,
+        in: .userDomainMask,
+        appropriateFor: nil,
+        create: true
+      )
+      let directory = caches.appendingPathComponent("MonkeyCraftDiagnostics", isDirectory: true)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let file = directory.appendingPathComponent("tailscale-timing.jsonl")
+      if let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+        let size = attributes[.size] as? NSNumber,
+        size.uint64Value >= maximumBytes
+      {
+        try FileManager.default.removeItem(at: file)
+      }
+      if !FileManager.default.fileExists(atPath: file.path) {
+        FileManager.default.createFile(atPath: file.path, contents: nil)
+      }
+      let handle = try FileHandle(forWritingTo: file)
+      defer { try? handle.close() }
+      try handle.seekToEnd()
+      try handle.write(contentsOf: data)
+    } catch {}
+  }
+  #else
+  private static func append(stage: String, elapsedMs: UInt64, phase: TailscalePhase?) {}
+  #endif
 }
 
 enum TailscaleErrorCode: String {
@@ -67,6 +180,7 @@ final class TailscaleNodeManager {
   private let backendFactory: () -> TailscaleNodeBackend?
   private let presenter: TailscaleAuthPresenter
   private let fileManager: FileManager
+  private let timingReporter: (String, DispatchTime) -> Void
   var onSnapshot: ((TailscaleSnapshot) -> Void)?
 
   private var backend: TailscaleNodeBackend?
@@ -78,11 +192,13 @@ final class TailscaleNodeManager {
   init(
     backendFactory: @escaping () -> TailscaleNodeBackend?,
     presenter: TailscaleAuthPresenter,
-    fileManager: FileManager = .default
+    fileManager: FileManager = .default,
+    timingReporter: @escaping (String, DispatchTime) -> Void = TailscaleTiming.defaultRecord
   ) {
     self.backendFactory = backendFactory
     self.presenter = presenter
     self.fileManager = fileManager
+    self.timingReporter = timingReporter
   }
 
   deinit {
@@ -94,6 +210,7 @@ final class TailscaleNodeManager {
   func backendForDial() -> TailscaleNodeBackend? { backend }
 
   func start() {
+    TailscaleTiming.instant("start.entry", phase: snapshot.phase)
     if snapshot.phase == .starting || snapshot.phase == .needsLogin || snapshot.phase == .running
       || snapshot.phase == .needsApproval
     {
@@ -105,11 +222,13 @@ final class TailscaleNodeManager {
           authUrlHost: snapshot.authUrlHost,
           nodeId: snapshot.nodeId,
           hostName: snapshot.hostName,
-          backendState: snapshot.backendState
+          backendState: snapshot.backendState,
+          peers: snapshot.peers
         )
       )
       return
     }
+    discardFailedBackend()
     guard let created = backendFactory() else {
       emit(
         TailscaleSnapshot(
@@ -124,11 +243,14 @@ final class TailscaleNodeManager {
     lastAuthURL = nil
     backend = created
     emit(TailscaleSnapshot(phase: .starting))
+    let startedAt = DispatchTime.now()
     do {
       try created.startNode(stateDirectory: try stateDirectory())
+      timingReporter("start.return", startedAt)
       refreshStatus()
       startPolling()
     } catch {
+      timingReporter("start.failed", startedAt)
       emit(
         TailscaleSnapshot(
           phase: .failed,
@@ -142,6 +264,7 @@ final class TailscaleNodeManager {
   }
 
   func loginInteractive() {
+    TailscaleTiming.instant("login.entry", phase: snapshot.phase)
     guard let backend else {
       emit(
         TailscaleSnapshot(
@@ -152,10 +275,14 @@ final class TailscaleNodeManager {
       )
       return
     }
+    let startedAt = DispatchTime.now()
     do {
+      lastAuthURL = nil
       try backend.loginInteractive()
+      timingReporter("login.return", startedAt)
       refreshStatus()
     } catch {
+      timingReporter("login.failed", startedAt)
       emit(
         TailscaleSnapshot(
           phase: .failed,
@@ -221,11 +348,14 @@ final class TailscaleNodeManager {
   func refreshStatus() {
     guard let backend else { return }
     let captured = generation
+    let startedAt = DispatchTime.now()
     do {
       let data = try backend.statusJSON()
+      timingReporter("statusJSON", startedAt)
       guard captured == generation else { return }
       applyStatusJSON(data)
     } catch {
+      timingReporter("statusJSON.failed", startedAt)
       guard captured == generation else { return }
       emit(
         TailscaleSnapshot(
@@ -273,12 +403,31 @@ final class TailscaleNodeManager {
       next.authUrlHost = url.host
       if lastAuthURL != authURL {
         lastAuthURL = authURL
-        do {
-          try presenter.presentAuthURL(url)
-        } catch {
-          next.phase = .failed
-          next.errorCode = TailscaleErrorCode.presentFailed.rawValue
-          next.errorMessage = Self.redact(error.localizedDescription)
+        TailscaleTiming.instant("authURL.first", phase: next.phase)
+        let startedAt = DispatchTime.now()
+        let capturedGeneration = generation
+        presenter.presentAuthURL(url) { [weak self] result in
+          self?.queue.async {
+            guard let self, capturedGeneration == self.generation, self.lastAuthURL == authURL else { return }
+            switch result {
+            case .success:
+              self.timingReporter("presentAuthURL", startedAt)
+            case .failure(let error):
+              self.timingReporter("presentAuthURL.failed", startedAt)
+              self.emit(
+                TailscaleSnapshot(
+                  phase: .failed,
+                  errorCode: TailscaleErrorCode.presentFailed.rawValue,
+                  errorMessage: Self.redact(error.localizedDescription),
+                  authUrlHost: self.snapshot.authUrlHost,
+                  nodeId: self.snapshot.nodeId,
+                  hostName: self.snapshot.hostName,
+                  backendState: self.snapshot.backendState,
+                  peers: self.snapshot.peers
+                )
+              )
+            }
+          }
         }
       }
     }
@@ -336,6 +485,7 @@ final class TailscaleNodeManager {
 
   private func emit(_ snapshot: TailscaleSnapshot) {
     self.snapshot = snapshot
+    TailscaleTiming.instant("phase", phase: snapshot.phase)
     onSnapshot?(snapshot)
   }
 
@@ -353,6 +503,14 @@ final class TailscaleNodeManager {
   private func stopPolling() {
     pollTimer?.cancel()
     pollTimer = nil
+  }
+
+  private func discardFailedBackend() {
+    guard snapshot.phase == .failed else { return }
+    stopPolling()
+    backend?.close()
+    backend = nil
+    lastAuthURL = nil
   }
 
   private func stateDirectory() throws -> URL {

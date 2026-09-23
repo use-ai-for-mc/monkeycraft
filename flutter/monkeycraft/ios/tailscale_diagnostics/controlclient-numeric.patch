@@ -1,0 +1,163 @@
+diff --git a/control/controlclient/direct.go b/control/controlclient/direct.go
+--- a/control/controlclient/direct.go
++++ b/control/controlclient/direct.go
+@@ -718,18 +718,28 @@ func (c *Direct) doLogin(ctx context.Context, opt loginOpt) (mustRegen bool, new
+ 	ts2021.AddLBHeader(req, request.OldNodeKey)
+ 	ts2021.AddLBHeader(req, request.NodeKey)
+ 
++	attempt := monkeycraftDiagnosticRegisterAttempt()
++	doStarted := time.Now()
++	monkeycraftDiagnosticRegister(1, doStarted, 0, attempt)
+ 	res, err := httpc.Do(req)
+ 	if err != nil {
++		monkeycraftDiagnosticRegister(2, doStarted, 0, attempt)
+ 		return regen, opt.URL, nil, fmt.Errorf("register request: %w", err)
+ 	}
++	monkeycraftDiagnosticRegister(2, doStarted, res.StatusCode, attempt)
+ 	if res.StatusCode != 200 {
++		bodyStarted := time.Now()
+ 		msg, _ := io.ReadAll(res.Body)
++		monkeycraftDiagnosticRegister(3, bodyStarted, res.StatusCode, attempt)
+ 		res.Body.Close()
+ 		return regen, opt.URL, nil, fmt.Errorf("register request: http %d: %.200s",
+ 			res.StatusCode, strings.TrimSpace(string(msg)))
+ 	}
++	decodeStarted := time.Now()
+ 	resp := tailcfg.RegisterResponse{}
+-	if err := decode(res, &resp); err != nil {
++	err = decode(res, &resp)
++	monkeycraftDiagnosticRegister(4, decodeStarted, res.StatusCode, attempt)
++	if err != nil {
+ 		c.logf("error decoding RegisterResponse with server key %s and machine key %s: %v", serverKey, machinePrivKey.Public(), err)
+ 		return regen, opt.URL, nil, fmt.Errorf("register request: %v", err)
+ 	}
+diff --git a/control/controlclient/monkeycraft_diagnostics.go b/control/controlclient/monkeycraft_diagnostics.go
+new file mode 100644
+--- /dev/null
++++ b/control/controlclient/monkeycraft_diagnostics.go
+@@ -0,0 +1,72 @@
++package controlclient
++
++import (
++	"encoding/json"
++	"sync"
++	"time"
++)
++
++const monkeycraftDiagnosticCapacity = 64
++
++type monkeycraftDiagnosticEvent struct {
++	Sequence  uint64 `json:"sequence"`
++	Stage     uint8  `json:"stage"`
++	ElapsedMS int64  `json:"elapsedMs"`
++	OffsetMS  int64  `json:"offsetMs"`
++	Attempt   uint64 `json:"attempt"`
++	Status    int    `json:"status"`
++}
++
++var monkeycraftDiagnostics struct {
++	mu       sync.Mutex
++	sequence uint64
++	attempt  uint64
++	epoch    time.Time
++	events   [monkeycraftDiagnosticCapacity]monkeycraftDiagnosticEvent
++	next     int
++	count    int
++}
++
++func monkeycraftDiagnosticRegisterAttempt() uint64 {
++	monkeycraftDiagnostics.mu.Lock()
++	defer monkeycraftDiagnostics.mu.Unlock()
++	monkeycraftDiagnostics.attempt++
++	return monkeycraftDiagnostics.attempt
++}
++
++func monkeycraftDiagnosticRegister(stage uint8, started time.Time, status int, attempt uint64) {
++	event := monkeycraftDiagnosticEvent{Stage: stage, ElapsedMS: time.Since(started).Milliseconds(), Attempt: attempt, Status: status}
++	monkeycraftDiagnostics.mu.Lock()
++	defer monkeycraftDiagnostics.mu.Unlock()
++	event.OffsetMS = time.Since(monkeycraftDiagnostics.epoch).Milliseconds()
++	monkeycraftDiagnostics.sequence++
++	event.Sequence = monkeycraftDiagnostics.sequence
++	monkeycraftDiagnostics.events[monkeycraftDiagnostics.next] = event
++	monkeycraftDiagnostics.next = (monkeycraftDiagnostics.next + 1) % monkeycraftDiagnosticCapacity
++	if monkeycraftDiagnostics.count < monkeycraftDiagnosticCapacity {
++		monkeycraftDiagnostics.count++
++	}
++}
++
++func MonkeycraftDiagnosticReset() {
++	monkeycraftDiagnostics.mu.Lock()
++	defer monkeycraftDiagnostics.mu.Unlock()
++	monkeycraftDiagnostics.sequence = 0
++	monkeycraftDiagnostics.attempt = 0
++	monkeycraftDiagnostics.epoch = time.Now()
++	monkeycraftDiagnostics.next = 0
++	monkeycraftDiagnostics.count = 0
++}
++
++func MonkeycraftDiagnosticJSON() ([]byte, error) {
++	monkeycraftDiagnostics.mu.Lock()
++	events := make([]monkeycraftDiagnosticEvent, monkeycraftDiagnostics.count)
++	start := (monkeycraftDiagnostics.next - monkeycraftDiagnostics.count + monkeycraftDiagnosticCapacity) % monkeycraftDiagnosticCapacity
++	for i := range events {
++		events[i] = monkeycraftDiagnostics.events[(start+i)%monkeycraftDiagnosticCapacity]
++	}
++	monkeycraftDiagnostics.mu.Unlock()
++	return json.Marshal(struct {
++		Events []monkeycraftDiagnosticEvent `json:"events"`
++	}{Events: events})
++}
+diff --git a/control/controlclient/monkeycraft_diagnostics_test.go b/control/controlclient/monkeycraft_diagnostics_test.go
+new file mode 100644
+--- /dev/null
++++ b/control/controlclient/monkeycraft_diagnostics_test.go
+@@ -0,0 +1,48 @@
++package controlclient
++
++import (
++	"encoding/json"
++	"sync"
++	"testing"
++	"time"
++)
++
++func TestMonkeycraftDiagnosticBoundedConcurrentReset(t *testing.T) {
++	MonkeycraftDiagnosticReset()
++	var wg sync.WaitGroup
++	for i := 0; i < monkeycraftDiagnosticCapacity*2; i++ {
++		wg.Add(1)
++		go func(i int) {
++			defer wg.Done()
++			attempt := monkeycraftDiagnosticRegisterAttempt()
++			monkeycraftDiagnosticRegister(uint8((i%4)+1), time.Now(), i, attempt)
++		}(i)
++	}
++	wg.Wait()
++	data, err := MonkeycraftDiagnosticJSON()
++	if err != nil {
++		t.Fatal(err)
++	}
++	var snapshot struct {
++		Events []monkeycraftDiagnosticEvent `json:"events"`
++	}
++	if err := json.Unmarshal(data, &snapshot); err != nil {
++		t.Fatal(err)
++	}
++	if len(snapshot.Events) != monkeycraftDiagnosticCapacity {
++		t.Fatalf("events=%d", len(snapshot.Events))
++	}
++	for i, event := range snapshot.Events {
++		if event.Sequence != uint64(i+monkeycraftDiagnosticCapacity+1) {
++			t.Fatalf("sequence=%d at %d", event.Sequence, i)
++		}
++	}
++	MonkeycraftDiagnosticReset()
++	data, err = MonkeycraftDiagnosticJSON()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if string(data) != `{"events":[]}` {
++		t.Fatalf("reset=%s", data)
++	}
++}

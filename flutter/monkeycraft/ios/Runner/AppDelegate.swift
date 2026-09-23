@@ -22,6 +22,9 @@ import UserNotifications
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "TailscaleTransportPlugin") {
       TailscaleTransportPlugin.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "AudioBackgroundPlugin") {
+      AudioBackgroundPlugin.register(with: registrar)
+    }
 
     UNUserNotificationCenter.current().delegate = self
   }
@@ -36,10 +39,16 @@ import UserNotifications
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
+    let sound: UNNotificationPresentationOptions =
+      notification.request.content.sound == nil ? [] : [.sound]
     if #available(iOS 14.0, *) {
-      completionHandler([.banner, .list, .sound])
+      var options: UNNotificationPresentationOptions = [.banner, .list]
+      options.formUnion(sound)
+      completionHandler(options)
     } else {
-      completionHandler([.alert, .sound])
+      var options: UNNotificationPresentationOptions = [.alert]
+      options.formUnion(sound)
+      completionHandler(options)
     }
   }
 }

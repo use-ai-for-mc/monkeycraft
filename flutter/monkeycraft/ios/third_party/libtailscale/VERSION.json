@@ -1,0 +1,38 @@
+{
+  "libtailscaleCommit": "80771313ac4127973677c993889fe215abcf1fbd",
+  "libtailscaleRepository": "https://github.com/tailscale/libtailscale",
+  "tailscaleGoModule": "tailscale.com v1.94.1",
+  "goVersion": "go1.25.5 (module) / local builder go1.26.3",
+  "license": "BSD-3-Clause",
+  "licensePath": "LICENSE",
+  "xcodeRequired": "16.1+",
+  "swiftKitVersion": "6.0",
+  "appIosDeploymentTarget": "16.6",
+  "tailscaleKitIosMinimum": "18.1",
+  "embeddingChoice": "libtailscale C archive, not TailscaleKit.framework",
+  "embeddingReason": "Official TailscaleKit.framework sets IPHONEOS_DEPLOYMENT_TARGET=18.1. MonkeyCraft Runner stays on 16.6. C archive clangwrap uses -mios-version-min=12.0.",
+  "targets": {
+    "ios": {
+      "command": "make c-archive-ios",
+      "artifact": "libtailscale_ios.a",
+      "use": "device / App Store archive. Do not mix simulator slices into this archive."
+    },
+    "ios-simulator": {
+      "command": "make c-archive-ios-sim",
+      "artifact": "libtailscale_ios_sim.a",
+      "use": "simulator only. Never ship in an App Store archive."
+    },
+    "ios-fat-xcframework": {
+      "command": "cd swift && make ios-fat",
+      "artifact": "TailscaleKit.xcframework",
+      "use": "local development convenience. Contains simulator + device. Do not submit this xcframework to App Store."
+    }
+  },
+  "login": {
+    "start": "tailscale_start requests the node to run; on a first NeedsLogin state the pinned library begins interactive registration without a separate LocalAPI login request",
+    "authURL": "ipnstate.Status.AuthURL via tailscale_status_json; the native manager presents each new valid URL once",
+    "loginInteractive": "The LocalAPI POST /localapi/v0/login-interactive remains available for an explicit retry, but normal first login starts from tailscale_start",
+    "nodeId": "Status.Self.ID is Tailcfg.StableNodeID",
+    "authKey": "not used; no reusable auth key is embedded"
+  }
+}

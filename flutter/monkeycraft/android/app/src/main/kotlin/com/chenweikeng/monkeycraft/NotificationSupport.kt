@@ -21,6 +21,9 @@ object NotificationSupport {
     const val CHANNEL_ID = "monkeycraft_timed"
     const val CHANNEL_ID_COUNTDOWN = "monkeycraft_countdown"
     const val COUNTDOWN_NOTIFICATION_ID = 990001
+    const val IMMEDIATE_NOTIFICATION_FIRST_ID = 2001
+    const val IMMEDIATE_NOTIFICATION_COUNT = 16
+    const val IMMEDIATE_NOTIFICATION_LEGACY_ID_EXCLUSIVE = COUNTDOWN_NOTIFICATION_ID
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -91,6 +94,34 @@ object NotificationSupport {
             builder.setChronometerCountDown(true)
         }
         post(context, COUNTDOWN_NOTIFICATION_ID, builder)
+    }
+
+    fun postImmediate(
+        context: Context,
+        counter: Int,
+        title: String,
+        body: String,
+        sound: Boolean,
+    ): Int {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && manager != null) {
+            manager.activeNotifications
+                .asSequence()
+                .filter { it.packageName == context.packageName && it.tag == null }
+                .map { ImmediateNotificationRecord(it.id, it.postTime) }
+                .toList()
+        } else {
+            emptyList()
+        }
+        val plan = ImmediateNotificationQuota(
+            IMMEDIATE_NOTIFICATION_FIRST_ID,
+            IMMEDIATE_NOTIFICATION_COUNT,
+            IMMEDIATE_NOTIFICATION_LEGACY_ID_EXCLUSIVE,
+        ).plan(counter, active)
+        val notifications = NotificationManagerCompat.from(context)
+        plan.cancelIds.forEach(notifications::cancel)
+        postAlert(context, plan.id, title, body, sound)
+        return plan.id
     }
 
     fun cancel(context: Context, id: Int) {

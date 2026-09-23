@@ -8,6 +8,8 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterFragmentActivity() {
   private var h264Plugin: H264DecoderPlugin? = null
   private var notificationsPlugin: NotificationsPlugin? = null
+  private var tailscalePlugin: TailscaleTransportPlugin? = null
+  private var audioBackgroundPlugin: AudioBackgroundPlugin? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -18,6 +20,8 @@ class MainActivity : FlutterFragmentActivity() {
     super.configureFlutterEngine(flutterEngine)
     h264Plugin = H264DecoderPlugin(flutterEngine.renderer, flutterEngine.dartExecutor.binaryMessenger)
     notificationsPlugin = NotificationsPlugin(this, flutterEngine.dartExecutor.binaryMessenger)
+    tailscalePlugin = TailscaleTransportPlugin(this, flutterEngine.dartExecutor.binaryMessenger)
+    audioBackgroundPlugin = AudioBackgroundPlugin(this, flutterEngine.dartExecutor.binaryMessenger)
   }
 
   override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -25,6 +29,10 @@ class MainActivity : FlutterFragmentActivity() {
     h264Plugin = null
     notificationsPlugin?.dispose()
     notificationsPlugin = null
+    tailscalePlugin?.dispose()
+    tailscalePlugin = null
+    audioBackgroundPlugin?.dispose()
+    audioBackgroundPlugin = null
     super.cleanUpFlutterEngine(flutterEngine)
   }
 

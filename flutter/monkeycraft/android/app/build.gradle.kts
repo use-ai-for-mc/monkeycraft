@@ -36,11 +36,32 @@ android {
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
+        externalNativeBuild {
+            cmake {
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+                arguments += listOf(
+                    "-DANDROID_STL=c++_shared",
+                    "-DLIBTAILSCALE_OUT=${rootProject.projectDir}/third_party/libtailscale/out",
+                )
+            }
+        }
     }
 
     packaging {
         jniLibs {
             useLegacyPackaging = false
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDir(rootProject.file("third_party/libtailscale/out"))
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -54,6 +75,12 @@ android {
     }
 
     buildTypes {
+        configureEach {
+            ndk {
+                abiFilters.clear()
+                abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            }
+        }
         release {
             if (keystorePropertiesFile.exists() && keystoreProperties.getProperty("storeFile") != null) {
                 signingConfig = signingConfigs.getByName("release")
@@ -67,6 +94,7 @@ flutter {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.activity:activity-ktx:1.10.1")
 }
