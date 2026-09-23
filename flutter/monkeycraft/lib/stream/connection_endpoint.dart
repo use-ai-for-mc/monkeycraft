@@ -25,6 +25,8 @@ class DirectEndpoint implements ConnectionEndpoint {
   Future<void> pause() async {}
 }
 
+class TailscaleSignInRequired implements Exception {}
+
 class EmbeddedTailscaleEndpoint implements ConnectionEndpoint {
   static const _runningTimeout = Duration(seconds: 30);
   static const _bridgeTimeout = Duration(seconds: 20);
@@ -50,9 +52,18 @@ class EmbeddedTailscaleEndpoint implements ConnectionEndpoint {
   Future<String> resolve() async {
     await _ensureRunning();
     await pause();
-    final lease = await client
-        .openBridge(nodeId: nodeId, port: port)
-        .timeout(_bridgeTimeout);
+    final pending = client.openBridge(nodeId: nodeId, port: port);
+    final TailscaleBridgeLease lease;
+    try {
+      lease = await pending.timeout(_bridgeTimeout);
+    } on TimeoutException {
+      unawaited(
+        pending
+            .then((lateLease) => client.closeBridge(lateLease.leaseId))
+            .catchError((Object _) {}),
+      );
+      rethrow;
+    }
     leaseId = lease.leaseId;
     lastLoopbackUrl = lease.url;
     return lease.url;
@@ -77,10 +88,11 @@ class EmbeddedTailscaleEndpoint implements ConnectionEndpoint {
     while (DateTime.now().isBefore(deadline)) {
       snapshot = await client.status();
       if (snapshot.isRunning) return;
+      if (snapshot.needsLogin || snapshot.phase == 'needsApproval') {
+        throw TailscaleSignInRequired();
+      }
       if (snapshot.phase == 'failed' || snapshot.phase == 'unavailable') {
-        throw StateError(
-          snapshot.errorMessage ?? 'embedded Tailscale failed',
-        );
+        throw StateError(snapshot.errorMessage ?? 'embedded Tailscale failed');
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }

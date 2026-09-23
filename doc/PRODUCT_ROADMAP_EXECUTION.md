@@ -998,3 +998,15 @@ TEST_MATRIX、REMAINING_ACCEPTANCE_STEPS、KNOWN_ISSUES_HANDOFF均改为核心�
 APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重命名的 shell 引号。使用 actionlint v1.7.12 检查 build/release/release-flutter-apk/pages 四个工作流全部通过；本机原有 v1.6.2 不认识现代 runner、Pages 权限及布尔输入，其过期诊断未用于修改有效配置。未发布 App、Mod 或 Pages。
 
 最终结果：修复提交 18a26a6 的 GitHub Actions 运行 [35822251652](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35822251652) **8/8 全部成功**：Flutter Web、Android、iOS 未签名 Release、helper（四平台构建、常规/race/隔离 tailnet 集成检查）、四个 Minecraft Mod 构建及已有测试。两笔修复 279b2be、18a26a6 已推送 master。明细见 [CI 修复证据](tailscale-integration/evidence/2026-09-23-ci-repair.md)。本次没有扩大人工验收或发布产品。最终结果用仅文档的 [skip ci] 提交记录，不重新触发已通过的构建；原有失败运行仍保留。
+
+### 2026-09-23 iPhone 内嵌 Tailscale 回前台退回首页
+
+用户新反馈：完成 ride 或切换其他 App 后回到 MonkeyCraft，需要再次点 Connect with Tailscale、选择电脑；不需要网页登录 Tailscale 或重新授权。该事实说明身份仍在，属于游戏会话自动恢复问题。devicectl 只读确认手机目前是 1.4.2(11)；同一构建号曾用于多个包，不能仅凭此确认具体源码。
+
+当前源码定向复现：原生后台仍执行重试并耗尽次数；回前台恢复与重试定时器各走一个入口，能同时申请两条桥接；三次临时失败触发退回首页。新增回归测试在修改前 4 项失败、真实游戏鉴权拒绝对照通过。另一个定向测试确认桥接请求超过20秒后，迟到的成功租约未被释放，可能妨碍下一次连接。均为可重复代码缺陷，但无旧手机现场日志，不能把它们宣称为该手机每次失败的唯一根因。
+
+修复：恢复连接复用同一个进行中的请求；前后台代次用于丢弃旧结果，后台取消重试、不消耗次数；仅原生内嵌 Tailscale 的暂时连接故障保留游戏页，按1/2/4/8秒封顶间隔继续恢复，用户仍可点 Disconnect。真实游戏认证失败及 Tailscale NeedsLogin/NeedsApproval 保留返回登录的处理；直接IP和浏览器仍保留原有有限重试策略。超时桥接的迟到成功会按租约ID释放。没有改动身份存储、退出账户或音频/通知代码。
+
+验证：8项新增恢复测试加原有8项 session/endpoint 测试，共16项通过；flutter analyze 无问题。测试只覆盖本次明确复现的连接缺陷，不新增声音、手机组合或其他功能验收。构建号升级为1.4.2(12)，正在通过设备构建脚本生成正式签名包；先保存主build下99项Web/Pages文件，完成后逐文件恢复。原始日志 outputs/tailscale-recovery-2026-09-23/ 及 outputs/tailscale-recovery-{before,after,analyze}.log。尚未安装到用户手机，不记真机修复通过。
+
+最终设备包已完成：clean设备构建44.2秒成功；归档 outputs/tailscale-recovery-2026-09-23/Runner.app 经逐嵌套平台/签名复核通过，1.4.2(12)，Runner SHA046969c45e2a756de96875fc72eb1d1be2a23f9c1ca1f085dea670481b5d47ea，Dart App SHA6d21f052ee3395a40684116492065f6d5fda9e58378c9ecaee67652ad2c96c9f。此前99项浏览器产物已逐文件原样恢复。修复包已准备，因覆盖安装会中断当前App使用，已向用户确认安装时机，等待答复；未擅自安装或要求声音测试。

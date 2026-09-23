@@ -46,6 +46,7 @@ class SessionController extends ChangeNotifier {
   String? _password;
   bool _disposed = false;
   Future<void>? _connectionAttempt;
+  int _connectionGeneration = 0;
 
   int? get textureId => decoder?.textureId;
   bool get hasVideoSurface =>
@@ -156,8 +157,9 @@ class SessionController extends ChangeNotifier {
   }
 
   void setForeground(bool foreground) {
+    if (_state.foreground != foreground) _connectionGeneration++;
     _updateState(_state.copyWith(foreground: foreground));
-    if (browserSession && !foreground) {
+    if (!foreground) {
       _reconnectRetryTimer?.cancel();
     }
   }
@@ -377,6 +379,12 @@ class SessionController extends ChangeNotifier {
   Future<String> _resolvedServer() =>
       (_endpoint ?? DirectEndpoint('')).resolve();
 
+  bool get _keepTailscaleSession =>
+      !browserSession && _endpoint is EmbeddedTailscaleEndpoint;
+
+  bool _canCompleteConnection(int generation) =>
+      !_disposed && _state.foreground && generation == _connectionGeneration;
+
   void handleConnectionLost() {
     if (_state.shouldReturnToLogin) return;
     _updateState(_state.copyWith(isReconnecting: true));
@@ -386,15 +394,18 @@ class SessionController extends ChangeNotifier {
   void _scheduleReconnectRetry() {
     _reconnectRetryTimer?.cancel();
     if (_disposed) return;
-    if (browserSession && !_state.foreground) return;
+    if (!_state.foreground) return;
 
-    if (_state.reconnectRetryCount >= _maxReconnectRetries ||
+    if ((!_keepTailscaleSession &&
+            _state.reconnectRetryCount >= _maxReconnectRetries) ||
         _state.authFailed) {
       _updateState(_state.copyWith(shouldReturnToLogin: true));
       return;
     }
 
-    final delay = Duration(seconds: 1 << _state.reconnectRetryCount);
+    final delay = Duration(
+      seconds: 1 << _state.reconnectRetryCount.clamp(0, 3),
+    );
     _reconnectRetryTimer = Timer(delay, () {
       _attemptReconnect();
     });
@@ -408,17 +419,20 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _connectAgain() async {
     if (_disposed) return;
-    if (browserSession && !_state.foreground) return;
+    if (!_state.foreground) return;
     if (_endpoint == null || _password == null) return;
 
+    final generation = _connectionGeneration;
     try {
       final server = await _resolvedServer();
-      if (_disposed) return;
+      if (!_canCompleteConnection(generation)) {
+        await _endpoint?.pause();
+        return;
+      }
       await proxy.start(server, _password!);
-      if (_disposed) {
-        // The screen went away while connecting; don't keep a ghost
-        // connection holding the mod's single client slot.
+      if (!_canCompleteConnection(generation)) {
         await proxy.stop();
+        await _endpoint?.pause();
         return;
       }
       proxy.sendPing();
@@ -429,7 +443,13 @@ class SessionController extends ChangeNotifier {
       _reconnectRetryTimer?.cancel();
 
       _onConnectionRestored();
+    } on TailscaleSignInRequired {
+      if (!_canCompleteConnection(generation)) return;
+      _updateState(
+        _state.copyWith(shouldReturnToLogin: true, isReconnecting: false),
+      );
     } on AuthFailureException {
+      if (!_canCompleteConnection(generation)) return;
       _updateState(
         _state.copyWith(
           authFailed: true,
@@ -438,10 +458,14 @@ class SessionController extends ChangeNotifier {
         ),
       );
     } catch (_) {
+      if (!_canCompleteConnection(generation)) {
+        await _endpoint?.pause();
+        return;
+      }
       final newCount = _state.reconnectRetryCount + 1;
       _updateState(_state.copyWith(reconnectRetryCount: newCount));
 
-      if (newCount >= _maxReconnectRetries) {
+      if (!_keepTailscaleSession && newCount >= _maxReconnectRetries) {
         _updateState(
           _state.copyWith(shouldReturnToLogin: true, isReconnecting: false),
         );
@@ -456,40 +480,15 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> resumeConnection() async {
-    if (_disposed) return;
-    if (proxy.isConnected) return;
+    if (_disposed || !_state.foreground) return;
     if (_endpoint == null || _password == null) return;
-    if (browserSession) {
-      await _attemptReconnect();
-      return;
-    }
-
+    final pending = _connectionAttempt;
+    if (pending != null) await pending;
+    if (_disposed || !_state.foreground || proxy.isConnected) return;
+    if (_state.authFailed || _state.shouldReturnToLogin) return;
+    _reconnectRetryTimer?.cancel();
     _updateState(_state.copyWith(isReconnecting: true));
-    try {
-      final server = await _resolvedServer();
-      if (_disposed) return;
-      await proxy.start(server, _password!);
-      if (_disposed) {
-        await proxy.stop();
-        return;
-      }
-      proxy.sendPing();
-      _updateState(
-        _state.copyWith(connected: true, clearReconnectionState: true),
-      );
-      _onConnectionRestored();
-    } on AuthFailureException {
-      _updateState(
-        _state.copyWith(
-          authFailed: true,
-          shouldReturnToLogin: true,
-          isReconnecting: false,
-        ),
-      );
-    } catch (e) {
-      debugPrint('SessionController: resume failed: $e');
-      handleConnectionLost();
-    }
+    await _attemptReconnect();
   }
 
   void resetReconnectionState() {
