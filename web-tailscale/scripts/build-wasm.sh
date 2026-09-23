@@ -22,22 +22,13 @@ curl -fsSL "https://raw.githubusercontent.com/tailscale/tailscale/${COMMIT}/LICE
 python3 "$ROOT/scripts/patch-wasm-js.py" "$RAW_GO" "$SRC/main.go"
 rm -f "$SRC"/*.upstream.go "$SRC"/wasm_js.go
 
-cat > "$SRC/go.mod" <<EOF
-module monkeycraft.dev/web-tailscale-wasm
-
-go 1.26.3
-
-require tailscale.com $TAG
-EOF
-
-echo "go get tailscale.com@$TAG (may download matching Go toolchain)"
+cp "$ROOT/wasm-lock/go.mod" "$SRC/go.mod"
+cp "$ROOT/wasm-lock/go.sum" "$SRC/go.sum"
 (
   cd "$SRC"
-  "$GO_BIN" get "tailscale.com@$TAG"
-  "$GO_BIN" mod tidy
   export GOOS=js GOARCH=wasm
   echo "building wasm with $("$GO_BIN" env GOVERSION)"
-  "$GO_BIN" build -trimpath -ldflags "-s -w" -o "$DIST/main.wasm" .
+  "$GO_BIN" build -mod=readonly -trimpath -ldflags "-s -w" -o "$DIST/main.wasm" .
   "$GO_BIN" env GOVERSION > "$DIST/.goversion"
   "$GO_BIN" env GOROOT > "$DIST/.goroot"
 )

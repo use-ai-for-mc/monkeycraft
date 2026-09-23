@@ -113,6 +113,10 @@ class WsFrameReader {
       if (n < 65536) throw WsProtocolException('non-minimal length');
       off = 10;
     }
+    if (n > 4 << 20) throw WsProtocolException('frame too large');
+    if (opcode >= wsOpcodeClose && (!fin || n > wsMaxControlPayload)) {
+      throw WsProtocolException('invalid control frame');
+    }
     if (bytes.length < off + n) return null;
     final payload = Uint8List.fromList(bytes.sublist(off, off + n));
     final rest = bytes.sublist(off + n);

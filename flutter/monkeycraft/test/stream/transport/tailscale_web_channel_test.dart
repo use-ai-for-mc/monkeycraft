@@ -42,6 +42,64 @@ Uint8List unmasked(int opcode, List<int> payload, {bool fin = true}) {
 }
 
 void main() {
+  test('keeps coalesced HELLO and reads large split video', () async {
+    final chunks = <Uint8List>[];
+    final payload = Uint8List.fromList(List.generate(180000, (i) => i % 251));
+    final frame = Uint8List(10 + payload.length);
+    frame[0] = 0x82;
+    frame[1] = 127;
+    ByteData.sublistView(frame).setUint32(6, payload.length);
+    frame.setRange(10, frame.length, payload);
+    var handshaken = false;
+    var closed = false;
+    final ended = Completer<void>();
+    final channel = await TailscaleWebSocketChannel.connect(
+      url: Uri.parse('ws://100.64.0.1:9600/'),
+      write: (bytes) async {
+        if (handshaken) return;
+        handshaken = true;
+        final key = RegExp(
+          r'Sec-WebSocket-Key: (.+)\r\n',
+        ).firstMatch(utf8.decode(bytes))!.group(1)!;
+        final accept = base64Encode(
+          sha1
+              .convert(
+                utf8.encode('${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11'),
+              )
+              .bytes,
+        );
+        final header = utf8.encode(
+          'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n'
+          'Connection: Upgrade\r\nSec-WebSocket-Accept: $accept\r\n\r\n',
+        );
+        chunks.add(
+          Uint8List.fromList([
+            ...header,
+            ...unmasked(wsOpcodeText, utf8.encode('HELLO')),
+            ...frame.take(20000),
+          ]),
+        );
+        chunks.add(Uint8List.sublistView(frame, 20000));
+      },
+      read: () async {
+        if (chunks.isNotEmpty) return chunks.removeAt(0);
+        await ended.future;
+        return null;
+      },
+      close: () async {
+        closed = true;
+        if (!ended.isCompleted) ended.complete();
+      },
+    );
+    final received = await channel.stream
+        .take(2)
+        .toList()
+        .timeout(const Duration(seconds: 2));
+    expect(received.first, 'HELLO');
+    expect(received.last, payload);
+    expect(closed, isTrue);
+  });
+
   test('client handshake then binary roundtrip', () async {
     final pipe = _Pipe();
     final rng = Random(1);

@@ -29,6 +29,10 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: web-tailscale/wasm-lock/go.mod
+          cache-dependency-path: web-tailscale/wasm-lock/go.sum
       - name: Install the pinned Flutter SDK
         run: |
           git init "$RUNNER_TEMP/flutter"
@@ -49,6 +53,7 @@ jobs:
         run: tool/build_web_release.sh
         env:
           MONKEYCRAFT_PAGES_BASE: ${{ inputs.pages_base }}
+          MONKEYCRAFT_WEB_TAILSCALE: 1
           MONKEYCRAFT_FLUTTER_FRAMEWORK_COMMIT: ${{ env.FLUTTER_FRAMEWORK_COMMIT }}
           GITHUB_WORKFLOW_SHA: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b

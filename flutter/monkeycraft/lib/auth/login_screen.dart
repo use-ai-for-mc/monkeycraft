@@ -147,6 +147,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     });
     if (connectOnLaunch &&
         credentials.rememberCredentials &&
+        credentials.webPreferTailscale &&
+        credentials.tailscaleNodeId != null &&
+        _tailscale.isSupported) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _connectAttempt == 0) {
+          unawaited(_connectEmbeddedTailscale(autoSelectSaved: true));
+        }
+      });
+      return;
+    }
+    if (connectOnLaunch &&
+        credentials.rememberCredentials &&
         _hasPassword &&
         webServerError(Uri.base, _serverController.text) == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -372,6 +384,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         return;
       }
 
+      if (kIsWeb) await CredentialStore.saveWebPreferTailscale(tailscalePath);
       if (kIsWeb && _rememberCredentials) {
         await CredentialStore.put(
           keyId: CredentialStore.legacyKeyId,
@@ -500,15 +513,17 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _connectEmbeddedTailscale() async {
+  Future<void> _connectEmbeddedTailscale({bool autoSelectSaved = false}) async {
     if (_isLoading) return;
     try {
       final picked = await TailscaleLoginSheet.show(
         context,
         client: _tailscale,
         savedNodeId: _savedTailscaleNodeId,
+        autoSelectSaved: autoSelectSaved,
       );
       if (picked == null || !mounted) return;
+      await CredentialStore.saveRememberCredentials(_rememberCredentials);
       await CredentialStore.saveTailscaleNodeId(picked.nodeId);
       setState(() => _savedTailscaleNodeId = picked.nodeId);
       final lease = await _tailscale.openBridge(
@@ -587,196 +602,225 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (kIsWeb && !_editServer)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Game computer'),
-                    subtitle: Text(_serverController.text),
-                    trailing: TextButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () => setState(() => _editServer = true),
-                      child: const Text('Change'),
-                    ),
-                  )
-                else
-                  TextFormField(
-                    enabled: !kIsWeb || !_isLoading,
-                    controller: _serverController,
-                    decoration: InputDecoration(
-                      labelText: 'Server address',
-                      hintText: kIsWeb
-                          ? 'wss://your-computer.tailnet.ts.net:9600'
-                          : '192.168.0.3:9600 or example.ngrok-free.app',
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
-                      return kIsWeb ? webServerError(Uri.base, v) : null;
-                    },
-                  ),
-                if (_autoConnecting)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('Connecting to your game…'),
-                  ),
-                if (_showPasswordField && !_autoConnecting) ...[
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passController,
-                    focusNode: _passwordFocus,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: () => setState(
-                              () => _passwordVisible = !_passwordVisible,
-                            ),
-                            icon: Icon(
-                              _passwordVisible
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            tooltip: _passwordVisible
-                                ? 'Hide password'
-                                : 'Show password',
-                          ),
-                          IconButton(
-                            onPressed: _passController.text.isEmpty
-                                ? null
-                                : _copyPassword,
-                            icon: const Icon(Icons.copy),
-                            tooltip: 'Copy password',
-                          ),
-                          if (_platformCapabilities.supportsQrScanner)
-                            IconButton(
-                              onPressed: _isLoading ? null : _scanPassword,
-                              icon: const Icon(Icons.qr_code_scanner),
-                              tooltip: 'Scan QR code',
-                            ),
-                        ],
-                      ),
-                      suffixIconConstraints: const BoxConstraints(
-                        minWidth: 0,
-                        minHeight: 0,
-                      ),
-                    ),
-                    obscureText: !_passwordVisible,
-                  ),
-                  if (!_hasPassword) ...[
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_platformCapabilities.isWeb &&
+                        _tailscale.isSupported) ...[
+                      FilledButton.icon(
                         onPressed: _isLoading
                             ? null
-                            : () => setState(() => _mode = LoginAuthMode.pair),
-                        child: const Text(
-                          'Pair instead (same Wi-Fi or Tailscale)',
-                        ),
+                            : _connectEmbeddedTailscale,
+                        icon: const Icon(Icons.computer),
+                        label: const Text('Connect with Tailscale'),
                       ),
-                    ),
-                  ],
-                ] else if (!_hasPassword) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () =>
-                                setState(() => _mode = LoginAuthMode.password),
-                      child: const Text('Use password or scan QR'),
-                    ),
-                  ),
-                ],
-                if (!_autoConnecting)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _rememberCredentials,
-                    onChanged: _isLoading
-                        ? null
-                        : (value) {
-                            setState(
-                              () => _rememberCredentials = value ?? true,
-                            );
-                          },
-                    title: const Text(
-                      kIsWeb
-                          ? 'Remember and connect automatically'
-                          : 'Remember password on this phone',
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                if (_pairingCode != null) ...[
-                  const SizedBox(height: 8),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            kIsWeb
-                                ? 'On the computer, allow this browser'
-                                : 'On the computer, Allow this phone',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Or run /monkey accept ${_pairingCode!.displayCode}',
-                          ),
-                        ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Sign in to find your game computer. No public server address needed.',
                       ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                if (_platformCapabilities.isAndroid)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _connectButton(
-                          expanded: false,
+                      const SizedBox(height: 24),
+                      const Text('Or connect by address'),
+                      const SizedBox(height: 8),
+                    ],
+                    if (kIsWeb && !_editServer)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Game computer'),
+                        subtitle: Text(_serverController.text),
+                        trailing: TextButton(
                           onPressed: _isLoading
-                              ? _cancelConnect
-                              : () => _connect(),
+                              ? null
+                              : () => setState(() => _editServer = true),
+                          child: const Text('Change'),
                         ),
+                      )
+                    else
+                      TextFormField(
+                        enabled: !kIsWeb || !_isLoading,
+                        controller: _serverController,
+                        decoration: InputDecoration(
+                          labelText: 'Server address',
+                          hintText: kIsWeb
+                              ? 'wss://your-computer.tailnet.ts.net:9600'
+                              : '192.168.0.3:9600 or example.ngrok-free.app',
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          return kIsWeb ? webServerError(Uri.base, v) : null;
+                        },
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            if (_isLoading) _cancelConnect();
-                            _exitApp();
-                          },
-                          child: const Text('Exit'),
+                    if (_autoConnecting)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Connecting to your game…'),
+                      ),
+                    if (_showPasswordField && !_autoConnecting) ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passController,
+                        focusNode: _passwordFocus,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                onPressed: () => setState(
+                                  () => _passwordVisible = !_passwordVisible,
+                                ),
+                                icon: Icon(
+                                  _passwordVisible
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                tooltip: _passwordVisible
+                                    ? 'Hide password'
+                                    : 'Show password',
+                              ),
+                              IconButton(
+                                onPressed: _passController.text.isEmpty
+                                    ? null
+                                    : _copyPassword,
+                                icon: const Icon(Icons.copy),
+                                tooltip: 'Copy password',
+                              ),
+                              if (_platformCapabilities.supportsQrScanner)
+                                IconButton(
+                                  onPressed: _isLoading ? null : _scanPassword,
+                                  icon: const Icon(Icons.qr_code_scanner),
+                                  tooltip: 'Scan QR code',
+                                ),
+                            ],
+                          ),
+                          suffixIconConstraints: const BoxConstraints(
+                            minWidth: 0,
+                            minHeight: 0,
+                          ),
+                        ),
+                        obscureText: !_passwordVisible,
+                      ),
+                      if (!_hasPassword) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => setState(
+                                    () => _mode = LoginAuthMode.pair,
+                                  ),
+                            child: const Text(
+                              'Pair instead (same Wi-Fi or Tailscale)',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ] else if (!_hasPassword) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () => setState(
+                                  () => _mode = LoginAuthMode.password,
+                                ),
+                          child: const Text('Use password or scan QR'),
                         ),
                       ),
                     ],
-                  )
-                else
-                  _connectButton(
-                    expanded: isPortrait,
-                    onPressed: _isLoading ? _cancelConnect : () => _connect(),
-                  ),
-                if (_platformCapabilities.isIOS ||
-                    _platformCapabilities.isAndroid) ...[
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: _isLoading ? null : _connectEmbeddedTailscale,
-                    child: const Text('Connect with Tailscale'),
-                  ),
-                ],
-              ],
+                    if (!_autoConnecting)
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: _rememberCredentials,
+                        onChanged: _isLoading
+                            ? null
+                            : (value) {
+                                setState(
+                                  () => _rememberCredentials = value ?? true,
+                                );
+                              },
+                        title: const Text(
+                          kIsWeb
+                              ? 'Remember and connect automatically'
+                              : 'Remember password on this phone',
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                    if (_pairingCode != null) ...[
+                      const SizedBox(height: 8),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                kIsWeb
+                                    ? 'On the computer, allow this browser'
+                                    : 'On the computer, Allow this phone',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Or run /monkey accept ${_pairingCode!.displayCode}',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    if (_platformCapabilities.isAndroid)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _connectButton(
+                              expanded: false,
+                              onPressed: _isLoading
+                                  ? _cancelConnect
+                                  : () => _connect(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                if (_isLoading) _cancelConnect();
+                                _exitApp();
+                              },
+                              child: const Text('Exit'),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      _connectButton(
+                        expanded: isPortrait,
+                        onPressed: _isLoading
+                            ? _cancelConnect
+                            : () => _connect(),
+                      ),
+                    if (_platformCapabilities.isIOS ||
+                        _platformCapabilities.isAndroid) ...[
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: _isLoading
+                            ? null
+                            : _connectEmbeddedTailscale,
+                        child: const Text('Connect with Tailscale'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),

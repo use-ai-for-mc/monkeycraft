@@ -48,6 +48,7 @@ class CredentialStore {
   static const _serverKey = 'server';
   static const _passwordKey = 'password';
   static const _vaultKey = 'credentialVault';
+  static const _webTailscaleKey = 'webPreferTailscale';
   static const _webServerKey = 'webServerV2';
   static const _webVaultKey = 'webCredentialVaultV2';
   static const _tailscaleNodeIdKey = 'tailscaleNodeId';
@@ -63,6 +64,7 @@ class CredentialStore {
       String password,
       String? tailscaleNodeId,
       bool rememberCredentials,
+      bool webPreferTailscale,
     })
   >
   load() async {
@@ -81,6 +83,7 @@ class CredentialStore {
           : _displayPassword(vault),
       tailscaleNodeId: prefs?.getString(_tailscaleNodeIdKey),
       rememberCredentials: prefs?.getBool(_rememberCredentialsKey) ?? true,
+      webPreferTailscale: prefs?.getBool(_webTailscaleKey) ?? false,
     );
   }
 
@@ -214,6 +217,11 @@ class CredentialStore {
     final prefix = '$target\u0000';
     vault.removeWhere((key, _) => key.startsWith(prefix));
     await _writeWebVault(prefs, vault);
+  }
+
+  static Future<void> saveWebPreferTailscale(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_webTailscaleKey, value);
   }
 
   static Future<void> saveTailscaleNodeId(String? nodeId) async {

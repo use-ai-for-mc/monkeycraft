@@ -113,12 +113,12 @@ export async function flutterToolchainIdentity(root, env = process.env) {
   };
 }
 
-export function assertNoEmbeddedTailscale(files) {
-  const embedded = files.find(
-    ({ path }) => path === "tailscale" || path.startsWith("tailscale/"),
-  );
-  if (embedded) {
-    throw new Error(`Pages artifact must not contain the ignored Tailscale experiment: ${embedded.path}`);
+export function assertProductionTailscale(files) {
+  const runtime = new Set(['worker.js', 'rpc.js', 'fake-backend.js', 'state-store.js', 'main.wasm', 'wasm_exec.js', 'VERSION.json', 'LICENSE']);
+  const included = files.filter(({ path }) => path.startsWith('tailscale/'));
+  if (included.length === 0) return;
+  if (included.length !== runtime.size || included.some(({ path }) => !runtime.has(path.slice('tailscale/'.length)))) {
+    throw new Error('Pages must contain the complete production Tailscale runtime without debug pages');
   }
 }
 
@@ -149,7 +149,7 @@ export async function writePagesProvenance({ distDir, root, env = process.env })
     artifactFiles(output),
     toolchainPromise,
   ]);
-  assertNoEmbeddedTailscale(files);
+  assertProductionTailscale(files);
   const source = sourceIdentity(root, env);
   const workflowCommit = env.GITHUB_WORKFLOW_SHA;
   if (workflowCommit && !shaPattern.test(workflowCommit)) {

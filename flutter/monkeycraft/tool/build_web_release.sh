@@ -7,6 +7,10 @@ verify_release="$project_dir/tool/verify_web_release.py"
 pages_base="${1:-${MONKEYCRAFT_PAGES_BASE:-/monkeycraft/}}"
 flutter_bin="${FLUTTER_BIN:-flutter}"
 pages_output_arg="${2:-build/pages}"
+web_tailscale="${MONKEYCRAFT_WEB_TAILSCALE:-}"
+if [[ -z "$web_tailscale" ]]; then
+  if [[ "$pages_base" == "/" ]]; then web_tailscale=0; else web_tailscale=1; fi
+fi
 
 case "$pages_base" in
   /|/*/) ;;
@@ -59,9 +63,21 @@ rm -rf "$canonical_output"
 "$flutter_bin_path" build web \
   --release \
   --base-href "$pages_base" \
-  --no-web-resources-cdn
+  --no-web-resources-cdn \
+  --dart-define=MONKEYCRAFT_WEB_TAILSCALE="$([[ "$web_tailscale" == "1" ]] && echo true || echo false)"
 
 rm -rf "$canonical_output/tailscale"
+if [[ "$web_tailscale" == "1" ]]; then
+  bash "$repo_dir/web-tailscale/scripts/build-wasm.sh"
+  mkdir -p "$canonical_output/tailscale"
+  for asset in worker.js rpc.js fake-backend.js state-store.js; do
+    cp "$repo_dir/web-tailscale/js/$asset" "$canonical_output/tailscale/"
+  done
+  for asset in main.wasm wasm_exec.js VERSION.json; do
+    cp "$repo_dir/web-tailscale/dist/$asset" "$canonical_output/tailscale/"
+  done
+  cp "$repo_dir/web-tailscale/third_party/tailscale/LICENSE" "$canonical_output/tailscale/LICENSE"
+fi
 python3 "$verify_release" "$canonical_output" "$pages_base"
 
 if [[ "$pages_output" != "$canonical_output" ]]; then

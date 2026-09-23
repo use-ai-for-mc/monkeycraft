@@ -1056,3 +1056,9 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 本轮Node RPC/WS/大帧拆包回归与Go wsframe/tcpbridge定向检查通过；Go1.26.6重新构建WASM成功。实际联调保留旧Worker身份，运行旧基线二进制；重编译产物仅记构建成功。临时节点已Logout，Worker连接数0、游戏客户端连接false、仍在服务器中。身份目前仅在Worker内存，正式Flutter接入、持久身份和连接恢复仍待实施，手机Safari WASM尚未测试；不重开原生声音或旧Safari验收。详情、命令与本轮界限见[tailscale-integration/evidence/2026-09-24-browser-wasm.md](tailscale-integration/evidence/2026-09-24-browser-wasm.md)。
 
 临时本地HTTP、签名、echo、录像及tailnet代理进程均已停止，实验页关闭；未更改系统Tailscale/Funnel设置。原型patch文件保留标准unified diff的上下文空格及Go制表符，diff空白检查仅排除该patch，其余通过。
+
+### 2026-09-24 Flutter 浏览器 Tailscale 产品界面接入
+
+用户要求融入Flutter产品而非实验页。已接入共享登录/设备列表/配对/游戏页，浏览器按需加载Worker与固定Go/WASM，新增IndexedDB身份保存、同源标签互斥及显式注销；取消保留身份。修复现有Dart传输的合并HELLO丢失、接收监听时序、写入排序、部分写及迟到连接释放，保留现有地址入口。Pages构建仅打包运行时并验证哈希，根路径Mod默认不包含WASM，无Mod/App部署。
+
+Flutter分析无问题，30项定向检查和7项来源检查通过，Go/WASM+Flutter release及Pages工作流静态检查通过。真实Chrome已从共享界面打开Tailscale授权页；390与1920宽度布局已查看；独立测试存储通过保存/恢复/清除/并发身份保护。用户的新持久节点批准仍待完成，因此未记真实Flutter游戏连接或账户刷新恢复通过，未发布Pages。原等待授权页与本地服务保留，不扩大声音/旧平台验收。细节与接续步骤见[tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md](tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md)。

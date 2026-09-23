@@ -35,7 +35,7 @@ class TailscaleWebSocketChannel extends StreamChannelMixin
     Duration timeout = const Duration(seconds: 5),
     Random? random,
   }) async {
-    final incoming = StreamController<dynamic>.broadcast();
+    final incoming = StreamController<dynamic>();
     final ready = Completer<void>();
     final sink = _TailscaleWebSocketSink(write: write, closeTcp: close);
     final channel = TailscaleWebSocketChannel._(
@@ -44,6 +44,7 @@ class TailscaleWebSocketChannel extends StreamChannelMixin
       ready: ready,
     );
     sink._channel = channel;
+    incoming.onCancel = () => sink.close();
 
     Uint8List leftover = Uint8List(0);
     try {
@@ -54,8 +55,7 @@ class TailscaleWebSocketChannel extends StreamChannelMixin
         random ?? Random.secure(),
       ).timeout(timeout);
       if (!ready.isCompleted) ready.complete();
-    } catch (e, st) {
-      if (!ready.isCompleted) ready.completeError(e, st);
+    } catch (_) {
       await close();
       rethrow;
     }
@@ -74,10 +74,6 @@ class TailscaleWebSocketChannel extends StreamChannelMixin
     final assembler = WsAssembler();
     try {
       while (!_incoming.isClosed) {
-        final chunk = await read();
-        if (chunk == null) break;
-        if (chunk.isEmpty) continue;
-        reader.add(chunk);
         while (true) {
           final frame = reader.take();
           if (frame == null) break;
@@ -101,12 +97,17 @@ class TailscaleWebSocketChannel extends StreamChannelMixin
             _incoming.add(msg.payload);
           }
         }
+        final chunk = await read();
+        if (chunk == null) break;
+        if (chunk.isNotEmpty) reader.add(chunk);
       }
     } catch (e, st) {
       if (!_incoming.isClosed) _incoming.addError(e, st);
     } finally {
+      _sink._closed = true;
+      if (!_sink._done.isCompleted) _sink._done.complete();
       await closeTcp();
-      if (!_incoming.isClosed) await _incoming.close();
+      if (!_incoming.isClosed) unawaited(_incoming.close());
     }
   }
 
@@ -140,6 +141,7 @@ class _TailscaleWebSocketSink implements WebSocketSink {
   TailscaleWebSocketChannel? _channel;
   final Completer<void> _done = Completer<void>();
   bool _closed = false;
+  Future<void> _writes = Future.value();
 
   Future<void> _writeFrame(int opcode, List<int> payload) {
     final frame = encodeWsFrame(
@@ -147,18 +149,28 @@ class _TailscaleWebSocketSink implements WebSocketSink {
       payload: payload,
       maskKey: randomMaskKey(),
     );
-    return write(frame);
+    final operation = _writes.then((_) => write(frame));
+    _writes = operation.catchError((Object error, StackTrace stack) {
+      final channel = _channel;
+      if (channel != null && !channel._incoming.isClosed) {
+        channel._incoming.addError(error, stack);
+      }
+      unawaited(closeTcp());
+    });
+    return operation;
   }
 
   @override
   void add(dynamic data) {
     if (_closed) return;
     if (data is String) {
-      unawaited(_writeFrame(wsOpcodeText, utf8.encode(data)));
+      unawaited(
+        _writeFrame(wsOpcodeText, utf8.encode(data)).catchError((_) {}),
+      );
       return;
     }
     if (data is List<int>) {
-      unawaited(_writeFrame(wsOpcodeBinary, data));
+      unawaited(_writeFrame(wsOpcodeBinary, data).catchError((_) {}));
       return;
     }
     throw ArgumentError('unsupported websocket payload ${data.runtimeType}');
@@ -206,8 +218,10 @@ Future<Uint8List> _handshake(
 ) async {
   final keyBytes = List<int>.generate(16, (_) => random.nextInt(256));
   final key = base64Encode(keyBytes);
-  final path = url.hasQuery ? '${url.path}?${url.query}' : (url.path.isEmpty ? '/' : url.path);
-  final host = url.hasPort ? '${url.host}:${url.port}' : url.host;
+  final path =
+      '${url.path.isEmpty ? '/' : url.path}${url.hasQuery ? '?${url.query}' : ''}';
+  final hostname = url.host.contains(':') ? '[${url.host}]' : url.host;
+  final host = url.hasPort ? '$hostname:${url.port}' : hostname;
   final req =
       'GET ${path.isEmpty ? '/' : path} HTTP/1.1\r\n'
       'Host: $host\r\n'
@@ -227,9 +241,6 @@ Future<Uint8List> _handshake(
       throw StateError('websocket handshake closed');
     }
     buf.add(chunk);
-    if (buf.length > 16 * 1024) {
-      throw StateError('websocket handshake too large');
-    }
     final all = buf.toBytes();
     for (var i = 0; i <= all.length - 4; i++) {
       if (all[i] == marker[0] &&
@@ -240,11 +251,23 @@ Future<Uint8List> _handshake(
         break;
       }
     }
+    if (headerEnd > 16 * 1024 || (headerEnd < 0 && buf.length > 16 * 1024)) {
+      throw StateError('websocket handshake too large');
+    }
   }
   final all = buf.takeBytes();
   final headers = utf8.decode(all.sublist(0, headerEnd));
-  if (!headers.startsWith('HTTP/1.1 101') &&
-      !headers.startsWith('HTTP/1.0 101')) {
+  if (!RegExp(r'^HTTP/1\.[01] 101(?: |\r\n)').hasMatch(headers) ||
+      !RegExp(
+        r'^Upgrade:\s*websocket\s*$',
+        caseSensitive: false,
+        multiLine: true,
+      ).hasMatch(headers) ||
+      !RegExp(
+        r'^Connection:[^\r\n]*\bUpgrade\b',
+        caseSensitive: false,
+        multiLine: true,
+      ).hasMatch(headers)) {
     throw StateError('websocket handshake rejected');
   }
   final accept = RegExp(
@@ -252,7 +275,9 @@ Future<Uint8List> _handshake(
     caseSensitive: false,
   ).firstMatch(headers);
   final expected = base64Encode(
-    sha1.convert(utf8.encode('$key${'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'}')).bytes,
+    sha1
+        .convert(utf8.encode('$key${'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'}'))
+        .bytes,
   );
   if (accept == null || accept.group(1) != expected) {
     throw StateError('websocket accept mismatch');

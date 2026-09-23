@@ -11,12 +11,10 @@ void main() {
       final client = TailscaleEmbeddedClient();
 
       expect(client.isSupported, isFalse);
-      expect(client.gameTransportFactory, isNull);
-      expect(await client.events.isEmpty, isTrue);
-      expect((await client.status()).phase, 'unavailable');
+      expect(client.gameTransportFactory, isNotNull);
+      expect((await client.status()).phase, 'stopped');
       expect((await client.diagnostics()).available, isFalse);
-      await client.start();
-      expect(client.loginInteractive(), throwsA(isA<UnsupportedError>()));
+      expect(client.start(), throwsA(isA<StateError>()));
     },
   );
 }

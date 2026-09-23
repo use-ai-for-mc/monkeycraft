@@ -6,7 +6,7 @@ import test from "node:test";
 import {
   actionPins,
   artifactFiles,
-  assertNoEmbeddedTailscale,
+  assertProductionTailscale,
   flutterToolchainIdentity,
   sha256,
   toolchainIdentity,
@@ -30,9 +30,9 @@ test("the Flutter Pages workflow records its actual six pinned actions", async (
     "actions/checkout",
     "actions/configure-pages",
     "actions/deploy-pages",
+    "actions/setup-go",
     "actions/setup-node",
     "actions/upload-pages-artifact",
-    "browser-actions/setup-chrome",
   ]);
 });
 
@@ -83,9 +83,15 @@ test("records a locked Flutter and Dart toolchain for the Flutter Pages client",
   assert.match(identity.pubspecLockSha256, /^[0-9a-f]{64}$/);
 });
 
-test("rejects an embedded Tailscale experiment from the Pages artifact", () => {
+test("rejects an incomplete Tailscale runtime from the Pages artifact", () => {
   assert.throws(
-    () => assertNoEmbeddedTailscale([{ path: "tailscale/main.wasm" }]),
-    /must not contain the ignored Tailscale experiment/,
+    () => assertProductionTailscale([{ path: "tailscale/main.wasm" }]),
+    /complete production Tailscale runtime/,
   );
+});
+
+test("allows runtime files and rejects debug pages", () => {
+  const files = ['worker.js', 'rpc.js', 'fake-backend.js', 'state-store.js', 'main.wasm', 'wasm_exec.js', 'VERSION.json', 'LICENSE'].map(name => ({path: `tailscale/${name}`}));
+  assert.doesNotThrow(() => assertProductionTailscale(files));
+  assert.throws(() => assertProductionTailscale([...files, {path: 'tailscale/poc/index.html'}]), /without debug pages/);
 });

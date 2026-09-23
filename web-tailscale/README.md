@@ -2,7 +2,7 @@
 
 Isolated MonkeyCraft web/WASM Tailscale spike (Prompt C: W0/W2/W3/W4).
 
-This directory is an experimental implementation retained for browser Tailscale integration. It does not modify Flutter, the Minecraft mods, or `native/tailscale-helper/`. It is not included in the production Pages artifact.
+This directory is an experimental implementation retained for browser Tailscale integration. It does not modify Flutter, the Minecraft mods, or `native/tailscale-helper/`. The Flutter Pages build now packages only the Worker, storage, RPC and pinned WASM runtime; the POC and diagnostic probe remain excluded.
 
 ## What this is
 
@@ -87,4 +87,4 @@ JS
 
 The probe exports `probe(rpc, options, progress)` for the local diagnostic page's `window.__rpc`. Use a selected peer's address and a test server first. A real game probe authenticates as a controller and must only start when another client is not connected. Real credentials and authorization URLs must not be included in saved evidence. The `authenticate` callback permits local test tooling to sign a challenge without exposing the stored password to the page.
 
-The current Worker stores identity in an in-memory Map and creates an ephemeral node. Refreshing the page loses that identity; durable identity, production lifecycle handling and Flutter transport integration remain separate work.
+The POC defaults to an in-memory ephemeral node. Flutter requests persistIdentity: true, using IndexedDB, a single-owner browser lock and a non-ephemeral node. Cancel stops the Worker without deleting identity; logout clears saved identity. Flutter integration status and its remaining real-login acceptance are recorded in the execution log.

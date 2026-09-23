@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -58,7 +59,7 @@ def _fail(message: str) -> None:
     raise ValueError(message)
 
 
-def _validate_no_links_or_tailscale(root: Path) -> None:
+def _validate_no_links(root: Path) -> None:
     if root.is_symlink():
         _fail("release root must not be a symbolic link")
     for directory, dirs, files in os.walk(root, followlinks=False):
@@ -68,8 +69,7 @@ def _validate_no_links_or_tailscale(root: Path) -> None:
             relative = path.relative_to(root)
             if path.is_symlink():
                 _fail(f"release must not contain symbolic links: {relative}")
-            if "tailscale" in relative.parts:
-                _fail(f"release must not contain ignored Tailscale experiment: {relative}")
+
 
 
 def verify_release(root: Path, base_href: str) -> None:
@@ -78,7 +78,16 @@ def verify_release(root: Path, base_href: str) -> None:
     if not re.fullmatch(r"/(?:[^/]+/)*|/", base_href):
         _fail(f"invalid expected base href: {base_href}")
 
-    _validate_no_links_or_tailscale(root)
+    _validate_no_links(root)
+    tailscale = root / "tailscale"
+    if tailscale.exists():
+        expected = {"worker.js", "rpc.js", "fake-backend.js", "state-store.js", "main.wasm", "wasm_exec.js", "VERSION.json", "LICENSE"}
+        if {p.name for p in tailscale.iterdir()} != expected:
+            _fail("Tailscale bundle must contain only production runtime assets")
+        version = json.loads((tailscale / "VERSION.json").read_text())
+        for name, key in (("main.wasm", "wasm"), ("wasm_exec.js", "wasmExec")):
+            if hashlib.sha256((tailscale / name).read_bytes()).hexdigest() != version[key]["sha256"]:
+                _fail(f"Tailscale runtime hash mismatch: {name}")
     for relative in REQUIRED_FILES:
         path = root / relative
         if not path.is_file() or path.stat().st_size == 0:

@@ -62,7 +62,7 @@ void main() {
     expect(client.startCalls, 1);
   });
 
-  testWidgets('browser does not expose the embedded Tailscale entry', (
+  testWidgets('browser reuses the embedded Tailscale login sheet', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -79,9 +79,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Connect with Tailscale'), findsNothing);
-    expect(client.diagnosticsCalls, 0);
-    expect(client.startCalls, 0);
+    expect(find.text('Connect with Tailscale'), findsOneWidget);
+    await tester.tap(find.text('Connect with Tailscale'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TailscaleLoginSheet), findsOneWidget);
+    expect(client.diagnosticsCalls, 1);
+    expect(client.startCalls, 1);
   });
 }
 

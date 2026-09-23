@@ -1,6 +1,8 @@
 import { parseMessage, makeRes, makeEvt, ERROR_CODES, redact, PROTOCOL_VERSION } from "./rpc.js";
 import { createFakeBackend } from "./fake-backend.js";
 
+import { openStateStore } from "./state-store.js";
+
 const MAX_QUEUE = 32;
 const MAX_CONNS = 1;
 let eventId = 0;
@@ -11,6 +13,8 @@ let queue = 0;
 let lastIpnState = "NoState";
 const liveConns = new Set();
 const persist = new Map();
+let stateStore = null;
+let dialPending = false;
 
 function post(msg, transfer) {
   if (transfer && transfer.length) {
@@ -84,7 +88,7 @@ self.onmessage = async (ev) => {
     }
 
     if (msg.method === "init") {
-      const want = (msg.payload && msg.payload.backend) || "fake";
+      const want = (msg.payload && msg.payload.backend) || "wasm";
       if (want === "wasm") {
         try {
           emit("wasmProgress", { message: "loading wasm (~35MB)" });
@@ -92,8 +96,10 @@ self.onmessage = async (ev) => {
           backendMode = "wasm";
           post(makeRes(msg.id, true, { ok: true, backend: "wasm" }));
         } catch (err) {
-          backendMode = "fake";
+          backendMode = "failed";
           wasmReady = false;
+          await stateStore?.close().catch(() => {});
+          stateStore = null;
           ipn = null;
           post(
             makeRes(msg.id, false, null, {
@@ -109,6 +115,8 @@ self.onmessage = async (ev) => {
       post(res);
       return;
     }
+
+    if (backendMode === "failed") throw new Error("Tailscale could not start. Try again.");
 
     if (backendMode !== "wasm" || !wasmReady) {
       const res = await fake.handle(msg, data.buffer);
@@ -157,9 +165,11 @@ async function ensureWasm(payload) {
   } catch {
     throw Object.assign(new Error("bad wasm url"), { code: ERROR_CODES.WASM_LOAD });
   }
-  if (parsed.origin !== self.location.origin) {
+  if (parsed.origin !== self.location.origin || new URL(execUrl, self.location.href).origin !== self.location.origin) {
     throw Object.assign(new Error("refusing unpinned remote wasm"), { code: ERROR_CODES.WASM_LOAD });
   }
+
+  if (payload.persistIdentity) stateStore = await openStateStore();
 
   emit("wasmProgress", { message: "fetching wasm_exec.js" });
   const execSrc = await fetch(execUrl).then((r) => {
@@ -178,13 +188,14 @@ async function ensureWasm(payload) {
   const bytes = await resp.arrayBuffer();
   emit("wasmProgress", { message: "instantiating wasm" });
   const result = await WebAssembly.instantiate(bytes, go.importObject);
-  go.run(result.instance);
+  go.run(result.instance).catch(() => emit("panic", { message: "Tailscale stopped unexpectedly. Reopen the connection to try again." }));
   await waitUntil(() => typeof self.newIPN === "function", 15000);
   emit("wasmProgress", { message: "starting ipn" });
 
   ipn = self.newIPN({
     hostname: payload.hostname || "monkeycraft-web",
-    stateStorage: {
+    ephemeral: !payload.persistIdentity,
+    stateStorage: stateStore || {
       setState(id, value) {
         persist.set(String(id), String(value));
       },
@@ -194,7 +205,8 @@ async function ensureWasm(payload) {
     },
   });
   ipn.run({
-    notifyState(state) {
+    async notifyState(state) {
+      try { await stateStore?.flush(); } catch (error) { emit("panic", { message: error.message }); return; }
       lastIpnState = String(state || "");
       emit("state", { ipn: lastIpnState });
     },
@@ -242,10 +254,12 @@ async function handleWasm(msg, buffer) {
           }
         }
         liveConns.clear();
+        await ipn.logout();
         persist.clear();
-        ipn.logout();
+        await stateStore?.clear();
+        self._lastNetMap = null;
         lastIpnState = "Stopped";
-        emit("cleared", { storage: "memory" });
+        emit("cleared", { storage: stateStore ? "browser" : "memory" });
         post(makeRes(id, true, { ok: true }));
         return;
       case "status":
@@ -263,7 +277,7 @@ async function handleWasm(msg, buffer) {
           post(makeRes(id, false, null, { code: ERROR_CODES.NOT_RUNNING, message: "not running" }));
           return;
         }
-        if (liveConns.size >= MAX_CONNS) {
+        if (dialPending || liveConns.size >= MAX_CONNS) {
           post(makeRes(id, false, null, { code: ERROR_CODES.CONN_LIMIT, message: "conn limit" }));
           return;
         }
@@ -271,9 +285,12 @@ async function handleWasm(msg, buffer) {
           post(makeRes(id, false, null, { code: ERROR_CODES.UNSUPPORTED, message: "dialTcp missing" }));
           return;
         }
-        const r = await ipn.dialTcp(payload.host, payload.port, payload.timeoutMs || 15000);
-        liveConns.add(r.connId);
-        post(makeRes(id, true, { connId: r.connId }));
+        dialPending = true;
+        try {
+          const r = await ipn.dialTcp(payload.host, payload.port, payload.timeoutMs || 15000);
+          liveConns.add(r.connId);
+          post(makeRes(id, true, { connId: r.connId }));
+        } finally { dialPending = false; }
         return;
       }
       case "connWrite": {
@@ -299,7 +316,10 @@ async function handleWasm(msg, buffer) {
         post(makeRes(id, true, { ok: true }));
         return;
       case "shutdown":
-        persist.clear();
+        for (const c of [...liveConns]) await ipn.connClose(c);
+        liveConns.clear();
+        await stateStore?.close();
+        stateStore = null;
         post(makeRes(id, true, { ok: true }));
         return;
       default:

@@ -352,6 +352,27 @@ def patch(src: str) -> str:
 """,
     )
 
+    src = src.replace(
+        'lb, err := ipnlocal.NewLocalBackend(logf, logid, sys, controlclient.LoginEphemeral)',
+        '''loginFlags := controlclient.LoginEphemeral
+	if ephemeral := jsConfig.Get("ephemeral"); ephemeral.Type() == js.TypeBoolean && !ephemeral.Bool() {
+		loginFlags = 0
+	}
+	lb, err := ipnlocal.NewLocalBackend(logf, logid, sys, loginFlags)''',
+    )
+    src = src.replace('jsIPN.logout()\n\t\t\treturn nil', 'return jsIPN.logout()')
+    src = re.sub(
+        r'func \(i \*jsIPN\) logout\(\) \{.*?\n\}',
+        '''func (i *jsIPN) logout() js.Value {
+	return makePromise(func() (any, error) {
+		i.closeAllConns()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return nil, i.lb.Logout(ctx, ipnauth.Self)
+	})
+}''', src, flags=re.S,
+    )
+
     if "func (i *jsIPN) dialTcp" not in src:
         src = src.rstrip() + "\n" + BRIDGE + "\n"
 

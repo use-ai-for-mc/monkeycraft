@@ -43,7 +43,19 @@ class TailscaleWebTransportFactory implements TransportFactory {
     Uri url, {
     Duration timeout = const Duration(seconds: 5),
   }) async {
-    final conn = await _dial(url).timeout(timeout);
+    if (url.scheme != 'ws') {
+      throw ArgumentError(
+        'The Tailscale transport requires a private game address.',
+      );
+    }
+    final pending = _dial(url);
+    final TailscaleTcpConn conn;
+    try {
+      conn = await pending.timeout(timeout);
+    } on TimeoutException {
+      unawaited(pending.then((late) => late.close()).catchError((_) {}));
+      rethrow;
+    }
     final channel = await TailscaleWebSocketChannel.connect(
       url: url,
       write: conn.write,

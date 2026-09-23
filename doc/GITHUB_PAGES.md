@@ -4,7 +4,17 @@ MonkeyCraft's production browser client is built from `flutter/monkeycraft/` and
 
 The Pages entry is https://use-ai-for-mc.github.io/monkeycraft/. Use a reachable HTTPS/WSS endpoint for your Minecraft computer, such as its Tailscale Serve address. Pages does not relay game traffic or embed a Tailscale node; the device uses its existing network or system Tailscale connection. Only one controlling client can connect at a time.
 
-Published on 2026-09-24 from source `d4b3e0a00716dca31b99f98ef9a9c8860623c435` via [Pages run 35898773720](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35898773720). The public [build provenance](https://use-ai-for-mc.github.io/monkeycraft/build-provenance.json) identifies the source, toolchain and file hashes. Public page loading and the main resource hashes were verified after deployment; a connection from Pages to a game computer remains to be confirmed.
+Published on 2026-09-24 from source `d4b3e0a00716dca31b99f98ef9a9c8860623c435` via [Pages run 35898773720](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35898773720). The public [build provenance](https://use-ai-for-mc.github.io/monkeycraft/build-provenance.json) identifies the source, toolchain and file hashes. Public page loading and the main resource hashes were verified after deployment; the user subsequently confirmed a successful connection to the game computer.
+
+## Browser Tailscale integration candidate
+
+The local candidate now uses the same Flutter connection screen, Tailscale sheet, device picker, pairing and game screen as the apps. It adds **Connect with Tailscale** above the existing address connection. The experimental POC/debug page is never shipped. This candidate has not replaced the published build described above.
+
+Users sign in to their own Tailscale account and select the computer running MonkeyCraft. Traffic passes through the browser's Tailscale node to that computer; Funnel or a public game endpoint is unnecessary for this path. Game password authentication/pairing still applies. The browser must support secure contexts, WebAssembly, Workers, IndexedDB and Web Locks. Existing address connections remain available.
+
+The node identity is saved in IndexedDB for this site. Cancel closes the connection but retains sign-in; explicit Sign out removes the local identity. A second tab cannot run the same identity simultaneously. Clearing site data, private browsing, another origin, or a separately stored home-screen app can require signing in again. Remembered game credentials are separate from the Tailscale identity. The Remember option controls game credentials and automatic connection; Tailscale stays signed in until Sign out. A saved Tailscale computer is selected automatically on the next page launch after a successful remembered connection.
+
+Pages builds include the pinned Go/WASM runtime and its license, hash-checked against VERSION.json, loaded only after selecting Tailscale. Builds with base `/` retain the existing smaller Mod bundle by default; set MONKEYCRAFT_WEB_TAILSCALE=1 explicitly for a standalone root-path browser build. The Pages workflow sets that flag even for a custom-domain root. No Mod or native app deployment is needed for this candidate.
 
 ## Saved connection
 

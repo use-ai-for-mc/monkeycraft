@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "builtAt": "2026-09-23T18:13:25Z",
+  "builtAt": "2026-09-23T18:49:39Z",
   "tailscaleTag": "v1.102.3",
   "tailscaleCommit": "53a0d659afa51835dd7a9283873cca44261454f8",
   "goVersion": "go1.26.6",
@@ -9,9 +9,9 @@
   "ldflags": "-s -w",
   "wasm": {
     "path": "dist/main.wasm",
-    "sha256": "60233fb246bb55f8fdeaa477dbfb61b6ab3313da87457c01e5b9ee953d4f7003",
-    "bytes": 36764111,
-    "gzipBytes": 8336376
+    "sha256": "687e547d8217d08bd3fdb1a8a40a9a4f866793a215f22addf598b56736eca246",
+    "bytes": 36761983,
+    "gzipBytes": 8336440
   },
   "wasmExec": {
     "path": "dist/wasm_exec.js",

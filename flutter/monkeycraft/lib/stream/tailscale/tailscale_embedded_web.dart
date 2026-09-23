@@ -22,11 +22,22 @@ class TailscaleEmbeddedClient implements TailscaleClient {
   );
   final Map<String, _LiveConn> _conns = {};
   bool _started = false;
+  Future<void>? _starting;
+  Future<void>? _stopping;
+  int _generation = 0;
+  int _leaseSequence = 0;
+  String? _activeLease;
   String? _pendingAuthUrl;
   web.Window? _authWindow;
 
   @override
-  bool get isSupported => kIsWeb;
+  bool get isSupported =>
+      kIsWeb &&
+      web.window.isSecureContext &&
+      const bool.fromEnvironment(
+        'MONKEYCRAFT_WEB_TAILSCALE',
+        defaultValue: false,
+      );
 
   @override
   Stream<TailscaleEmbeddedSnapshot> get events => _events.stream;
@@ -37,11 +48,13 @@ class TailscaleEmbeddedClient implements TailscaleClient {
 
   @override
   Future<TailscaleDiagnostics> diagnostics() async {
-    return const TailscaleDiagnostics(
-      available: true,
+    return TailscaleDiagnostics(
+      available: isSupported,
       libtailscaleLinked: true,
       statusJsonAvailable: true,
-      reason: 'web wasm worker',
+      reason: isSupported
+          ? 'available'
+          : 'Open MonkeyCraft over HTTPS to use Tailscale.',
       tailscaleGoModule: 'tailscale.com v1.102.3',
     );
   }
@@ -53,53 +66,123 @@ class TailscaleEmbeddedClient implements TailscaleClient {
   Future<List<TailscalePeer>> listPeers() async => _snapshot.peers;
 
   @override
-  Future<void> start() async {
-    if (_started) return;
+  Future<void> start() {
+    if (_stopping != null) return _stopping!.then((_) => start());
+    if (_started) return Future.value();
+    if (_starting != null) return _starting!;
+    if (!isSupported) {
+      return Future.error(
+        StateError('Tailscale is unavailable in this browser.'),
+      );
+    }
+    final generation = _generation;
+    late final Future<void> operation;
+    operation = _start(generation).whenComplete(() {
+      if (identical(_starting, operation)) _starting = null;
+    });
+    _starting = operation;
+    return operation;
+  }
+
+  Future<void> _start(int generation) async {
     _ensureWorker();
     _setSnapshot(const TailscaleEmbeddedSnapshot(phase: 'starting'));
-    final origin = web.window.location.href;
-    final wasmUrl = Uri.parse(origin).resolve('tailscale/main.wasm').toString();
-    final execUrl = Uri.parse(
-      origin,
-    ).resolve('tailscale/wasm_exec.js').toString();
-    await _request('init', {
-      'backend': 'wasm',
-      'hostname': 'monkeycraft-web',
-      'wasmUrl': wasmUrl,
-      'wasmExecUrl': execUrl,
-    }, timeout: const Duration(seconds: 120));
-    _started = true;
+    final base = Uri.parse(web.document.baseURI);
+    try {
+      await _request('init', {
+        'backend': 'wasm',
+        'hostname': 'monkeycraft-web',
+        'persistIdentity': true,
+        'wasmUrl': base.resolve('tailscale/main.wasm').toString(),
+        'wasmExecUrl': base.resolve('tailscale/wasm_exec.js').toString(),
+      }, timeout: const Duration(seconds: 120));
+      if (generation != _generation) throw StateError('Connection cancelled.');
+      _started = true;
+    } catch (error) {
+      if (generation == _generation) _fail('$error');
+      rethrow;
+    }
   }
 
   @override
   Future<void> loginInteractive() async {
+    _authWindow = web.window.open(
+      'about:blank',
+      '_blank',
+      'width=480,height=720',
+    );
+    try {
+      _authWindow?.opener = null;
+    } catch (_) {}
     await start();
-    _authWindow = web.window.open('about:blank', 'ts-auth', 'width=480,height=720');
-    if (_pendingAuthUrl != null && _authWindow != null) {
+    if (_pendingAuthUrl != null) {
       _navigateAuth(_pendingAuthUrl!);
+    } else {
+      await _request('login', {});
     }
-    await _request('login', {});
   }
 
   @override
-  Future<void> cancel() async {
-    await logout();
-  }
+  Future<void> cancel() => stop();
 
   @override
   Future<void> logout() async {
-    if (_worker == null) return;
-    try {
-      await _request('logout', {});
-    } catch (_) {}
-    _pendingAuthUrl = null;
-    _started = false;
-    _setSnapshot(const TailscaleEmbeddedSnapshot(phase: 'stopped'));
+    if (_worker != null) await _request('logout', {});
+    await stop();
   }
 
   @override
-  Future<void> stop() async {
-    await logout();
+  Future<void> stop() {
+    if (_stopping != null) return _stopping!;
+    late final Future<void> operation;
+    operation = _stop().whenComplete(() {
+      if (identical(_stopping, operation)) _stopping = null;
+    });
+    _stopping = operation;
+    return operation;
+  }
+
+  Future<void> _stop() async {
+    _generation++;
+    _started = false;
+    _starting = null;
+    _pendingAuthUrl = null;
+    try {
+      _authWindow?.close();
+    } catch (_) {}
+    _authWindow = null;
+    if (_worker != null) {
+      try {
+        await _request('shutdown', {}, timeout: const Duration(seconds: 5));
+      } catch (_) {}
+    }
+    _terminate();
+    _setSnapshot(const TailscaleEmbeddedSnapshot(phase: 'stopped'));
+  }
+
+  void _terminate() {
+    _worker?.terminate();
+    _worker = null;
+    for (final pending in _pending.values) {
+      if (!pending.isCompleted) {
+        pending.completeError(StateError('Tailscale connection closed.'));
+      }
+    }
+    _pending.clear();
+    for (final conn in _conns.values) {
+      conn.close();
+    }
+    _conns.clear();
+  }
+
+  void _fail(String message) {
+    _generation++;
+    _started = false;
+    _starting = null;
+    _terminate();
+    _setSnapshot(
+      TailscaleEmbeddedSnapshot(phase: 'failed', errorMessage: message),
+    );
   }
 
   @override
@@ -115,12 +198,15 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     if (host == null || host.isEmpty) {
       throw StateError('peer has no address');
     }
-    final url = 'ws://$host:$port';
-    return TailscaleBridgeLease(url: url, leaseId: nodeId);
+    final url = Uri(scheme: 'ws', host: host, port: port).toString();
+    _activeLease = 'web-${++_leaseSequence}';
+    return TailscaleBridgeLease(url: url, leaseId: _activeLease!);
   }
 
   @override
   Future<void> closeBridge(String leaseId) async {
+    if (leaseId != _activeLease) return;
+    _activeLease = null;
     for (final id in List<String>.from(_conns.keys)) {
       await _closeConn(id);
     }
@@ -130,6 +216,7 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     await start();
     final host = url.host;
     final port = url.hasPort ? url.port : 9600;
+    final lease = _activeLease;
     final res = await _request('dialTcp', {
       'host': host,
       'port': port,
@@ -137,15 +224,32 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     });
     final connId = res.payload['connId'] as String? ?? '';
     if (connId.isEmpty) throw StateError('dialTcp missing connId');
+    if (lease != _activeLease || lease == null) {
+      await _closeConn(connId);
+      throw StateError('Connection cancelled.');
+    }
     final live = _LiveConn(connId);
     _conns[connId] = live;
     return TailscaleTcpConn(
       write: (bytes) async {
-        await _request('connWrite', {'connId': connId}, buffer: bytes);
+        var offset = 0;
+        while (offset < bytes.length) {
+          final result = await _request('connWrite', {
+            'connId': connId,
+          }, buffer: Uint8List.sublistView(bytes, offset));
+          final n = result.payload['n'];
+          if (n is! int || n <= 0 || n > bytes.length - offset) {
+            throw StateError('Incomplete Tailscale write.');
+          }
+          offset += n;
+        }
       },
       read: () async {
         if (live.closed) return null;
-        final res = await _request('connRead', {'connId': connId, 'max': 65536});
+        final res = await _request('connRead', {
+          'connId': connId,
+          'max': 65536,
+        });
         if (res.buffer != null && res.buffer!.isNotEmpty) {
           return res.buffer;
         }
@@ -169,13 +273,26 @@ class TailscaleEmbeddedClient implements TailscaleClient {
   void _ensureWorker() {
     if (_worker != null) return;
     final workerUrl = Uri.parse(
-      web.window.location.href,
+      web.document.baseURI,
     ).resolve('tailscale/worker.js').toString();
     _worker = web.Worker(workerUrl.toJS, web.WorkerOptions(type: 'module'));
+    final worker = _worker;
+    _worker!.addEventListener(
+      'error',
+      ((web.Event _) {
+        _fail('Tailscale stopped unexpectedly. Please reconnect.');
+      }).toJS,
+    );
+    _worker!.addEventListener(
+      'messageerror',
+      ((web.Event _) {
+        _fail('Tailscale connection could not be read. Please reconnect.');
+      }).toJS,
+    );
     _worker!.addEventListener(
       'message',
       ((web.MessageEvent ev) {
-        _onMessage(ev.data);
+        if (identical(worker, _worker)) _onMessage(ev.data);
       }).toJS,
     );
   }
@@ -191,7 +308,13 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     if (kind != 'res') return;
     final id = map['id'] as String? ?? '';
     final pending = _pending.remove(id);
-    if (pending == null) return;
+    if (pending == null) {
+      final payload = map['payload'];
+      if (payload is Map && payload['connId'] is String) {
+        unawaited(_closeConn(payload['connId'] as String));
+      }
+      return;
+    }
     if (map['ok'] == false) {
       final err = map['error'];
       final message = err is Map ? (err['message'] ?? 'error') : 'error';
@@ -206,10 +329,7 @@ class TailscaleEmbeddedClient implements TailscaleClient {
       buffer = rawBuf;
     }
     pending.complete(
-      _RpcRes(
-        Map<String, dynamic>.from(map['payload'] as Map? ?? {}),
-        buffer,
-      ),
+      _RpcRes(Map<String, dynamic>.from(map['payload'] as Map? ?? {}), buffer),
     );
   }
 
@@ -219,16 +339,30 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     if (method == 'state') {
       final ipn = payload['ipn'] as String? ?? '';
       final phase = _mapIpn(ipn);
+      if (phase == 'running') {
+        _pendingAuthUrl = null;
+        try {
+          _authWindow?.close();
+        } catch (_) {}
+        _authWindow = null;
+      }
       _setSnapshot(
         TailscaleEmbeddedSnapshot(
           phase: phase,
           backendState: ipn,
           peers: _snapshot.peers,
           nodeId: _snapshot.nodeId,
+          authUrlHost: _pendingAuthUrl == null
+              ? null
+              : Uri.tryParse(_pendingAuthUrl!)?.host,
         ),
       );
     } else if (method == 'browseToURL') {
       final url = payload['url'] as String?;
+      if (url != null && !_validAuthUrl(url)) {
+        _fail('Tailscale returned an invalid sign-in link.');
+        return;
+      }
       _pendingAuthUrl = url;
       if (url != null) _navigateAuth(url);
       if (_snapshot.phase != 'running') {
@@ -249,14 +383,19 @@ class TailscaleEmbeddedClient implements TailscaleClient {
           final addrs = item['addresses'];
           String? addr;
           if (addrs is List && addrs.isNotEmpty) {
-            addr = addrs.first.toString();
+            addr = addrs
+                .map((a) => a.toString())
+                .firstWhere(
+                  (a) => !a.contains(':'),
+                  orElse: () => addrs.first.toString(),
+                );
           }
           final id = (item['stableId'] ?? item['nodeId'] ?? '').toString();
           if (id.isEmpty) continue;
           peers.add(
             TailscalePeer(
               nodeId: id,
-              hostName: (item['name'] ?? '').toString(),
+              hostName: (item['name'] ?? '').toString().split('.').first,
               online: item['online'] == true,
               dnsName: addr,
             ),
@@ -265,17 +404,32 @@ class TailscaleEmbeddedClient implements TailscaleClient {
       }
       _setSnapshot(
         TailscaleEmbeddedSnapshot(
-          phase: _snapshot.phase == 'stopped' ? 'running' : _snapshot.phase,
+          phase: _snapshot.phase,
+          backendState: _snapshot.backendState,
+          authUrlHost: _snapshot.authUrlHost,
           peers: peers,
           nodeId: payload['selfStableId'] as String?,
         ),
+      );
+    } else if (method == 'panic') {
+      _fail(
+        payload['message']?.toString() ?? 'Tailscale stopped unexpectedly.',
       );
     } else if (method == 'cleared') {
       _setSnapshot(const TailscaleEmbeddedSnapshot(phase: 'stopped'));
     }
   }
 
+  bool _validAuthUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return uri != null &&
+        uri.scheme == 'https' &&
+        uri.userInfo.isEmpty &&
+        (uri.host == 'tailscale.com' || uri.host.endsWith('.tailscale.com'));
+  }
+
   void _navigateAuth(String url) {
+    if (!_validAuthUrl(url)) return;
     final w = _authWindow;
     if (w == null) return;
     try {
@@ -323,14 +477,19 @@ class TailscaleEmbeddedClient implements TailscaleClient {
     };
     final worker = _worker;
     if (worker == null) {
+      _pending.remove(id);
       return Future.error(StateError('worker not started'));
     }
     if (buffer != null) {
-      worker.postMessage(_dartToJs({...msg, 'buffer': buffer}));
+      worker.postMessage(
+        _dartToJs({...msg, 'buffer': Uint8List.fromList(buffer).buffer}),
+      );
     } else {
       worker.postMessage(_dartToJs(msg));
     }
-    return completer.future.timeout(timeout);
+    return completer.future
+        .timeout(timeout)
+        .whenComplete(() => _pending.remove(id));
   }
 }
 
