@@ -1028,3 +1028,9 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 本轮新增的定向浏览器检查由仓库根目录 node flutter/monkeycraft/tool/browser_autoconnect_smoke.mjs 执行：本地静态服务4189、本地录像回放9629、无头 Chromium。6项通过：首次密码登录并解码画面、刷新无需点击 Connect、新文档自动连接、主动断开不循环、关闭记住后不自动连接、目标不可用时回到可编辑页面。脚本初次因 Flutter 文本框焦点尚未稳定导致输入失败；加入与已有脚本一致的输入等待后通过，未修改认证逻辑绕过失败。证据 outputs/browser-autoconnect/result.json 与 remembered-computer.png。现有两份较广浏览器脚本只适配 Change 按钮及自动连接行为，本轮未重跑其声音等验收。
 
 未连接真实 Minecraft、未使用用户手机、未重新测试声音或 Safari，也不将 Chromium 新文档检查等同于 iPhone 主屏幕真机结果。主屏幕若使用独立存储环境，首次需在那里连接一次；说明已加入 doc/GITHUB_PAGES.md。本轮只完成源码和本地候选，尚未更新在线 Pages 或已安装 Mod 的内置网页。
+
+### 2026-09-23 自动连接版 26.2 原子更新，等待用户自行重启
+
+用户授权编译并原子替换 ImagineFun Add-Ons 的 Mod，明确禁止关闭当前游戏。本轮从83bdb01运行 mods/26.2/build-and-deploy.sh，使用Java25，Go与Gradle并行度限制为2；重新生成根路径Flutter Web和四平台helper，spotless及clean build成功，66项Mod测试全部通过、无跳过。旧JAR先备份至 outputs/deploy-26.2-autoconnect-2026-09-23/previous/，脚本校验真实Prism实例、临时JAR完整性后同目录原子rename替换。
+
+部署后JAR SHA256为6e1dd7fbd7330842844b505da8ce9c8736353f4418374369bbbf47e851147d67；内置main.dart.js SHA256为f1dc25d7e3523a786f2e19e43d8f1c91eab2287f72e7c9aec8d5a807cef74d26，与本轮Flutter输出一致并包含自动连接界面；四平台helper提交标记83bdb01且哈希均匹配。版本号仍为1.4.2-26.2，不以版本号区分此次资源更新。原游戏进程40721仍在运行，没有关闭、重启或接管游戏。新包等待用户结束本局后自行重启加载，不记运行时已生效。证据：outputs/deploy-26.2-autoconnect-2026-09-23/build.log、deployment.json；Pages未更新。
