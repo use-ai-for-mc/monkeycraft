@@ -996,3 +996,5 @@ TEST_MATRIX、REMAINING_ACCEPTANCE_STEPS、KNOWN_ISSUES_HANDOFF均改为核心�
 第一轮修复后的云端结果（35821423775）：Flutter Web、Android（含 APK 构建、native 登录单测和打包校验）、iOS 未签名 Release 均成功；helper 四平台编译、单测和 race 检查成功。Linux 隔离 tailnet 集成检查暴露第二层问题：go.mod 未完整记录带 integration 标签的跨平台传递依赖，-mod=readonly 正确拒绝运行。使用仓库要求的 Go 1.26.6 执行 go mod tidy，保留 Tailscale v1.102.3 及原有依赖版本，仅补齐间接依赖和校验和；GOOS=linux CGO_ENABLED=1 go list -mod=readonly -tags=integration -deps -test ./internal/engine 已成功验证依赖解析。实际 Linux 集成执行仍以接下来的 CI 为准，不把本地解析当作测试通过。
 
 APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重命名的 shell 引号。使用 actionlint v1.7.12 检查 build/release/release-flutter-apk/pages 四个工作流全部通过；本机原有 v1.6.2 不认识现代 runner、Pages 权限及布尔输入，其过期诊断未用于修改有效配置。未发布 App、Mod 或 Pages。
+
+最终结果：修复提交 18a26a6 的 GitHub Actions 运行 [35822251652](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35822251652) **8/8 全部成功**：Flutter Web、Android、iOS 未签名 Release、helper（四平台构建、常规/race/隔离 tailnet 集成检查）、四个 Minecraft Mod 构建及已有测试。两笔修复 279b2be、18a26a6 已推送 master。明细见 [CI 修复证据](tailscale-integration/evidence/2026-09-23-ci-repair.md)。本次没有扩大人工验收或发布产品。最终结果用仅文档的 [skip ci] 提交记录，不重新触发已通过的构建；原有失败运行仍保留。
