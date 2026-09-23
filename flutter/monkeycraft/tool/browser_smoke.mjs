@@ -65,6 +65,8 @@ try {
     await page.keyboard.type(value, { delay: 10 });
     await page.waitForTimeout(100);
   };
+  const changeServer = page.getByRole('button', { name: 'Change', exact: true });
+  if (await changeServer.count()) await changeServer.click();
   await edit('Server address', server);
   const passwordMode = page.getByText('Use password or scan QR', { exact: true });
   if (await passwordMode.count()) await passwordMode.click();
@@ -198,13 +200,12 @@ try {
   await page.reload();
   await page.locator('flt-semantics-placeholder').evaluate(e => e.click());
   const restoredServer = page.getByRole('textbox', { name: 'Server address', exact: true });
-  await restoredServer.waitFor();
-  await page.getByRole('button', { name: 'Connect', exact: true }).click();
   await page.waitForFunction(() => window.flutterProbe.decoded >= 12, { timeout: 8000 });
   result.checks.push('reload restores same-target credentials and reconnects');
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
   await restoredServer.waitFor();
-  await edit('Server address', 'ws://127.0.0.1:9611');
+  await edit('Server address', 'ws://127.0.0.1:1');
   await page.getByRole('button', { name: 'Connect', exact: true }).click();
   await page.waitForFunction(() => document.body.innerText.includes('Enter the password'));
   result.checks.push('target change clears autofill before connect');

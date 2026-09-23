@@ -1018,3 +1018,13 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 修复提交bcae294的CI运行[35836594752](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35836594752)已8/8全绿。直接下载该成功运行的Artifacts-26.2，验证JAR完整性、版本、根路径Flutter Web及四平台helper哈希/提交标记，避免重复构建。备份实例旧JAR后以同目录临时文件原子替换：旧SHA19ea7e9b…→新SHA3f64450a441513ac6cee3038cc1a4d05003a019d637db76f4a58ad3ea2fb797f。其他Mod与配置未改。
 
 通过DebugBridge正常关闭旧26.2客户端（PID64592退出），使用Prism的ImagineFun Add-Ons原实例重启，重新进入原服务器mp.imaginefun.net，运行时确认inWorld=true。HTTP 9600实际服务的main.dart.js SHA02475fefd8d555b3a3dfdd46297476c37c8d5a8f6bb999d68dc05cccaa5b3a3f与新JAR一致，确认加载新资源。部署、旧包备份和CI来源记录位于outputs/deploy-26.2-2026-09-23/。此次未新增声音、Safari或Android人工验收，未公开发布Pages/App/Mod。
+
+### 2026-09-23 浏览器保存连接并自动进入
+
+用户要求简化浏览器及主屏幕入口。现有 CredentialStore 已将浏览器凭证按目标电脑隔离并持久保存；本次复用该机制，不增加另一套 localStorage 密码字段。登录页首次加载且记住功能开启、地址有效、有已保存密码时，只自动连接一次。主动 Disconnect 返回页面不会再次触发；连接失败恢复可编辑表单，Cancel 保留；读取凭证期间取消的旧请求也不会继续创建连接。浏览器将已确定的目标地址折叠为 Game computer + Change，选项改为 Remember and connect automatically。Mod 页面首次默认当前来源，Pages 首次仍需填写游戏电脑；用户明确修改并保存的目标继续优先。原生 App 不启用自动登录或折叠地址。
+
+验证命令（Flutter 工程目录，SDK /Users/cusgadmin/if-local/flutter/bin/flutter）：flutter analyze 无问题；flutter test test/auth/login_screen_tailscale_entry_test.dart test/auth/web_origin_server_test.dart test/auth/credential_store_test.dart 共20项通过。FLUTTER_BIN 指向上述 SDK、MONKEYCRAFT_PAGES_PROVENANCE=0 bash tool/build_web_release.sh / build/browser-autoconnect 成功；最终资源通过 verify_web_release.py，未生成公开发布来源证明。
+
+本轮新增的定向浏览器检查由仓库根目录 node flutter/monkeycraft/tool/browser_autoconnect_smoke.mjs 执行：本地静态服务4189、本地录像回放9629、无头 Chromium。6项通过：首次密码登录并解码画面、刷新无需点击 Connect、新文档自动连接、主动断开不循环、关闭记住后不自动连接、目标不可用时回到可编辑页面。脚本初次因 Flutter 文本框焦点尚未稳定导致输入失败；加入与已有脚本一致的输入等待后通过，未修改认证逻辑绕过失败。证据 outputs/browser-autoconnect/result.json 与 remembered-computer.png。现有两份较广浏览器脚本只适配 Change 按钮及自动连接行为，本轮未重跑其声音等验收。
+
+未连接真实 Minecraft、未使用用户手机、未重新测试声音或 Safari，也不将 Chromium 新文档检查等同于 iPhone 主屏幕真机结果。主屏幕若使用独立存储环境，首次需在那里连接一次；说明已加入 doc/GITHUB_PAGES.md。本轮只完成源码和本地候选，尚未更新在线 Pages 或已安装 Mod 的内置网页。

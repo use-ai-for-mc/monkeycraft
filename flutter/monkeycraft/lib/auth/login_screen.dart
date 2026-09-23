@@ -36,6 +36,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _passController = TextEditingController();
   final _passwordFocus = FocusNode();
   bool _isLoading = false;
+  bool _autoConnecting = false;
+  bool _editServer = true;
   bool _connectInFlight = false;
   int _connectAttempt = 0;
   StreamProxy? _inFlightProxy;
@@ -61,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     _serverController.addListener(_onServerChanged);
     _passController.addListener(_onPasswordChanged);
     _passwordFocus.addListener(_onPasswordFocusChanged);
-    _loadCredentials();
+    _loadCredentials(connectOnLaunch: kIsWeb);
   }
 
   final _webPasswordAutofill = WebPasswordAutofill('');
@@ -120,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _loadCredentials() async {
+  Future<void> _loadCredentials({bool connectOnLaunch = false}) async {
     final credentials = await CredentialStore.load();
     if (!mounted) return;
     setState(() {
@@ -128,6 +130,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           ? webInitialServer(Uri.base, credentials.server)
           : credentials.server;
       _serverController.text = server;
+      _editServer = !kIsWeb || server.isEmpty;
       _settingAutofilledPassword = true;
       _passController.text = credentials.password;
       _settingAutofilledPassword = false;
@@ -142,6 +145,16 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         addressPairingEligible: isPairingEligibleServer(server),
       );
     });
+    if (connectOnLaunch &&
+        credentials.rememberCredentials &&
+        _hasPassword &&
+        webServerError(Uri.base, _serverController.text) == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _connectAttempt != 0) return;
+        setState(() => _autoConnecting = true);
+        unawaited(_connect());
+      });
+    }
   }
 
   Future<void> _saveCredentials() async {
@@ -178,6 +191,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     _connectInFlight = false;
     setState(() {
       _isLoading = false;
+      _autoConnecting = false;
       _pairingCode = null;
     });
     final proxy = _inFlightProxy;
@@ -267,7 +281,22 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       return;
     }
     _lastConnectTapAt = now;
-    if (overrideServer == null && !_formKey.currentState!.validate()) return;
+    if (overrideServer == null) {
+      final serverError = kIsWeb
+          ? webServerError(Uri.base, _serverController.text)
+          : null;
+      if (serverError != null) {
+        setState(() {
+          _editServer = true;
+          _autoConnecting = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(serverError)));
+        return;
+      }
+      if (!_formKey.currentState!.validate()) return;
+    }
     if (overrideServer == null &&
         LoginAuthPolicy.requirePasswordBeforeConnect(
           mode: _mode,
@@ -302,6 +331,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       tailscalePath: tailscalePath,
     );
     final snapshot = await CredentialStore.snapshot(server: target);
+    if (!mounted || attempt != _connectAttempt) return;
     final proxy = StreamProxy(
       transportFactory: tailscalePath ? _tailscale.gameTransportFactory : null,
     );
@@ -460,6 +490,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         if (mounted) {
           setState(() {
             _isLoading = false;
+            _autoConnecting = false;
             if (_pairingCode != null && !_connectInFlight) {
               _pairingCode = null;
             }
@@ -561,20 +592,39 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
-                  controller: _serverController,
-                  decoration: InputDecoration(
-                    labelText: 'Server address',
-                    hintText: kIsWeb
-                        ? 'wss://your-computer.tailnet.ts.net:9600'
-                        : '192.168.0.3:9600 or example.ngrok-free.app',
+                if (kIsWeb && !_editServer)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Game computer'),
+                    subtitle: Text(_serverController.text),
+                    trailing: TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => setState(() => _editServer = true),
+                      child: const Text('Change'),
+                    ),
+                  )
+                else
+                  TextFormField(
+                    enabled: !kIsWeb || !_isLoading,
+                    controller: _serverController,
+                    decoration: InputDecoration(
+                      labelText: 'Server address',
+                      hintText: kIsWeb
+                          ? 'wss://your-computer.tailnet.ts.net:9600'
+                          : '192.168.0.3:9600 or example.ngrok-free.app',
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      return kIsWeb ? webServerError(Uri.base, v) : null;
+                    },
                   ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Required';
-                    return kIsWeb ? webServerError(Uri.base, v) : null;
-                  },
-                ),
-                if (_showPasswordField) ...[
+                if (_autoConnecting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text('Connecting to your game…'),
+                  ),
+                if (_showPasswordField && !_autoConnecting) ...[
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passController,
@@ -646,21 +696,24 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ],
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _rememberCredentials,
-                  onChanged: _isLoading
-                      ? null
-                      : (value) {
-                          setState(() => _rememberCredentials = value ?? true);
-                        },
-                  title: const Text(
-                    kIsWeb
-                        ? 'Remember password in this browser'
-                        : 'Remember password on this phone',
+                if (!_autoConnecting)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _rememberCredentials,
+                    onChanged: _isLoading
+                        ? null
+                        : (value) {
+                            setState(
+                              () => _rememberCredentials = value ?? true,
+                            );
+                          },
+                    title: const Text(
+                      kIsWeb
+                          ? 'Remember and connect automatically'
+                          : 'Remember password on this phone',
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
                   ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
                 if (_pairingCode != null) ...[
                   const SizedBox(height: 8),
                   Card(

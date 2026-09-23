@@ -4,6 +4,14 @@ MonkeyCraft's production browser client is built from `flutter/monkeycraft/` and
 
 The Pages entry is https://use-ai-for-mc.github.io/monkeycraft/. Use a reachable HTTPS/WSS endpoint for your Minecraft computer, such as its Tailscale Serve address. Pages does not relay game traffic or embed a Tailscale node; the device uses its existing network or system Tailscale connection. Only one controlling client can connect at a time.
 
+## Saved connection
+
+On first use, enter your game computer's address on Pages, then enter its password or pair. A page served by the Mod defaults to that computer's address. An explicitly changed, remembered target takes precedence. Once the address is known, it is shown as a summary with a Change button.
+
+Leave “Remember and connect automatically” enabled to save the successful connection credentials in this browser. Future page launches automatically connect once, including launches from a home-screen shortcut when its browser storage contains the saved connection. A new or separately stored home-screen installation needs its own first connection. Credentials remain scoped to the game computer; changing the target clears the autofilled password.
+
+An unavailable computer or rejected password returns to the connection form. Cancel stops the attempt; Disconnect stays on the form until the user connects again or reloads the page. Turning off Remember and connecting clears the saved credentials. Clearing site data also requires a new first connection. Native app startup behavior is unchanged.
+
 ## Build and publish
 
 The manually dispatched `Pages` workflow pins the Flutter SDK and GitHub Actions, resolves the dependency lockfile, runs static analysis, and builds with base path `/monkeycraft/`. It records source, toolchain and artifact hashes in `build-provenance.json`. Publishing is disabled by default and is allowed only from `master` when the `publish` input is enabled.

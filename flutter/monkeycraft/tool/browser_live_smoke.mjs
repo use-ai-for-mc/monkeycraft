@@ -139,6 +139,8 @@ try {
   if (await passwordMode.count()) await passwordMode.click();
 
   await updateStatus('checking-authentication-rejection');
+  const changeServer = page.getByRole('button', { name: 'Change', exact: true });
+  if (await changeServer.count()) await changeServer.click();
   await edit('Server address', server);
   await edit('Password', `invalid-${randomUUID()}`);
   await page.getByRole('button', { name: 'Connect', exact: true }).click();
