@@ -1010,3 +1010,11 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 验证：8项新增恢复测试加原有8项 session/endpoint 测试，共16项通过；flutter analyze 无问题。测试只覆盖本次明确复现的连接缺陷，不新增声音、手机组合或其他功能验收。构建号升级为1.4.2(12)，正在通过设备构建脚本生成正式签名包；先保存主build下99项Web/Pages文件，完成后逐文件恢复。原始日志 outputs/tailscale-recovery-2026-09-23/ 及 outputs/tailscale-recovery-{before,after,analyze}.log。尚未安装到用户手机，不记真机修复通过。
 
 最终设备包已完成：clean设备构建44.2秒成功；归档 outputs/tailscale-recovery-2026-09-23/Runner.app 经逐嵌套平台/签名复核通过，1.4.2(12)，Runner SHA046969c45e2a756de96875fc72eb1d1be2a23f9c1ca1f085dea670481b5d47ea，Dart App SHA6d21f052ee3395a40684116492065f6d5fda9e58378c9ecaee67652ad2c96c9f。此前99项浏览器产物已逐文件原样恢复。修复包已准备，因覆盖安装会中断当前App使用，已向用户确认安装时机，等待答复；未擅自安装或要求声音测试。
+
+### 2026-09-23 修复包安装与 ImagineFun Add-Ons 部署
+
+用户明确授权安装手机新包，并要求部署26.2 ImagineFun Add-Ons。先重新校验归档App的平台、嵌套签名和两项主二进制哈希，devicectl覆盖安装成功；随后按bundle过滤读回实体iPhone已安装1.4.2(12)。未卸载、清数据、手动终止或额外启动手机App；安装及读回证据位于 outputs/tailscale-recovery-2026-09-23/device-install.json、installed-after.json。只证明安装完成，不冒充用户设备上的前后台恢复已经复验。
+
+修复提交bcae294的CI运行[35836594752](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35836594752)已8/8全绿。直接下载该成功运行的Artifacts-26.2，验证JAR完整性、版本、根路径Flutter Web及四平台helper哈希/提交标记，避免重复构建。备份实例旧JAR后以同目录临时文件原子替换：旧SHA19ea7e9b…→新SHA3f64450a441513ac6cee3038cc1a4d05003a019d637db76f4a58ad3ea2fb797f。其他Mod与配置未改。
+
+通过DebugBridge正常关闭旧26.2客户端（PID64592退出），使用Prism的ImagineFun Add-Ons原实例重启，重新进入原服务器mp.imaginefun.net，运行时确认inWorld=true。HTTP 9600实际服务的main.dart.js SHA02475fefd8d555b3a3dfdd46297476c37c8d5a8f6bb999d68dc05cccaa5b3a3f与新JAR一致，确认加载新资源。部署、旧包备份和CI来源记录位于outputs/deploy-26.2-2026-09-23/。此次未新增声音、Safari或Android人工验收，未公开发布Pages/App/Mod。
