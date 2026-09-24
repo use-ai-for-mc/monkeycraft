@@ -57,6 +57,7 @@ class CredentialStore {
   static const legacyKeyId = 'legacy';
   static const _maxEntries = 8;
   static const _storage = FlutterSecureStorage();
+  static Future<void> _writes = Future.value();
 
   static Future<
     ({
@@ -122,6 +123,18 @@ class CredentialStore {
     required String keyId,
     required String password,
     String lastServer = '',
+  }) {
+    final operation = _writes.then(
+      (_) => _put(keyId: keyId, password: password, lastServer: lastServer),
+    );
+    _writes = operation.catchError((_) {});
+    return operation;
+  }
+
+  static Future<void> _put({
+    required String keyId,
+    required String password,
+    required String lastServer,
   }) async {
     if (keyId.isEmpty || password.isEmpty) return;
     SharedPreferences? prefs;

@@ -1062,3 +1062,9 @@ APK 发布流程增加与 CI 一致的 native 打包校验，并修正产物重�
 用户要求融入Flutter产品而非实验页。已接入共享登录/设备列表/配对/游戏页，浏览器按需加载Worker与固定Go/WASM，新增IndexedDB身份保存、同源标签互斥及显式注销；取消保留身份。修复现有Dart传输的合并HELLO丢失、接收监听时序、写入排序、部分写及迟到连接释放，保留现有地址入口。Pages构建仅打包运行时并验证哈希，根路径Mod默认不包含WASM，无Mod/App部署。
 
 Flutter分析无问题，30项定向检查和7项来源检查通过，Go/WASM+Flutter release及Pages工作流静态检查通过。真实Chrome已从共享界面打开Tailscale授权页；390与1920宽度布局已查看；独立测试存储通过保存/恢复/清除/并发身份保护。用户的新持久节点批准仍待完成，因此未记真实Flutter游戏连接或账户刷新恢复通过，未发布Pages。原等待授权页与本地服务保留，不扩大声音/旧平台验收。细节与接续步骤见[tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md](tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md)。
+
+### 2026-09-24 Flutter 浏览器 Tailscale 真实授权与自动恢复完成
+
+用户完成持久节点授权后，真实Chrome通过共享Flutter设备列表选择PC内嵌节点，配对并进入26.2游戏，实际视频可见。首次刷新发现Tailscale身份仍在但游戏重复要求配对；定位到CredentialStore.put并发保存keyId绑定和legacy条目互相覆盖。新增测试修复前失败，串行化写入后12项凭据测试通过，分析无问题，release重建成功。浏览器首次重测仍执行旧缓存；核对资源字节数并取得新构建后，配对保存包含绑定条目，再次刷新自动进入真实游戏，不需要登录Tailscale或重新配对。
+
+测试结束Disconnect回到首页，保留身份和凭据；没有发送游戏输入、关闭游戏或重测声音等旧功能。集成提交2ade55f的CI运行35905495302已8/8成功；本轮追加修复的CI状态应以新提交运行为准。候选尚未发布线上，实体手机Safari的新增WASM链路尚无实际结果，不混同此前Safari通用功能验收。详细结果与构建哈希见[tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md](tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md)。

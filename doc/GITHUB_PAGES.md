@@ -8,7 +8,7 @@ Published on 2026-09-24 from source `d4b3e0a00716dca31b99f98ef9a9c8860623c435` v
 
 ## Browser Tailscale integration candidate
 
-The local candidate now uses the same Flutter connection screen, Tailscale sheet, device picker, pairing and game screen as the apps. It adds **Connect with Tailscale** above the existing address connection. The experimental POC/debug page is never shipped. This candidate has not replaced the published build described above.
+The local candidate now uses the same Flutter connection screen, Tailscale sheet, device picker, pairing and game screen as the apps. It adds **Connect with Tailscale** above the existing address connection. The experimental POC/debug page is never shipped. Real Chrome testing has verified account authorization, the actual 26.2 game stream through the PC embedded node, and a page refresh that restores both Tailscale identity and game authentication without another pairing. The concurrent credential-write defect found during that test is fixed. Phone Safari has not yet exercised this new WASM path. This candidate has not replaced the published build described above.
 
 Users sign in to their own Tailscale account and select the computer running MonkeyCraft. Traffic passes through the browser's Tailscale node to that computer; Funnel or a public game endpoint is unnecessary for this path. Game password authentication/pairing still applies. The browser must support secure contexts, WebAssembly, Workers, IndexedDB and Web Locks. Existing address connections remain available.
 

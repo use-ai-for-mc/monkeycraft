@@ -9,6 +9,31 @@ void main() {
 
   group('CredentialStore', () {
     test(
+      'concurrent bound and legacy writes retain both credentials',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        FlutterSecureStorage.setMockInitialValues({});
+        await Future.wait([
+          CredentialStore.put(
+            keyId: 'game-key',
+            password: 'secret',
+            lastServer: 'ws://100.64.1.2:9600',
+          ),
+          CredentialStore.put(
+            keyId: CredentialStore.legacyKeyId,
+            password: 'secret',
+            lastServer: 'ws://100.64.1.2:9600',
+          ),
+        ]);
+        final snapshot = await CredentialStore.snapshot(
+          server: 'ws://100.64.1.2:9600',
+        );
+        expect(snapshot.lookup('game-key'), 'secret');
+        expect(snapshot.lookup(null), 'secret');
+      },
+    );
+
+    test(
       'web vault snapshots are isolated by normalized target and key id',
       () {
         final vault = <String, CredentialEntry>{
