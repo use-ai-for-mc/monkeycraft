@@ -1096,3 +1096,5 @@ c3980a4的Pages运行35946147702构建及部署成功；线上来源记录dirty=
 定向代码检查确认网页进入后台不主动停止Tailscale Worker，已有连接可直接复用；后台暂停重试，回前台恢复。发现此前原生内嵌Tailscale可在临时失败后保留游戏页，但浏览器仍受三次失败退回首页限制。新增测试复现三次失败后错误退回首页，修复只把已有的内嵌Tailscale持续恢复策略覆盖到浏览器端；直接地址连接不变，真实游戏认证失败或Tailscale要求重新授权仍返回登录。重试间隔仍封顶8秒，后台不消耗重试，不为普通切前台重新启动节点。健康连接复用测试修改前后均通过。
 
 Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_recovery_test.dart test/stream/connection_endpoint_test.dart，13项通过；flutter analyze --no-pub无问题。修复前失败及修复后日志位于outputs/browser-tailscale-resume-2026-09-24/。不把定向自动化当作新的真机锁屏结果，不重开声音、倒计时或其他平台矩阵。WebKit官方说明iOS后台标签可能被挂起：https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/；网页被系统回收后重新加载仍需冷启动，不能承诺所有回前台情形即时恢复。
+
+恢复策略修复已通过Pages运行[35948438290](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35948438290)发布，来源74ea3ab、dirty=false。公开12项入口及Tailscale资源重新下载后哈希均与来源清单一致；没有接管当前手机连接或要求立刻刷新。新策略在下次加载新版页面后生效，尚无新策略下的实体锁屏恢复反馈，不作虚假真机验收。证据outputs/browser-tailscale-resume-2026-09-24/public-verification.json。
