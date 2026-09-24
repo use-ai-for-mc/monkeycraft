@@ -71,13 +71,59 @@ class _Proxy extends StreamProxy {
   Future<void> stop() async => connected = false;
 }
 
-SessionController _session(_Client client, _Proxy proxy) => SessionController(
+SessionController _session(
+  _Client client,
+  _Proxy proxy, {
+  bool browserSession = false,
+}) => SessionController(
   proxy: proxy,
   settingsStore: StreamSettingsStore(),
-  browserSession: false,
+  browserSession: browserSession,
 )..setEndpoint(EmbeddedTailscaleEndpoint(client: client, nodeId: 'pc'), 'pw');
 
 void main() {
+  testWidgets('browser resume retains a healthy Tailscale connection', (
+    tester,
+  ) async {
+    final client = _Client();
+    final proxy = _Proxy()..connected = true;
+    final session = _session(client, proxy, browserSession: true);
+    addTearDown(session.dispose);
+    session.setForeground(false);
+    await tester.pump(const Duration(minutes: 1));
+    session.setForeground(true);
+    await session.resumeConnection();
+    expect(client.openCount, 0);
+    expect(client.closeCount, 0);
+    expect(proxy.starts, 0);
+  });
+
+  testWidgets('browser Tailscale resumes after delayed network recovery', (
+    tester,
+  ) async {
+    final client = _Client()..available = false;
+    final proxy = _Proxy();
+    final session = _session(client, proxy, browserSession: true);
+    addTearDown(session.dispose);
+    session.setForeground(false);
+    session.handleConnectionLost();
+    await tester.pump(const Duration(minutes: 1));
+    expect(client.openCount, 0);
+    session.setForeground(true);
+    final resumed = session.resumeConnection();
+    await tester.pump();
+    await resumed;
+    for (final seconds in [2, 4]) {
+      await tester.pump(Duration(seconds: seconds));
+    }
+    expect(client.openCount, 3);
+    expect(session.state.shouldReturnToLogin, isFalse);
+    client.available = true;
+    await tester.pump(const Duration(seconds: 8));
+    expect(session.state.connected, isTrue);
+    expect(session.state.reconnectRetryCount, 0);
+  });
+
   testWidgets('native background never consumes reconnect attempts', (
     tester,
   ) async {

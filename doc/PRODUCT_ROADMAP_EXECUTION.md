@@ -1084,3 +1084,15 @@ c3980a4的Pages运行35946147702构建及部署成功；线上来源记录dirty=
 本地增量重建另发现Go工具链自带wasm_exec.js为只读，首次cp把只读模式带到输出后，第二次cp无法覆盖。改用install -m 644生成可重复覆盖的构建产物；不改工具链源文件。首次失败日志及重跑结果一并保留。
 
 最终缓存修复发布：224dc9a的Pages运行[35946801848](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35946801848)构建、两项版本化检查、部署成功；公开来源dirty=false，重新下载12项主入口/Tailscale资源全部匹配哈希。使用保留旧缓存的真实Chrome导航到?v=224dc9a，读回带内容哈希的bootstrap和main脚本URL，新main为3049348字节，首页出现Connect with Tailscale。点击后WASM启动并进入Open Tailscale login状态，无启动报错。原本保存的地址连接曾自动进入真实游戏，随后主动Disconnect；这不记为线上Tailscale端到端连接通过。此前localhost的持久身份与Pages不同源，不能复用；没有复制密钥或代替用户授权新节点。电脑页面已取消登录准备并释放控制连接，等待手机自行授权后配对。最终证据在outputs/pages-tailscale-publish-2026-09-24/final/。
+
+### 2026-09-24 手机 Safari 首次配对已接受
+
+用户通过手机发来本次配对码，请求电脑确认。运行中26.2 Mod按该码接受成功，随后读回connected=true、inWorld=true、hibernating=false，电脑配对提示已恢复原页面。仅确认服务器侧鉴权及连接建立；手机是否实际看到视频、刷新是否自动恢复仍等待用户反馈，尚不记完整手机验收通过。
+
+### 2026-09-24 用户确认实体 Safari 画面与刷新恢复，收尾前台恢复策略
+
+用户确认公开Pages通过浏览器Tailscale配对后能看到游戏；直接刷新会在Tailscale准备页面等待一会儿，随后自动进入游戏，无重新授权、选电脑或配对。此新增实体Safari主链路和刷新恢复记为通过，未测量等待时长，不宣称已量化启动性能。用户更关注锁屏/切换App后的恢复。
+
+定向代码检查确认网页进入后台不主动停止Tailscale Worker，已有连接可直接复用；后台暂停重试，回前台恢复。发现此前原生内嵌Tailscale可在临时失败后保留游戏页，但浏览器仍受三次失败退回首页限制。新增测试复现三次失败后错误退回首页，修复只把已有的内嵌Tailscale持续恢复策略覆盖到浏览器端；直接地址连接不变，真实游戏认证失败或Tailscale要求重新授权仍返回登录。重试间隔仍封顶8秒，后台不消耗重试，不为普通切前台重新启动节点。健康连接复用测试修改前后均通过。
+
+Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_recovery_test.dart test/stream/connection_endpoint_test.dart，13项通过；flutter analyze --no-pub无问题。修复前失败及修复后日志位于outputs/browser-tailscale-resume-2026-09-24/。不把定向自动化当作新的真机锁屏结果，不重开声音、倒计时或其他平台矩阵。WebKit官方说明iOS后台标签可能被挂起：https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/；网页被系统回收后重新加载仍需冷启动，不能承诺所有回前台情形即时恢复。

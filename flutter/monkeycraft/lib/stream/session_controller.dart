@@ -379,8 +379,7 @@ class SessionController extends ChangeNotifier {
   Future<String> _resolvedServer() =>
       (_endpoint ?? DirectEndpoint('')).resolve();
 
-  bool get _keepTailscaleSession =>
-      !browserSession && _endpoint is EmbeddedTailscaleEndpoint;
+  bool get _keepTailscaleSession => _endpoint is EmbeddedTailscaleEndpoint;
 
   bool _canCompleteConnection(int generation) =>
       !_disposed && _state.foreground && generation == _connectionGeneration;

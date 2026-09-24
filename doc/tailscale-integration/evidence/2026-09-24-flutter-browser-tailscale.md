@@ -48,3 +48,5 @@ GOMAXPROCS=2 GOFLAGS=-p=2 GO_BIN=/opt/homebrew/bin/go \
 ## 公开入口已更新，手机接续
 
 Pages运行35946801848已发布224dc9a，包含浏览器HTTP缓存更新修复及干净源码构建修复。公开12项资源哈希匹配；保留旧缓存的电脑Chrome已显示新的Tailscale入口，并启动WASM进入登录准备状态。之前localhost身份不复用至公开来源，未代替用户批准新的Chrome节点。公开入口到真实Tailscale游戏链路交由用户接下来的手机Safari测试；电脑原地址自动连接不混作Tailscale结果。链接https://use-ai-for-mc.github.io/monkeycraft/?v=224dc9a；用户登录自己的Tailscale账户、选择monkeycraft后自动发起游戏配对，发送配对码后再由电脑确认。详细最短步骤见doc/GITHUB_PAGES.md。
+
+用户随后已在实体iPhone Safari确认公开入口配对后游戏画面正常；刷新等待Tailscale准备后自动返回游戏，不需重新登录或配对，新增主流程验收通过。后续定向修复临时网络恢复三次失败会退出浏览器游戏页的问题；相关自动化和平台限制见PRODUCT_ROADMAP_EXECUTION.md最新记录。没有要求重复声音或扩大人工验收。
