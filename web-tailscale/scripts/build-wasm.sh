@@ -43,7 +43,7 @@ if [[ ! -f "$WASM_EXEC" ]]; then
   echo "wasm_exec.js not found under $GOROOT" >&2
   exit 1
 fi
-cp "$WASM_EXEC" "$DIST/wasm_exec.js"
+install -m 644 "$WASM_EXEC" "$DIST/wasm_exec.js"
 rm -f "$DIST/.goversion" "$DIST/.goroot"
 
 RAW_SHA="$(shasum -a 256 "$DIST/main.wasm" | awk '{print $1}')"

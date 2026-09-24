@@ -48,6 +48,8 @@ jobs:
         run: flutter pub get --enforce-lockfile
       - working-directory: flutter/monkeycraft
         run: flutter analyze
+      - name: Test browser release script versioning
+        run: python3 -m unittest discover -s flutter/monkeycraft/tool -p test_version_web_scripts.py
       - name: Build the Flutter Pages artifact
         working-directory: flutter/monkeycraft
         run: tool/build_web_release.sh

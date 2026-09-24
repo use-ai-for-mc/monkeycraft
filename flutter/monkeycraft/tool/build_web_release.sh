@@ -79,6 +79,9 @@ if [[ "$web_tailscale" == "1" ]]; then
   done
   cp "$repo_dir/web-tailscale/third_party/tailscale/LICENSE" "$canonical_output/tailscale/LICENSE"
 fi
+if [[ "$web_tailscale" == "1" ]]; then
+  python3 "$project_dir/tool/version_web_scripts.py" "$canonical_output"
+fi
 python3 "$verify_release" "$canonical_output" "$pages_base"
 
 if [[ "$pages_output" != "$canonical_output" ]]; then
