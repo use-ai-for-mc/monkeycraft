@@ -1082,3 +1082,5 @@ c3980a4的Pages运行35946147702构建及部署成功；线上来源记录dirty=
 新增发布处理为main.dart.js添加内容哈希查询参数，并据修改后的bootstrap内容哈希更新index脚本URL。只在启用浏览器Tailscale的发布包生效，根路径Mod包不变；保留现有文件名与完整来源校验，不清除用户身份或配对信息。两项定向测试覆盖重复执行不变、程序变化同时更新两个缓存入口及未知loader拒绝处理；Pages CI纳入这些检查。最终公开发布及手机结果继续按实际记录，手机测试仍等待用户在出门后执行，配对由用户发消息后电脑端确认。
 
 本地增量重建另发现Go工具链自带wasm_exec.js为只读，首次cp把只读模式带到输出后，第二次cp无法覆盖。改用install -m 644生成可重复覆盖的构建产物；不改工具链源文件。首次失败日志及重跑结果一并保留。
+
+最终缓存修复发布：224dc9a的Pages运行[35946801848](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35946801848)构建、两项版本化检查、部署成功；公开来源dirty=false，重新下载12项主入口/Tailscale资源全部匹配哈希。使用保留旧缓存的真实Chrome导航到?v=224dc9a，读回带内容哈希的bootstrap和main脚本URL，新main为3049348字节，首页出现Connect with Tailscale。点击后WASM启动并进入Open Tailscale login状态，无启动报错。原本保存的地址连接曾自动进入真实游戏，随后主动Disconnect；这不记为线上Tailscale端到端连接通过。此前localhost的持久身份与Pages不同源，不能复用；没有复制密钥或代替用户授权新节点。电脑页面已取消登录准备并释放控制连接，等待手机自行授权后配对。最终证据在outputs/pages-tailscale-publish-2026-09-24/final/。

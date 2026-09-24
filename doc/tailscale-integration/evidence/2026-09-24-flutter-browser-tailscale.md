@@ -1,4 +1,4 @@
-# Flutter 浏览器内嵌 Tailscale 接入候选
+# Flutter 浏览器内嵌 Tailscale 接入与验证
 
 ## 界面与实现
 
@@ -8,7 +8,7 @@
 
 修复现有Dart TCP/WebSocket适配的握手合并HELLO丢失、未监听时消息丢弃、写入未串行化、部分写入、超时迟到连接释放及大帧限额。浏览器资源按document.baseURI解析，支持Pages子目录。成功记住的Tailscale连接会在下次打开时恢复节点并自动选择原电脑；直接连接流程仍保留。此自动恢复已在本轮真实Chrome、真实账户和26.2游戏连接中验收。
 
-Pages构建固定Go工具链及已有模块锁文件，只打包worker/RPC/存储/WASM/runtime/LICENSE/VERSION；构建与来源校验拒绝不完整运行时和debug页面，并校验二进制哈希。根路径Mod构建默认不启用WASM，保持现有资源包装约束；Pages工作流显式启用。没有修改或部署Mod、原生App或线上Pages。
+Pages构建固定Go工具链及已有模块锁文件，只打包worker/RPC/存储/WASM/runtime/LICENSE/VERSION；构建与来源校验拒绝不完整运行时和debug页面，并校验二进制哈希。根路径Mod构建默认不启用WASM，保持现有资源包装约束；Pages工作流显式启用。该接入阶段没有修改或部署Mod及原生App；后续Pages发布见下文。
 
 ## 本轮验证
 
@@ -41,6 +41,10 @@ GOMAXPROCS=2 GOFLAGS=-p=2 GO_BIN=/opt/homebrew/bin/go \
   bash tool/build_web_release.sh /monkeycraft/ build/tailscale-integration
 ```
 
-只检查新增Tailscale链路的主要功能，没有重新验收声音、倒计时、其他Mod版本或原生App。真实Chrome通过不等于手机Safari的WASM链路通过；旧Safari声音验收仍有效，不应因此重开旧矩阵。当前没有账户或授权阻塞，线上Pages仍是原已发布版本，本候选尚未部署。
+只检查新增Tailscale链路的主要功能，没有重新验收声音、倒计时、其他Mod版本或原生App。真实Chrome通过不等于手机Safari的WASM链路通过；旧Safari声音验收仍有效，不应因此重开旧矩阵。本地真实账户联调已完成；后续公开Pages属于独立来源，首次使用需要另行登录。
 
 本地入口http://127.0.0.1:8765/monkeycraft/；服务根outputs/flutter-tailscale-2026-09-24/www，映射候选flutter/monkeycraft/build/tailscale-integration。日志、结果位于outputs/flutter-tailscale-2026-09-24/，含credential-race修复前失败、修复后通过、分析及构建记录，不保存身份密钥、登录URL或用户完整peer列表。
+
+## 公开入口已更新，手机接续
+
+Pages运行35946801848已发布224dc9a，包含浏览器HTTP缓存更新修复及干净源码构建修复。公开12项资源哈希匹配；保留旧缓存的电脑Chrome已显示新的Tailscale入口，并启动WASM进入登录准备状态。之前localhost身份不复用至公开来源，未代替用户批准新的Chrome节点。公开入口到真实Tailscale游戏链路交由用户接下来的手机Safari测试；电脑原地址自动连接不混作Tailscale结果。链接https://use-ai-for-mc.github.io/monkeycraft/?v=224dc9a；用户登录自己的Tailscale账户、选择monkeycraft后自动发起游戏配对，发送配对码后再由电脑确认。详细最短步骤见doc/GITHUB_PAGES.md。
