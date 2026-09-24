@@ -1068,3 +1068,9 @@ Flutter分析无问题，30项定向检查和7项来源检查通过，Go/WASM+Fl
 用户完成持久节点授权后，真实Chrome通过共享Flutter设备列表选择PC内嵌节点，配对并进入26.2游戏，实际视频可见。首次刷新发现Tailscale身份仍在但游戏重复要求配对；定位到CredentialStore.put并发保存keyId绑定和legacy条目互相覆盖。新增测试修复前失败，串行化写入后12项凭据测试通过，分析无问题，release重建成功。浏览器首次重测仍执行旧缓存；核对资源字节数并取得新构建后，配对保存包含绑定条目，再次刷新自动进入真实游戏，不需要登录Tailscale或重新配对。
 
 测试结束Disconnect回到首页，保留身份和凭据；没有发送游戏输入、关闭游戏或重测声音等旧功能。集成提交2ade55f的CI运行35905495302已8/8成功；本轮追加修复的CI状态应以新提交运行为准。候选尚未发布线上，实体手机Safari的新增WASM链路尚无实际结果，不混同此前Safari通用功能验收。详细结果与构建哈希见[tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md](tailscale-integration/evidence/2026-09-24-flutter-browser-tailscale.md)。
+
+### 2026-09-24 准备实体 iPhone Safari 的新增 Tailscale 链路验收
+
+用户要求准备手机可访问链接，并使用游戏配对而非手输密码。9aff4b8的CI运行35945243629已8/8成功，运行中26.2仍在线且无其他控制客户端。准备将候选通过现有Pages入口发布，只验收新增浏览器Tailscale登录、选择电脑、配对、游戏画面和一次刷新恢复，不重开声音/倒计时/其他版本矩阵。
+
+发布准备发现WASM构建重写已跟踪dist/VERSION.json，必然与来源校验的clean checkout要求冲突。请求取消首次Pages准备运行35946013337；修复build-wasm.sh支持指定输出目录，Pages构建使用忽略的.build/pages-dist并仅复制生产运行时，不放宽dirty或哈希校验。本地完整Flutter+WASM构建成功，确认已跟踪VERSION.json未变；7项来源检查、shell语法及diff检查通过。本地目录原有用户未跟踪文件，故本地来源仍明确dirty=true；公开来源以接下来的干净CI构建为准。手机登录/配对尚未开始，不记实体Safari结果。

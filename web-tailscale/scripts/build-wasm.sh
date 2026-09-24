@@ -4,7 +4,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCK="$ROOT/LOCK.json"
 COMMIT="$(python3 -c 'import json; print(json.load(open("'"$LOCK"'"))["tailscale"]["commit"])')"
 TAG="$(python3 -c 'import json; print(json.load(open("'"$LOCK"'"))["tailscale"]["tag"])')"
-DIST="$ROOT/dist"
+DIST="${MONKEYCRAFT_WASM_OUTPUT:-$ROOT/dist}"
 mkdir -p "$DIST" "$ROOT/third_party/tailscale"
 
 GO_BIN="${GO_BIN:-go}"
