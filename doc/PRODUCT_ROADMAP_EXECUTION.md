@@ -1098,3 +1098,9 @@ c3980a4的Pages运行35946147702构建及部署成功；线上来源记录dirty=
 Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_recovery_test.dart test/stream/connection_endpoint_test.dart，13项通过；flutter analyze --no-pub无问题。修复前失败及修复后日志位于outputs/browser-tailscale-resume-2026-09-24/。不把定向自动化当作新的真机锁屏结果，不重开声音、倒计时或其他平台矩阵。WebKit官方说明iOS后台标签可能被挂起：https://webkit.org/blog/8970/how-web-content-can-affect-power-usage/；网页被系统回收后重新加载仍需冷启动，不能承诺所有回前台情形即时恢复。
 
 恢复策略修复已通过Pages运行[35948438290](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/35948438290)发布，来源74ea3ab、dirty=false。公开12项入口及Tailscale资源重新下载后哈希均与来源清单一致；没有接管当前手机连接或要求立刻刷新。新策略在下次加载新版页面后生效，尚无新策略下的实体锁屏恢复反馈，不作虚假真机验收。证据outputs/browser-tailscale-resume-2026-09-24/public-verification.json。
+
+### 2026-09-27 发布前清单核对
+
+只读核对当前HEAD和origin/master均为8fdc3dc；工作区没有已跟踪修改，既有未跟踪exports/、flutter/monkeycraft/outputs/和outputs/保留。Pages已按上段发布并完成实体Safari主要路径，旧清单仍把公开入口连接及将Pages WASM复制到四个Mod写成待办，现予纠正。更新[剩余事项](tailscale-integration/REMAINING_ACCEPTANCE_STEPS.md)和[精简矩阵](tailscale-integration/TEST_MATRIX.md)：不再要求手机、声音、锁屏或版本组合补测。文档核对不产生新的自动化或真机测试结果。
+
+正式GitHub Mod/App Release仍为旧1.4.2批次；当前Flutter版本为1.4.2+12，四个Mod版本均为1.4.2后缀。若继续分发新包，先确定发布范围及新版本，再核对同源构建。移动应用商店材料发现具体过期陈述：现行隐私政策和历史1.4.1 App Review说明只描述App外私有网络/无App内VPN，而新原生客户端包含可选内嵌Tailscale。新商店提交前须按实际行为更新对外说明并核对加密/隐私申报，历史1.4.1文件保留作记录；此为发布材料工作，不重开旧功能验收。
