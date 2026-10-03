@@ -6,30 +6,44 @@
 
 ### *Play Minecraft from anywhere. Really anywhere.*
 
-**Stream and control your Minecraft game from your phone**
+**Stream and control your Minecraft game from your phone or browser**
 
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.19%20%7C%201.21.11%20%7C%2026.1%20%7C%2026.2-green.svg)](https://www.minecraft.net/)
-[![Fabric](https://img.shields.io/badge/Fabric-0.14.22+-orange.svg)](https://fabricmc.net/)
+[![Mod release](https://img.shields.io/badge/Mod-1.4.3-blue.svg)](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3)
+[![Fabric](https://img.shields.io/badge/Fabric-client--side-orange.svg)](https://fabricmc.net/)
 [![License](https://img.shields.io/badge/License-CC0--1.0-purple.svg)](LICENSE)
 
 </div>
 
 ---
 
-iOS client 1.4.1 is now available on the Apple App Store. Android client is not publicly released yet; Google Play closed-testing and production-release preparation is in progress. Please refer to the [wiki](https://github.com/use-ai-for-mc/monkeycraft/wiki) for the latest client release information.
+**[MonkeyCraft Mod 1.4.3 is available](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3)** for Minecraft **26.2, 26.1, 1.21.11, and 1.19**. Each installer is approximately **27 MB** and includes the Flutter web client and optional built-in Tailscale for Windows x64 and Apple Silicon Macs. This release updates the Mod; the App Store client remains iOS 1.4.1.
+
+## Supported Versions
+
+| Minecraft | Java | Fabric Loader | Mod 1.4.3 download |
+|-----------|------|---------------|--------------------|
+| 26.2 | 25+ | 0.19.3+ | [26.2 JAR](https://github.com/use-ai-for-mc/monkeycraft/releases/download/v1.4.3/monkeycraft-1.4.3-26.2.jar) |
+| 26.1 | 25+ | 0.18.4+ | [26.1 JAR](https://github.com/use-ai-for-mc/monkeycraft/releases/download/v1.4.3/monkeycraft-1.4.3-26.1.jar) |
+| 1.21.11 | 21+ | 0.18.4+ | [1.21.11 JAR](https://github.com/use-ai-for-mc/monkeycraft/releases/download/v1.4.3/monkeycraft-1.4.3-1.21.11.jar) |
+| 1.19 | 17+ | 0.14.0+ | [1.19 JAR](https://github.com/use-ai-for-mc/monkeycraft/releases/download/v1.4.3/monkeycraft-1.4.3-1.19.jar) |
+
+Install the matching Fabric API as well. Choose one JAR for your Minecraft version; `-sources.jar` files are for developers.
+
+Built-in Tailscale supports **Windows x64** and **Apple Silicon Macs running ARM64 Java**. Linux and Intel Macs can still use the Mod over LAN or system Tailscale. Helpers are bundled in the JAR; no component download is required.
 
 ---
 
-## 📱 Mobile App Availability
+## 📱 Client Availability
 
 - **iOS 1.4.1** — Available on the [Apple App Store](https://apps.apple.com/app/id6759430770).
-- **Web** — [GitHub Pages candidate entry](https://use-ai-for-mc.github.io/monkeycraft/) (available after publishing this build; the address may still serve an existing site, while this round’s static artifact has not been published). Desktop Chrome/Edge. Video requires a secure page and a reachable `wss://` endpoint, such as an existing Tailscale Serve HTTPS address. Development on `localhost` is also supported; bare LAN HTTP is not a cross-device video path. iPhone Safari acceptance is complete.
+- **Web** — [Open the live web client](https://use-ai-for-mc.github.io/monkeycraft/). Supports desktop Chrome/Edge and iPhone Safari. Use **Connect with Tailscale** to sign in, select your game computer, and pair in Minecraft. Direct-address browser video requires HTTPS and a reachable secure WebSocket (`wss://`) endpoint; `localhost` is also supported for development.
 - **Android** — Not publicly released yet. Google Play closed-testing and production-release preparation is in progress; Android public availability will be announced separately.
 
 
 ## ✨ What Can You Do?
 
-MonkeyCraft lets you **play Minecraft remotely** from your iOS or Android phone. 
+MonkeyCraft lets you **play Minecraft remotely** from the iOS app or a supported browser. Android public release preparation is in progress.
 
 🎮 **Imagine these scenarios:**
 
@@ -113,7 +127,7 @@ Connect from your phone while Minecraft is still at the title screen:
 
 ### 🔐 Secure Connection
 
-- 🛡️ **Password Protected** — Only those with your password can connect
+- 🛡️ **Pairing and Passwords** — Approve a pairing request in Minecraft, or connect with the Mod password; iOS 1.4.1 uses the password or password QR code
 - 🔒 **HMAC Authentication** — Cryptographic challenge-response
 - 🌐 **Network Control** — Restrict to localhost, local network, or anywhere
 - 📱 **QR Code Setup** — Quick scan to enter password
@@ -132,12 +146,11 @@ In Minecraft, type `/monkey start` to launch the WebSocket server.
 
 ### 3️⃣ Connect Your Phone or Browser
 
-Open the MonkeyCraft app, or use the [web client entry](https://use-ai-for-mc.github.io/monkeycraft/) after this round’s GitHub Pages artifact is published (the current address may still serve an existing site), and:
-- Enter your computer's IP address and port (default: 9600)
-- Scan the QR code displayed in-game (mobile), or
-- Enter the password manually
+For the [live web client](https://use-ai-for-mc.github.io/monkeycraft/), choose **Connect with Tailscale**, sign in, select your computer, and approve the pairing request in Minecraft. On supported computers, `/monkey tailscale login` enables the bundled Tailscale connection; otherwise use system Tailscale.
 
-The native app can connect directly over LAN or system Tailscale. For a browser on another device, use a secure HTTPS page and its reachable WSS endpoint; an IP address alone does not provide the secure context needed for video. All four Mod versions now bundle the shared Flutter web client and optional PC Tailscale helper (Windows x64 and Apple Silicon Macs only; Linux and Intel Macs can use LAN or system Tailscale), and show an existing matching Tailscale Serve HTTPS entry when available. Each version has passed its build, automated tests and a real-game short regression: 26.2, 26.1 and 1.21.11 used ImagineFun; 1.19 used its separate compatible test world. See the [current verification matrix](doc/tailscale-integration/TEST_MATRIX.md) for the accepted feature scope and remaining publishing steps. Shared client features are not retested for each Minecraft version.
+For **iOS 1.4.1**, enter a reachable computer address and port (default: 9600), then enter the Mod password or scan its password QR code. LAN and system Tailscale connections remain available. Updating the Mod does not add the newer pairing interface to the old app.
+
+The Mod also serves its bundled Flutter web client. Browser video needs a secure context: use HTTPS with a reachable `wss://` endpoint for direct-address connections, such as an existing Tailscale Serve HTTPS address. Bare LAN HTTP is not a cross-device browser video path. The hosted client's built-in Tailscale connection is a separate option.
 
 ### 4️⃣ Play!
 
@@ -171,6 +184,10 @@ Access settings via `/monkey config` or through ModMenu:
 | `/monkey start` | Start the WebSocket server |
 | `/monkey stop` | Stop the server |
 | `/monkey config` | Open settings screen |
+| `/monkey tailscale login` | Enable and sign in to built-in Tailscale on supported computers |
+| `/monkey tailscale status` | Show built-in Tailscale status |
+| `/monkey tailscale stop` | Stop the built-in Tailscale connection |
+| `/monkey tailscale logout` | Sign out of built-in Tailscale |
 
 ---
 
@@ -188,21 +205,13 @@ Access settings via `/monkey config` or through ModMenu:
 
 ## 🚀 Getting Started
 
-### Supported Versions
-
-| Minecraft Version | Java | Mod Location |
-|-------------------|------|--------------|
-| 26.2 | 25+ | `mods/26.2/` |
-| 26.1 | 25+ | `mods/26.1/` |
-| 1.21.11 | 21+ | `mods/1.21.11/` |
-| 1.19 | 17+ | `mods/1.19/` |
-
 ### Install Steps
 
 1. **Install Fabric** — Download from [fabricmc.net](https://fabricmc.net/use/)
-2. **Download MonkeyCraft** — Get the mod JAR for your Minecraft version
+2. **Download MonkeyCraft** — Choose the matching [Mod 1.4.3 JAR](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3) from the supported versions above
 3. **Install Mod** — Place in your `mods` folder
-4. **Get the App**
+4. **Choose a Client**
+   - Web: [Open MonkeyCraft in your browser](https://use-ai-for-mc.github.io/monkeycraft/)
    - iOS: [Download MonkeyCraft from the Apple App Store](https://apps.apple.com/app/id6759430770)
    - Android: Google Play release preparation and closed testing are coming soon; Android is not publicly available yet
 5. **Connect & Play!**
@@ -228,7 +237,7 @@ Run each command from the repository root. Install the target JDK, Flutter and t
 (cd mods/1.19 && ./gradlew build)
 ```
 
-If Flutter is on your `PATH`, omit `FLUTTER_BIN=/absolute/path/to/flutter`. The historical `web/` TypeScript client remains only as reference and test fixtures; `pnpm --dir web build` is not the production Mod browser build. To make the separate GitHub Pages candidate artifact, use the same command with base `/monkeycraft/` and a distinct output:
+If Flutter is on your `PATH`, omit `FLUTTER_BIN=/absolute/path/to/flutter`. The historical `web/` TypeScript client remains only as reference and test fixtures; `pnpm --dir web build` is not the production Mod browser build. To build the separate GitHub Pages artifact locally, use the same command with base `/monkeycraft/` and a distinct output:
 
 ```bash
 (cd flutter/monkeycraft && \
@@ -237,7 +246,7 @@ If Flutter is on your `PATH`, omit `FLUTTER_BIN=/absolute/path/to/flutter`. The 
   bash tool/build_web_release.sh /monkeycraft/ build/pages)
 ```
 
-That Pages candidate is not published by this command, and the current public URL may still serve an older site. The 1.19 Gradle launcher requires Java 21 or later while compiling for Java 17. See the [helper build instructions](native/tailscale-helper/README.md) for Go toolchain selection.
+This command creates local files only; it does not deploy or change the live Pages site. The 1.19 Gradle launcher requires Java 21 or later while compiling for Java 17. See the [helper build instructions](native/tailscale-helper/README.md) for Go toolchain selection.
 
 For Android, install the NDK and build the pinned native libraries before building the app. Details and APK verification are in the [Android native dependency instructions](flutter/monkeycraft/android/third_party/libtailscale/README.md).
 
@@ -272,13 +281,13 @@ Video is encoded and streamed in real-time. For best results:
 - Lower resolution/FPS if needed
 - Keep your computer close to your router
 
-### Can multiple phones connect?
+### Can multiple clients connect?
 
-Only one phone can connect at a time.
+Only one controlling phone or browser can connect at a time.
 
 ### Does it work over the internet?
 
-By default, connections are restricted to your local network. You can enable internet access in settings, but proceed with caution.
+Yes. Use built-in Tailscale on Windows x64 or Apple Silicon Macs, or use system Tailscale on your game computer. The hosted web client can sign in to Tailscale directly. Default direct-address access remains limited to your local network.
 
 ### What commands can I run remotely?
 
