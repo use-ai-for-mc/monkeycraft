@@ -1104,3 +1104,9 @@ Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_rec
 只读核对当前HEAD和origin/master均为8fdc3dc；工作区没有已跟踪修改，既有未跟踪exports/、flutter/monkeycraft/outputs/和outputs/保留。Pages已按上段发布并完成实体Safari主要路径，旧清单仍把公开入口连接及将Pages WASM复制到四个Mod写成待办，现予纠正。更新[剩余事项](tailscale-integration/REMAINING_ACCEPTANCE_STEPS.md)和[精简矩阵](tailscale-integration/TEST_MATRIX.md)：不再要求手机、声音、锁屏或版本组合补测。文档核对不产生新的自动化或真机测试结果。
 
 正式GitHub Mod/App Release仍为旧1.4.2批次；当前Flutter版本为1.4.2+12，四个Mod版本均为1.4.2后缀。若继续分发新包，先确定发布范围及新版本，再核对同源构建。移动应用商店材料发现具体过期陈述：现行隐私政策和历史1.4.1 App Review说明只描述App外私有网络/无App内VPN，而新原生客户端包含可选内嵌Tailscale。新商店提交前须按实际行为更新对外说明并核对加密/隐私申报，历史1.4.1文件保留作记录；此为发布材料工作，不重开旧功能验收。
+
+### 2026-10-03 用户指定的 iOS 1.4.1 模拟器兼容测试
+
+从v1.4.1/f309c4f归档源码在新建iPhone 16 / iOS 26.5模拟器运行1.4.1(10) Debug，通过原版登录方法及现有密码连接当前真实26.2 Mod（JAR SHA6e1dd7fb…，与当前Mod树相同）。密码认证、实际游戏画面及原生H.264持续解码通过：535→1200帧，未发生重连，采样时原生丢帧计数0。没有修改旧版业务源码或主checkout产品代码；首次双架构构建失败后显式arm64构建成功，CocoaPods只更新锁文件工具版本与spec校验和。旧版Debug键盘预热的Material断言如实保留，未影响本次连接。
+
+测试后断开客户端并关闭新建模拟器，Minecraft保持原服务器内。此结果只证明旧版源码重新构建的模拟器连接，不冒充App Store 1.4.1(11)真机或系统Tailscale路径验收；未追加声音或其他旧功能检查。完整环境、命令、截图及边界见[兼容测试记录](tailscale-integration/evidence/2026-10-03-ios-1.4.1-compatibility.md)。
