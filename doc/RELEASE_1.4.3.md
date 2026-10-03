@@ -1,6 +1,6 @@
 # Mod 1.4.3 发布记录
 
-更新时间：2026-10-03。**当前状态：已按用户要求撤下 GitHub Release，并删除远端和本地 `v1.4.3` 标签，等待体积优化后的重新发布决定。** 原发布指向 `cada46ffaee6bc78af83fd0a4286a85a1abf913f`；下方发布运行、附件哈希与说明保留作历史记录，不代表当前可下载版本。
+更新时间：2026-10-03。**当前状态：精简版 `v1.4.3` 已正式重新发布。** 标签指向 `2ad42c104d837206aa9f7243dffd8eea6f20620b`；[GitHub Release](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3) 包含四个约27MB安装包及对应源码包。内嵌Tailscale仅支持Windows x64与Apple Silicon Mac，不采用按需下载。最初四平台大包已撤回；本文件保留其历史过程，最终附件哈希见末节。
 
 ## 范围与产物
 
@@ -15,13 +15,18 @@ Flutter App 版本保持 `1.4.2+12`，不与本轮 Mod 一起发布。GitHub Pag
 
 ## 已发布更新说明
 
-MonkeyCraft 1.4.3 adds Minecraft 26.2 support alongside 26.1, 1.21.11 and 1.19. It includes optional embedded Tailscale on Windows x64 and Apple Silicon Macs, a shared Flutter browser client served by the Mod, and updated setup and pairing screens. LAN and system Tailscale connections remain available.
+MonkeyCraft 1.4.3 supports Minecraft 26.2, 26.1, 1.21.11 and 1.19.
 
-The existing iOS 1.4.1 client can continue using a reachable computer address and the Mod password, including scanning the password QR code. Its connection and video path have been verified using an iOS simulator build of the original 1.4.1 source against the current 26.2 Mod. The old app does not gain embedded Tailscale login or the newer pairing-request interface from a Mod update.
+- Adds optional built-in Tailscale on Windows x64 and Apple Silicon Macs, with updated setup and pairing screens. Apple Silicon requires an ARM64 Java runtime.
+- Includes the shared Flutter browser client served by the Mod, with unused renderer assets removed to reduce download size.
+- Linux and Intel Macs can continue using MonkeyCraft over LAN or the system Tailscale app. Built-in Tailscale is unavailable on those platforms. All included components are bundled; no helper download is required.
 
-For the hosted browser client with its own Tailscale login, use <https://use-ai-for-mc.github.io/monkeycraft/>. Only one controlling client can connect at a time. Install the JAR matching your Minecraft version; do not install multiple MonkeyCraft version JARs in the same instance.
+The existing iOS 1.4.1 client can continue using a reachable computer address and the Mod password, including scanning the password QR code. Its connection and video path were verified using a simulator build of the original 1.4.1 source. A Mod update does not add built-in Tailscale login or the newer pairing-request interface to that old app.
 
-## 验证与切版
+For the hosted browser client with its own Tailscale login, use https://use-ai-for-mc.github.io/monkeycraft/.
+
+Install the JAR matching your Minecraft version, without the `-sources` suffix. Only one controlling client can connect at a time. Do not install multiple MonkeyCraft version JARs in the same instance. This release updates the Mod only.
+## 首次发布历史：验证与切版
 
 - 四处 `mod_version` 已统一为 1.4.3，26.2 的既有元数据测试断言同步更新。
 - [旧版 iOS 兼容测试](tailscale-integration/evidence/2026-10-03-ios-1.4.1-compatibility.md)是本轮此前完成的实际模拟器结果；版本递增不新增手机、声音或跨版本功能验收。
@@ -30,7 +35,7 @@ For the hosted browser client with its own Tailscale login, use <https://use-ai-
 - `v1.4.3` 标签已触发 `.github/workflows/release.yml`；[发布运行 37097301291](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/37097301291) 的资源、四个 Mod 和 Release 共六项任务全部成功。标签直接采用实际通过 CI 的版本提交；随后带 `[skip ci]` 的提交仅补充文档。`flutter-v*` 是另一条 App 发布路径，本次未使用。
 - 标签发布工作流已重新生成内置网页和四平台 helper。实际下载四个正式安装包后，版本、根路径网页、四包共享网页哈希、无 Pages WASM、四平台 helper 大小与 SHA-256 均核对通过；Release 读回为非草稿、非预发布。
 
-## 已验证的 CI 候选
+## 首次发布历史：CI 候选
 
 以下是切版前 CI 产物的 SHA-256；正式标签工作流会重新构建，不预先声称最终 Release 二进制哈希相同。
 
@@ -43,7 +48,7 @@ For the hosted browser client with its own Tailscale login, use <https://use-ai-
 
 本地证据及安装包位于 `outputs/mod-1.4.3-prep-2026-10-03/`，包含 `ci-result.json`、`artifact-verification.json`、四个格式检查日志和 `artifacts/Artifacts-<mc>/`。没有部署到 PrismLauncher 或重新启动游戏。
 
-## 正式 Release 安装包
+## 已撤回的首次 Release 安装包
 
 以下 SHA-256 来自正式发布页重新下载的文件。
 
@@ -87,3 +92,16 @@ For the hosted browser client with its own Tailscale login, use <https://use-ai-
 2026-10-03用户明确排除按需下载，并要求移除Linux x64与Intel Mac的内嵌Tailscale支持。发布脚本和四个Mod只保留Windows x64与Apple Silicon Mac程序；上文四平台XZ方案是此前调研记录，本轮没有实施XZ。平台选择、服务层及登录命令均拒绝不支持的平台，26.2设置面板显示说明与LAN/系统Tailscale替代路径。现有配置即便开启内嵌功能也不会尝试启动已移除的平台程序。Mod本身仍可用于这些电脑。
 
 四个Mod的spotlessApply/build均通过；每棵树新增的平台映射与不支持主机拒绝启动测试通过。实际JAR只含darwin-arm64/windows-amd64，两份helper的大小与SHA-256符合manifest，网页冗余未回流。安装包大小：26.2为27,064,727字节，26.1为27,028,857，1.21.11为27,031,159，1.19为27,027,768。本地日志与附件检查在`outputs/mod-two-platforms-2026-10-03/`。未修改已运行游戏，未新建release/tag。
+
+## 两平台精简版正式发布结果
+
+用户批准后重新创建并推送v1.4.3，指向2ad42c1。[发布工作流37100236880](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/37100236880)六项任务全部成功。已从公开Release下载四个安装包，核对版本、两平台helper的大小/SHA-256、两套CanvasKit保留、无旧平台helper/冗余渲染器/Pages WASM、四包共享网页一致，全部通过。Release为非草稿、非预发布。
+
+| Minecraft | 字节数 | SHA-256 |
+|---|---:|---|
+| 26.2 | 27064559 | `c00c80899a07012601fae3f97d0bc66536458021201c0a192c3fd45e284d32b7` |
+| 26.1 | 27028696 | `3bfbdbd3b77fcfa370b42022d906e2f2b00961ae72449ba4a1de38f382418fa0` |
+| 1.21.11 | 27030991 | `951d78289dec855e38831388a798f891ad4e02f33f2a433271ea7293c4b9c958` |
+| 1.19 | 27027600 | `8b4b4d15f92874a04cc9b8c21b25cd8a2a56c46498bc9fe75a2951061a92f75d` |
+
+证据和正式安装包位于 `outputs/mod-1.4.3-two-platform-release-2026-10-03/`。本次只发布Mod，未发布原生App、部署Pages或更换运行中的游戏JAR。

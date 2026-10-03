@@ -1128,3 +1128,7 @@ Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_rec
 ### 2026-10-03 内嵌Tailscale缩减为两个平台
 
 用户明确不要按需下载，并决定移除Linux x64与Intel Mac的内嵌Tailscale支持。已在四个Mod同步平台选择、服务层拒绝、登录命令提前返回及打包列表，仅保留Windows x64和Apple Silicon Mac；26.2设置面板在不支持主机显示LAN/系统Tailscale替代方式。旧配置不会触发不支持平台的helper启动，增量构建会清理旧资源。四个spotlessApply/build成功，平台映射和拒绝启动测试通过，四个实际JAR的资源名单及helper哈希通过，大小约27.0MB。不影响这些系统运行Mod或使用直接地址连接；本轮没有XZ集成、按需下载或正式发布。
+
+### 2026-10-03 两平台精简版1.4.3正式发布
+
+用户批准按精简方案切版，v1.4.3标签已重新建立在2ad42c1。[发布工作流37100236880](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/37100236880)六项成功，[正式Release](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3)四个安装包均约27MB。实际下载核对版本与资源：仅darwin-arm64/windows-amd64，helper大小/哈希正确，网页无已删除渲染器，保留两套CanvasKit且四包共享网页一致。发布说明明确支持范围、无需下载helper以及Linux/Intel Mac可使用LAN/系统Tailscale。最终附件哈希及证据见[发布记录](RELEASE_1.4.3.md)。
