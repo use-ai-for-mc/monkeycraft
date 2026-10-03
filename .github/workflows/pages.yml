@@ -50,6 +50,8 @@ jobs:
         run: flutter analyze
       - name: Test browser release script versioning
         run: python3 -m unittest discover -s flutter/monkeycraft/tool -p test_version_web_scripts.py
+      - name: Test renderer asset pruning
+        run: python3 -m unittest discover -s flutter/monkeycraft/tool -p test_prune_web_renderers.py
       - name: Build the Flutter Pages artifact
         working-directory: flutter/monkeycraft
         run: tool/build_web_release.sh

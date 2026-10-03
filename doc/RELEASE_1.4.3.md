@@ -1,6 +1,6 @@
 # Mod 1.4.3 发布记录
 
-更新时间：2026-10-03。用户授权切版后，已创建并推送 `v1.4.3` 标签，指向通过完整 CI 的版本提交 `cada46ffaee6bc78af83fd0a4286a85a1abf913f`。[GitHub Release](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3) 已正式发布，包含四个安装 JAR 和四个源码 JAR。
+更新时间：2026-10-03。**当前状态：已按用户要求撤下 GitHub Release，并删除远端和本地 `v1.4.3` 标签，等待体积优化后的重新发布决定。** 原发布指向 `cada46ffaee6bc78af83fd0a4286a85a1abf913f`；下方发布运行、附件哈希与说明保留作历史记录，不代表当前可下载版本。
 
 ## 范围与产物
 
@@ -55,3 +55,29 @@ For the hosted browser client with its own Tailscale login, use <https://use-ai-
 | 1.19 | `029863207d3b8286fa7717d30328ca415fc80f0e9e38574c24d708dee4784361` |
 
 正式发布证据和安装包位于 `outputs/mod-1.4.3-release-2026-10-03/`，包含发布运行结果、Release 读回、附件核验结果及四个安装包。
+
+## 撤回后的网页精简
+
+共享网页构建脚本现在先核对实际 Flutter buildConfig，仅对本地 CanvasKit / dart2js 构建移除 skwasm、skwasm_heavy、wimp 以及两套 CanvasKit 的符号文件，共11项。通用与Chromium CanvasKit的JS/WASM均保留。未知或WASM构建、缺失必需渲染文件、service worker仍引用待删文件时会在删除前失败。CI加入两项定向测试，覆盖正常裁剪、重复执行和四类拒绝情形。
+
+本地Flutter release构建、发布目录校验、26.2 spotlessApply/build均通过；内置浏览器实载登录页成功，未观察到控制台错误或警告。26.2本地JAR为44,339,008字节，原正式包50,654,482字节，减少约6.32MB。逐文件比较确认网页仅少11个文件，其余网页字节不变；本地helper来自此前本机构建，元数据/二进制与CI包不同，不把本地JAR当作同源正式候选。没有重新发布或部署到运行中的Minecraft。
+
+## 四平台 helper 分发调研（建议，尚未实施）
+
+以撤回的正式26.2安装包里的四个helper为样本，测量其ZIP内占用与XZ压缩后的占用。x86使用XZ preset 6加BCJ过滤，arm64使用普通XZ preset 6；再计入外层ZIP压缩。四个平台解压后均逐字节与原二进制一致。
+
+| 平台 | 当前ZIP内体积（MB） | XZ后再入ZIP（MB） |
+|---|---:|---:|
+| Intel Mac | 8.57 | 6.09 |
+| Apple Silicon Mac | 7.95 | 5.66 |
+| Linux x64 | 8.71 | 6.20 |
+| Windows x64 | 8.73 | 6.21 |
+| 合计 | 33.95 | 24.17 |
+
+首选建议：保留通用JAR，helper以XZ资源携带，仅解压当前平台并按原始二进制SHA-256/大小验证，然后原子写入既有缓存路径。预计网页裁剪后整个JAR约34.6MB（加Java解压库与打包开销），不用用户选操作系统，也不新增下载依赖。[XZ for Java](https://tukaani.org/xz/java.html)提供纯Java解压，适合现有17/21/25目标。这里仅完成Python/liblzma压缩往返实验，单个样本解压约0.26–0.30秒；未测Java耗时，也未修改helper加载器。实现时需要缓存命中不重复解压、限制解压大小、校验后落盘及保留可执行权限。压缩不减少解压后的本机缓存或运行内存。
+
+替代方案：按需下载平台helper能使基础Mod约10.4MB，首次开启内嵌Tailscale时再下载约5.7–6.2MB并缓存。代价是新增下载可用性、进度/重试、离线导入及分发维护工作；建议版本固定且原始哈希随Mod携带，不能执行未经固定校验的latest文件。也可发行平台专用包，保留离线能力但增加用户选包和维护成本。以上均为模型建议，不是新增项目规则。
+
+功能裁剪未得到可直接采用的结果：现有构建已启用-s -w；本地Tailscale v1.102.3源码明确tsnet不导入完整condregister集合，不能假设移除daemon功能就有同等收益。试编译ts_omit_acme在上游tsnet.go:1423失败（local.Client.GetCertificate未定义），因此没有把该标签或上游补丁加入产品。官方[小体积构建说明](https://tailscale.com/docs/how-to/set-up-small-tailscale)主要讨论tailscaled；其UPX方案还会改变可执行文件形态并可能触发杀毒误报，本轮优先考虑普通资源压缩。
+
+实验数据位于 `outputs/mod-size-investigation-2026-10-03/`，包含网页裁剪对比、Mod构建日志、`research/compression.json`和八个XZ样本；未发布实验二进制。

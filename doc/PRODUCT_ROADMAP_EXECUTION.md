@@ -1120,3 +1120,7 @@ Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_rec
 ### 2026-10-03 Mod 1.4.3 正式发布
 
 用户随后明确授权切版，已在完整CI通过的cada46f创建并推送v1.4.3标签。[发布工作流37097301291](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/37097301291)六项任务全部成功，[正式Release](https://github.com/use-ai-for-mc/monkeycraft/releases/tag/v1.4.3)公开可用，包含26.2、26.1、1.21.11、1.19四个安装JAR和对应源码包，发布说明已更新。下载四个正式安装包后，版本元数据、根路径网页及四平台helper完整性核对通过，最终哈希记录于[发布记录](RELEASE_1.4.3.md)。本轮未发布原生App、部署Pages或更换运行中游戏JAR。
+
+### 2026-10-03 撤下1.4.3并精简网页资源
+
+用户要求先撤下最新release/tag，清理网页冗余并调研四平台Tailscale的更好分发方式。已删除GitHub Release及远端/本地v1.4.3标签。共享Flutter网页构建去除11项未使用渲染资源，保留两套CanvasKit；两项定向测试、Flutter release、26.2格式/构建/测试及浏览器登录页加载通过，26.2本地安装包44.34MB。四平台helper资源XZ压缩实验使其ZIP内总占用从33.95降到24.17MB，解压字节一致；推荐方向与按需下载等取舍记录于[发布记录](RELEASE_1.4.3.md)，尚未修改Tailscale打包/加载机制，也未重新发布。

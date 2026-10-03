@@ -296,6 +296,8 @@ jobs:
         run: flutter analyze
       - name: test
         run: flutter test
+      - name: test renderer asset pruning
+        run: python3 -m unittest discover -s tool -p test_prune_web_renderers.py
       - name: build root-path web bundle for embedded Mods
         run: MONKEYCRAFT_PAGES_PROVENANCE=0 tool/build_web_release.sh / build/web
       - name: capture build artifacts

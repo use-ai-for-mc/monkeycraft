@@ -66,6 +66,8 @@ rm -rf "$canonical_output"
   --no-web-resources-cdn \
   --dart-define=MONKEYCRAFT_WEB_TAILSCALE="$([[ "$web_tailscale" == "1" ]] && echo true || echo false)"
 
+python3 "$project_dir/tool/prune_web_renderers.py" "$canonical_output"
+
 rm -rf "$canonical_output/tailscale"
 if [[ "$web_tailscale" == "1" ]]; then
   wasm_output="$repo_dir/web-tailscale/.build/pages-dist"
