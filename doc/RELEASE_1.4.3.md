@@ -15,7 +15,7 @@ Flutter App 版本保持 `1.4.2+12`，不与本轮 Mod 一起发布。GitHub Pag
 
 ## 已发布更新说明
 
-MonkeyCraft 1.4.3 adds Minecraft 26.2 support alongside 26.1, 1.21.11 and 1.19. It includes optional embedded Tailscale on the game computer, a shared Flutter browser client served by the Mod, and updated setup and pairing screens. LAN and system Tailscale connections remain available.
+MonkeyCraft 1.4.3 adds Minecraft 26.2 support alongside 26.1, 1.21.11 and 1.19. It includes optional embedded Tailscale on Windows x64 and Apple Silicon Macs, a shared Flutter browser client served by the Mod, and updated setup and pairing screens. LAN and system Tailscale connections remain available.
 
 The existing iOS 1.4.1 client can continue using a reachable computer address and the Mod password, including scanning the password QR code. Its connection and video path have been verified using an iOS simulator build of the original 1.4.1 source against the current 26.2 Mod. The old app does not gain embedded Tailscale login or the newer pairing-request interface from a Mod update.
 
@@ -81,3 +81,9 @@ For the hosted browser client with its own Tailscale login, use <https://use-ai-
 功能裁剪未得到可直接采用的结果：现有构建已启用-s -w；本地Tailscale v1.102.3源码明确tsnet不导入完整condregister集合，不能假设移除daemon功能就有同等收益。试编译ts_omit_acme在上游tsnet.go:1423失败（local.Client.GetCertificate未定义），因此没有把该标签或上游补丁加入产品。官方[小体积构建说明](https://tailscale.com/docs/how-to/set-up-small-tailscale)主要讨论tailscaled；其UPX方案还会改变可执行文件形态并可能触发杀毒误报，本轮优先考虑普通资源压缩。
 
 实验数据位于 `outputs/mod-size-investigation-2026-10-03/`，包含网页裁剪对比、Mod构建日志、`research/compression.json`和八个XZ样本；未发布实验二进制。
+
+## 用户确定的平台范围
+
+2026-10-03用户明确排除按需下载，并要求移除Linux x64与Intel Mac的内嵌Tailscale支持。发布脚本和四个Mod只保留Windows x64与Apple Silicon Mac程序；上文四平台XZ方案是此前调研记录，本轮没有实施XZ。平台选择、服务层及登录命令均拒绝不支持的平台，26.2设置面板显示说明与LAN/系统Tailscale替代路径。现有配置即便开启内嵌功能也不会尝试启动已移除的平台程序。Mod本身仍可用于这些电脑。
+
+四个Mod的spotlessApply/build均通过；每棵树新增的平台映射与不支持主机拒绝启动测试通过。实际JAR只含darwin-arm64/windows-amd64，两份helper的大小与SHA-256符合manifest，网页冗余未回流。安装包大小：26.2为27,064,727字节，26.1为27,028,857，1.21.11为27,031,159，1.19为27,027,768。本地日志与附件检查在`outputs/mod-two-platforms-2026-10-03/`。未修改已运行游戏，未新建release/tag。

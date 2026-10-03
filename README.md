@@ -137,7 +137,7 @@ Open the MonkeyCraft app, or use the [web client entry](https://use-ai-for-mc.gi
 - Scan the QR code displayed in-game (mobile), or
 - Enter the password manually
 
-The native app can connect directly over LAN or system Tailscale. For a browser on another device, use a secure HTTPS page and its reachable WSS endpoint; an IP address alone does not provide the secure context needed for video. All four Mod versions now bundle the shared Flutter web client and optional PC Tailscale helper, and show an existing matching Tailscale Serve HTTPS entry when available. Each version has passed its build, automated tests and a real-game short regression: 26.2, 26.1 and 1.21.11 used ImagineFun; 1.19 used its separate compatible test world. See the [current verification matrix](doc/tailscale-integration/TEST_MATRIX.md) for the accepted feature scope and remaining publishing steps. Shared client features are not retested for each Minecraft version.
+The native app can connect directly over LAN or system Tailscale. For a browser on another device, use a secure HTTPS page and its reachable WSS endpoint; an IP address alone does not provide the secure context needed for video. All four Mod versions now bundle the shared Flutter web client and optional PC Tailscale helper (Windows x64 and Apple Silicon Macs only; Linux and Intel Macs can use LAN or system Tailscale), and show an existing matching Tailscale Serve HTTPS entry when available. Each version has passed its build, automated tests and a real-game short regression: 26.2, 26.1 and 1.21.11 used ImagineFun; 1.19 used its separate compatible test world. See the [current verification matrix](doc/tailscale-integration/TEST_MATRIX.md) for the accepted feature scope and remaining publishing steps. Shared client features are not retested for each Minecraft version.
 
 ### 4️⃣ Play!
 
@@ -209,7 +209,7 @@ Access settings via `/monkey config` or through ModMenu:
 
 ### Building from Source
 
-Run each command from the repository root. Install the target JDK, Flutter and the Go toolchain first. Every Mod build requires the shared Flutter browser bundle and the four-platform helper artifacts:
+Run each command from the repository root. Install the target JDK, Flutter and the Go toolchain first. Every Mod build requires the shared Flutter browser bundle and the Windows x64 / Apple Silicon macOS helper artifacts:
 
 ```bash
 # Set FLUTTER_BIN to your Flutter executable when it is not on PATH.

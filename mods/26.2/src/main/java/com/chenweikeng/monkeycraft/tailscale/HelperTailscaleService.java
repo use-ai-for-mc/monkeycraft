@@ -83,6 +83,9 @@ public final class HelperTailscaleService {
   }
 
   public TailscaleSnapshot ensureRunning(int targetPort) {
+    if (helperOverride == null && !EmbeddedTailscalePlatform.isSupported()) {
+      return snapshot();
+    }
     if (targetPort < 1 || targetPort > 65535) {
       snapshot = failed("INVALID_TARGET", "MonkeyCraft server is not running", false);
       return snapshot;
@@ -152,6 +155,9 @@ public final class HelperTailscaleService {
   }
 
   public TailscaleSnapshot status() {
+    if (helperOverride == null && !EmbeddedTailscalePlatform.isSupported()) {
+      return snapshot();
+    }
     controlExecutor.execute(() -> sendQuietly("status"));
     return snapshot;
   }
@@ -239,6 +245,9 @@ public final class HelperTailscaleService {
   }
 
   public TailscaleSnapshot snapshot() {
+    if (helperOverride == null && !EmbeddedTailscalePlatform.isSupported()) {
+      return failed("UNSUPPORTED_PLATFORM", EmbeddedTailscalePlatform.UNSUPPORTED_MESSAGE, false);
+    }
     return snapshot;
   }
 
@@ -283,20 +292,13 @@ public final class HelperTailscaleService {
   }
 
   private Path helperPath() {
-    String os = System.getProperty("os.name", "").toLowerCase();
-    String arch = System.getProperty("os.arch", "").toLowerCase();
-    String platform;
-    String name = "monkeycraft-tailscale-helper";
-    if (os.contains("mac") || os.contains("darwin")) {
-      platform =
-          arch.contains("aarch64") || arch.contains("arm64") ? "darwin-arm64" : "darwin-amd64";
-    } else if (os.contains("win") && (arch.contains("amd64") || arch.contains("x86_64"))) {
-      platform = "windows-amd64";
-      name += ".exe";
-    } else if (os.contains("linux") && (arch.contains("amd64") || arch.contains("x86_64"))) {
-      platform = "linux-amd64";
-    } else {
+    String platform = EmbeddedTailscalePlatform.current();
+    if (platform == null) {
       return null;
+    }
+    String name = "monkeycraft-tailscale-helper";
+    if (platform.equals("windows-amd64")) {
+      name += ".exe";
     }
     Path target =
         FabricLoader.getInstance()

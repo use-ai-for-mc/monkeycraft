@@ -68,7 +68,7 @@ dependencies {
 def browserWeb = file("${rootProject.projectDir}/../../flutter/monkeycraft/build/web")
 
 def helperRoot = file("${rootProject.projectDir}/../../native/tailscale-helper")
-def helperPlatforms = ["darwin-amd64", "darwin-arm64", "linux-amd64", "windows-amd64"]
+def helperPlatforms = ["darwin-arm64", "windows-amd64"]
 
 tasks.register("verifyTailscaleHelpers") {
 	inputs.dir new File(helperRoot, "dist")
@@ -102,6 +102,10 @@ tasks.register("verifyTailscaleHelpers") {
 }
 
 processResources {
+	doFirst {
+		delete new File(destinationDir, "native/tailscale/darwin-amd64")
+		delete new File(destinationDir, "native/tailscale/linux-amd64")
+	}
 	dependsOn "verifyTailscaleHelpers"
 	helperPlatforms.each { platform ->
 		from(new File(helperRoot, "dist/${platform}")) {

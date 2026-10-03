@@ -1124,3 +1124,7 @@ Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_rec
 ### 2026-10-03 撤下1.4.3并精简网页资源
 
 用户要求先撤下最新release/tag，清理网页冗余并调研四平台Tailscale的更好分发方式。已删除GitHub Release及远端/本地v1.4.3标签。共享Flutter网页构建去除11项未使用渲染资源，保留两套CanvasKit；两项定向测试、Flutter release、26.2格式/构建/测试及浏览器登录页加载通过，26.2本地安装包44.34MB。四平台helper资源XZ压缩实验使其ZIP内总占用从33.95降到24.17MB，解压字节一致；推荐方向与按需下载等取舍记录于[发布记录](RELEASE_1.4.3.md)，尚未修改Tailscale打包/加载机制，也未重新发布。
+
+### 2026-10-03 内嵌Tailscale缩减为两个平台
+
+用户明确不要按需下载，并决定移除Linux x64与Intel Mac的内嵌Tailscale支持。已在四个Mod同步平台选择、服务层拒绝、登录命令提前返回及打包列表，仅保留Windows x64和Apple Silicon Mac；26.2设置面板在不支持主机显示LAN/系统Tailscale替代方式。旧配置不会触发不支持平台的helper启动，增量构建会清理旧资源。四个spotlessApply/build成功，平台映射和拒绝启动测试通过，四个实际JAR的资源名单及helper哈希通过，大小约27.0MB。不影响这些系统运行Mod或使用直接地址连接；本轮没有XZ集成、按需下载或正式发布。

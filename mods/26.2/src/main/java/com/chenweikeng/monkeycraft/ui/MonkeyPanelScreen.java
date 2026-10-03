@@ -5,6 +5,7 @@ import com.chenweikeng.monkeycraft.config.ModConfig;
 import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.config.ServerAutoStart;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
+import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscalePlatform;
 import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
 import com.chenweikeng.monkeycraft.tailscale.TailscaleSnapshot;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
@@ -573,6 +574,10 @@ public class MonkeyPanelScreen extends Screen {
         span,
         FAINT);
     section("Built-in Tailscale");
+    if (!EmbeddedTailscalePlatform.isSupported()) {
+      paragraph(EmbeddedTailscalePlatform.UNSUPPORTED_MESSAGE, span, MUTED);
+      return;
+    }
     Checkbox embedded =
         Checkbox.builder(Component.literal("Enable built-in Tailscale"), font)
             .pos(0, 0)

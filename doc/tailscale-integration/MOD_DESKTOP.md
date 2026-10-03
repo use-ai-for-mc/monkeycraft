@@ -137,23 +137,19 @@ imf 当前 macOS 为 universal binary、Windows 为 `win-x64`，没有 Linux hel
 
 ### 4.2 建议目录和命名
 
+当前发布范围（用户于2026-10-03指定）：仅内嵌 `darwin-arm64` 与 `windows-amd64`。Linux x64 和 Intel Mac 不支持内嵌Tailscale，仍可使用局域网或系统Tailscale；不采用按需下载。
+
 ```text
 native/tailscale-helper/                  Go module、锁定的 Tailscale 版本、构建脚本、测试
-native/tailscale-helper/cmd/monkeycraft-tailscale-helper/
-native/tailscale-helper/scripts/
-mods/<mc>/src/main/resources/native/tailscale/
-  manifest.json                           版本、目标、SHA-256、构建来源
+native/tailscale-helper/dist/
   darwin-arm64/monkeycraft-tailscale-helper
-  darwin-amd64/monkeycraft-tailscale-helper
   windows-amd64/monkeycraft-tailscale-helper.exe
-  linux-amd64/monkeycraft-tailscale-helper
-  ...
-tools/sync-tailscale-helper-resources.sh  将经验证 artifact 同步到四个 Mod 树
+mods/<mc>/build/resources/main/native/tailscale/
+  darwin-arm64/                           Gradle复制二进制、manifest与哈希
+  windows-amd64/
 ```
 
-不要依赖 `os.name` 的模糊匹配或一个 macOS universal 文件来掩盖架构选择；Java 选择器应映射明确的 `darwin-arm64`、`darwin-amd64`、`windows-amd64`、`windows-arm64`、`linux-amd64`、`linux-arm64`。每一个目标只有在 CI 构建、JAR 存在性检查和真实设备 smoke test 都通过后才标为支持。
-
-初始发布范围建议保守地从开发团队实际可测试的 `darwin-arm64`、`darwin-amd64` 和 `windows-amd64` 开始。Linux（尤其 glibc/musl、桌面环境与防火墙差异）及 Windows ARM64 都应作为独立 spike，不得仅因为 Go 可交叉编译就标示支持。
+`EmbeddedTailscalePlatform`按系统名称和JVM架构选择平台。Apple Silicon需运行ARM64 Java；Intel/x64 Java不选择ARM64 helper。不支持的平台在设置面板显示替代连接方式，登录命令提前返回，服务层返回不可重试的`UNSUPPORTED_PLATFORM`，旧配置即使仍开启也不会启动或提取helper。构建同时清理已停止支持的两种平台在旧资源输出目录中的残留。
 
 ### 4.3 helper 构建与供应链
 

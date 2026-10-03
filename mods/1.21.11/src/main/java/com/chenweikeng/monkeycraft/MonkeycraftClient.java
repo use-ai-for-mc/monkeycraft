@@ -7,6 +7,7 @@ import com.chenweikeng.monkeycraft.config.ServerAutoStart;
 import com.chenweikeng.monkeycraft.integration.FlawlessFrames;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
+import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscalePlatform;
 import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
 import com.chenweikeng.monkeycraft.tailscale.TailscaleSnapshot;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
@@ -278,6 +279,10 @@ public class MonkeycraftClient implements ClientModInitializer {
                         ClientCommandManager.literal("login")
                             .executes(
                                 context -> {
+                                  if (!EmbeddedTailscalePlatform.isSupported()) {
+                                    sendTailscaleStatus(HelperTailscaleService.get().snapshot());
+                                    return 0;
+                                  }
                                   WebSocketServerHandler handler =
                                       WebSocketServerHandler.getInstance();
                                   int port = handler.getCurrentPort();

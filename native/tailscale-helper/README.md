@@ -1,7 +1,9 @@
 # monkeycraft-tailscale-helper
 
 Standalone userspace Tailscale helper for MonkeyCraft. JSON Lines v1 on stdin/stdout.
-It is bundled in the Minecraft 26.2 mod tree. Porting to 26.1, 1.21.11, and 1.19 remains pending.
+It is bundled in all four Minecraft mod trees: 26.2, 26.1, 1.21.11, and 1.19.
+Built-in Tailscale supports Windows x64 and Apple Silicon Macs only. Linux and Intel Macs
+use LAN or the system Tailscale app; the Mod does not download helpers.
 
 ## Protocol
 
@@ -15,7 +17,10 @@ See `internal/protocol` and `internal/protocol/testdata/golden`.
 ## Build
 
 ```bash
-# host; resolves a compatible Go toolchain automatically
+# release platforms: darwin-arm64 and windows-amd64
+./scripts/build-all.sh
+
+# host development build; does not expand supported Mod platforms
 ./scripts/build.sh
 
 # tests (no personal tailnet)
