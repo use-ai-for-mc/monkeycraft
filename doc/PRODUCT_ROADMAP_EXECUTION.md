@@ -1114,3 +1114,5 @@ Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_rec
 ### 2026-10-03 Mod 1.4.3 切版准备
 
 用户决定优先发布Mod并要求准备bump版本。四个Mod的gradle.properties统一递增为1.4.3后缀，26.2既有元数据断言同步更新；四个项目spotlessApply通过，未产生额外格式修改。Flutter App保持1.4.2+12，不部署Pages、不更换正在运行的游戏JAR。新增[Mod 1.4.3发布准备](RELEASE_1.4.3.md)，明确四个安装包、旧iOS连接兼容边界以及v1.4.3标签自动构建/发布的行为。用户自行切正式版本，本轮只提交准备修改，不创建标签或GitHub Release；提交后的CI与JAR元数据结果待记录。
+
+版本准备提交cada46f已推送master；[CI 37095391727](https://github.com/use-ai-for-mc/monkeycraft/actions/runs/37095391727) 8/8成功。下载四个Artifacts并验证实际JAR：文件名、fabric.mod.json的1.4.3版本、根路径网页、四包共享main.dart.js哈希、无Pages WASM、四平台helper大小/哈希均通过。发布工作流由actionlint 1.7.7检查通过；原本机旧linter不认识ubuntu-24.04/macOS-26标签，仅记录工具过期，不据此改动工作流。候选哈希与证据位置已补入发布文档；正式标签将重建产物，当前没有创建v1.4.3标签、GitHub Release或安装新Mod。
