@@ -1110,3 +1110,7 @@ Flutter工程目录执行flutter test --no-pub test/stream/tailscale_session_rec
 从v1.4.1/f309c4f归档源码在新建iPhone 16 / iOS 26.5模拟器运行1.4.1(10) Debug，通过原版登录方法及现有密码连接当前真实26.2 Mod（JAR SHA6e1dd7fb…，与当前Mod树相同）。密码认证、实际游戏画面及原生H.264持续解码通过：535→1200帧，未发生重连，采样时原生丢帧计数0。没有修改旧版业务源码或主checkout产品代码；首次双架构构建失败后显式arm64构建成功，CocoaPods只更新锁文件工具版本与spec校验和。旧版Debug键盘预热的Material断言如实保留，未影响本次连接。
 
 测试后断开客户端并关闭新建模拟器，Minecraft保持原服务器内。此结果只证明旧版源码重新构建的模拟器连接，不冒充App Store 1.4.1(11)真机或系统Tailscale路径验收；未追加声音或其他旧功能检查。完整环境、命令、截图及边界见[兼容测试记录](tailscale-integration/evidence/2026-10-03-ios-1.4.1-compatibility.md)。
+
+### 2026-10-03 Mod 1.4.3 切版准备
+
+用户决定优先发布Mod并要求准备bump版本。四个Mod的gradle.properties统一递增为1.4.3后缀，26.2既有元数据断言同步更新；四个项目spotlessApply通过，未产生额外格式修改。Flutter App保持1.4.2+12，不部署Pages、不更换正在运行的游戏JAR。新增[Mod 1.4.3发布准备](RELEASE_1.4.3.md)，明确四个安装包、旧iOS连接兼容边界以及v1.4.3标签自动构建/发布的行为。用户自行切正式版本，本轮只提交准备修改，不创建标签或GitHub Release；提交后的CI与JAR元数据结果待记录。
