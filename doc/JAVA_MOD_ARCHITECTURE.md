@@ -371,3 +371,14 @@ From `build.gradle`:
 | ModMenu | Mod menu integration |
 | Fabric API | Minecraft mod framework |
 | monkeycraft-api | Public API for external mods |
+
+
+## Java Tailscale test integration
+
+All four mod trees can select `EmbeddedTailscaleService` with a Java or native backend.
+The Java implementation uses the shared source under `native/tailscale-java/` and stores
+its identity in the instance's `config/monkeycraft/tailscale-java/`; native state stays separate.
+26.2 reuses its validated host dependencies. The other targets package relocated standalone
+dependencies so Minecraft's Gson and Netty remain unchanged.
+Test artifacts select Java with `-PtailscaleBackend=java`; ordinary builds default to helper.
+See [the multi-version test record](TAILSCALE_JAVA_MULTI_VERSION_TEST.md) for validation and rollback.

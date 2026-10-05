@@ -1,6 +1,6 @@
 package com.chenweikeng.monkeycraft.config;
 
-import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
+import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscaleService;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import java.util.Arrays;
 import java.util.List;
@@ -132,7 +132,8 @@ public class ConfigScreenFactory {
     AbstractConfigListEntry<Boolean> embeddedTailscaleEntry =
         entryBuilder
             .startBooleanToggle(
-                Component.translatable("config.monkeycraft.option.embeddedTailscale"),
+                Component.translatable("config.monkeycraft.option.embeddedTailscale")
+                    .append(" — " + EmbeddedTailscaleService.backendName()),
                 config.isEmbeddedTailscaleEnabled())
             .setDefaultValue(false)
             .setTooltip(
@@ -141,7 +142,7 @@ public class ConfigScreenFactory {
                 enabled -> {
                   config.setEmbeddedTailscaleEnabled(enabled);
                   if (!enabled) {
-                    HelperTailscaleService.get().stop();
+                    EmbeddedTailscaleService.get().stop();
                   }
                 })
             .build();

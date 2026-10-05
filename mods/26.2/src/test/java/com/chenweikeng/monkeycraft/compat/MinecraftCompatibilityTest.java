@@ -148,7 +148,9 @@ class MinecraftCompatibilityTest {
   void preservesReleaseMetadataAndProtocolV2() throws Exception {
     JsonObject metadata = readJson("fabric.mod.json");
     assertEquals("monkeycraft", metadata.get("id").getAsString());
-    assertEquals("1.4.3-26.2", metadata.get("version").getAsString());
+    assertEquals(
+        System.getProperty("monkeycraft.expectedVersion", "1.4.3-26.2"),
+        metadata.get("version").getAsString());
     assertEquals("client", metadata.get("environment").getAsString());
     assertEquals("~26.2", metadata.getAsJsonObject("depends").get("minecraft").getAsString());
     assertEquals(">=25", metadata.getAsJsonObject("depends").get("java").getAsString());

@@ -6,7 +6,7 @@ import com.chenweikeng.monkeycraft.config.NetworkScope;
 import com.chenweikeng.monkeycraft.config.ServerAutoStart;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscalePlatform;
-import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
+import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscaleService;
 import com.chenweikeng.monkeycraft.tailscale.TailscaleSnapshot;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.chenweikeng.monkeycraft.utils.TailnetHttps;
@@ -573,7 +573,7 @@ public class MonkeyPanelScreen extends Screen {
         "If the preferred port is busy, the server takes the next free port up to 9700.",
         span,
         FAINT);
-    section("Built-in Tailscale");
+    section("Built-in Tailscale — " + EmbeddedTailscaleService.backendName());
     if (!EmbeddedTailscalePlatform.isSupported()) {
       paragraph(EmbeddedTailscalePlatform.UNSUPPORTED_MESSAGE, span, MUTED);
       return;
@@ -588,7 +588,7 @@ public class MonkeyPanelScreen extends Screen {
                   config.setEmbeddedTailscaleEnabled(value);
                   config.save();
                   if (!value) {
-                    HelperTailscaleService.get().stop();
+                    EmbeddedTailscaleService.get().stop();
                   }
                   rebuildWidgets();
                 })
@@ -612,7 +612,7 @@ public class MonkeyPanelScreen extends Screen {
         Button.builder(
                 Component.literal("Stop"),
                 button -> {
-                  HelperTailscaleService.get().stop();
+                  EmbeddedTailscaleService.get().stop();
                   setNotice("Built-in Tailscale stopped.", MUTED);
                 })
             .bounds(0, 0, buttonWidth, CONTROL_HEIGHT)
@@ -621,7 +621,7 @@ public class MonkeyPanelScreen extends Screen {
         Button.builder(
                 Component.literal("Log out"),
                 button -> {
-                  HelperTailscaleService.get().logout();
+                  EmbeddedTailscaleService.get().logout();
                   config.setEmbeddedTailscaleEnabled(false);
                   config.save();
                   setNotice("Tailscale logout requested.", MUTED);
@@ -634,7 +634,7 @@ public class MonkeyPanelScreen extends Screen {
     body.place(stop, (buttonWidth + 3) * 2, cursor);
     body.place(logout, (buttonWidth + 3) * 3, cursor);
     cursor += CONTROL_HEIGHT + ROW_GAP;
-    TailscaleSnapshot tailscale = HelperTailscaleService.get().snapshot();
+    TailscaleSnapshot tailscale = EmbeddedTailscaleService.get().snapshot();
     paragraph(tailscaleDetail(tailscale), span, tailscale.errorCode().isEmpty() ? MUTED : RED);
     paragraph(
         "Log out removes this computer's built-in Tailscale sign-in. You will need to log in again"
@@ -655,11 +655,11 @@ public class MonkeyPanelScreen extends Screen {
     }
     ModConfig.getInstance().setEmbeddedTailscaleEnabled(true);
     ModConfig.getInstance().save();
-    showTailscaleSnapshot(HelperTailscaleService.get().login(port));
+    showTailscaleSnapshot(EmbeddedTailscaleService.get().login(port));
   }
 
   private void showTailscaleStatus() {
-    showTailscaleSnapshot(HelperTailscaleService.get().status());
+    showTailscaleSnapshot(EmbeddedTailscaleService.get().status());
   }
 
   private void showTailscaleSnapshot(TailscaleSnapshot snapshot) {
@@ -871,7 +871,7 @@ public class MonkeyPanelScreen extends Screen {
     boolean connected = handler.isClientConnected();
     int port = handler.getCurrentPort();
     List<String> nextAddresses = connectionAddresses();
-    TailscaleSnapshot nextTailscaleSnapshot = HelperTailscaleService.get().snapshot();
+    TailscaleSnapshot nextTailscaleSnapshot = EmbeddedTailscaleService.get().snapshot();
 
     if (running != serverRunning
         || connected != phoneConnected

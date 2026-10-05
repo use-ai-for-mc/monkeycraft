@@ -1,0 +1,2 @@
+PROTOCOL_TESTS_OK java=21.0.11 Go-XChaCha-vector cookie rekey bad-tag replay forged-counter expired-key unknown-peer policy-deltas spoofing IPv6 identity-lock restart-permissions
+DEPENDENCY_CHECKS_OK HTTP2=netty-codec-http2-4.2.18.Final.jar bounded-HPACK-table

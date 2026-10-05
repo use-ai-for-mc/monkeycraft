@@ -9,7 +9,7 @@ import com.chenweikeng.monkeycraft.server.handler.ChatCommandHandler;
 import com.chenweikeng.monkeycraft.server.handler.InputHandler;
 import com.chenweikeng.monkeycraft.server.handler.ScreenInteractionHandler;
 import com.chenweikeng.monkeycraft.server.handler.WorldJoinHandler;
-import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
+import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscaleService;
 import com.chenweikeng.monkeycraft.utils.CryptoUtils;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -380,7 +380,7 @@ public class WebSocketServerHandler {
     MonkeycraftWebSocketServer serverToStop;
     H264Streamer streamerToStop;
     try {
-      HelperTailscaleService.get().shutdown();
+      EmbeddedTailscaleService.get().shutdown();
       synchronized (lifecycleLock) {
         lifecycleState =
             terminal || shutdownRequested.get()

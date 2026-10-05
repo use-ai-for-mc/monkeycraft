@@ -1,0 +1,62 @@
+[
+  {
+    "file": "gson-2.13.2.jar",
+    "url": "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.13.2/gson-2.13.2.jar",
+    "sha256": "dd0ce1b55a3ed2080cb70f9c655850cda86c206862310009dcb5e5c95265a5e0",
+    "size": 289901
+  },
+  {
+    "file": "bcprov-jdk18on-1.86.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.86/bcprov-jdk18on-1.86.jar",
+    "sha256": "2af190b300cbb0b35e248ccf5f4a06b6072030aeb3da7a98ec73abe5b4cb371f",
+    "size": 7224011
+  },
+  {
+    "file": "netty-common-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final.jar",
+    "sha256": "b4ebb8fa44cd5790731928a83fd0f25a530e41c407c093bef4a0196db30b693f",
+    "size": 740310
+  },
+  {
+    "file": "netty-buffer-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final.jar",
+    "sha256": "5bef3ea2b9e80c5e8d03151ca1609bd75fd1e264863bf3e2f8d538392c0f2c38",
+    "size": 365379
+  },
+  {
+    "file": "netty-transport-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final.jar",
+    "sha256": "6c064c1cae4d410b920abfc07959a49db1b4778a9547614373e97d31cab0cad6",
+    "size": 522089
+  },
+  {
+    "file": "netty-resolver-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final.jar",
+    "sha256": "50c338a0e5c9997513e738f0fcb47d579a9e8852d317ba367f5d141e210187c0",
+    "size": 37904
+  },
+  {
+    "file": "netty-codec-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final.jar",
+    "sha256": "21b9b7717da9ed7034c7a9ef4fcea4a08825e8f52d775da4d898364edf99327f",
+    "size": 360280
+  },
+  {
+    "file": "netty-handler-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final.jar",
+    "sha256": "a79fb814e029db17da82baea25a0340172af2c59f107fd20b394c1fa28680f21",
+    "size": 588803
+  },
+  {
+    "file": "netty-codec-http-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.138.Final/netty-codec-http-4.1.138.Final.jar",
+    "sha256": "7d9000e53c8e37504be42b8dd7b646a7d1c73ad2cf801527fe3c6301880fe06f",
+    "size": 694763
+  },
+  {
+    "file": "netty-codec-http2-4.1.138.Final.jar",
+    "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.138.Final/netty-codec-http2-4.1.138.Final.jar",
+    "sha256": "c7521231535c252903d9e424e162f789b5b55b0b0799628ea466a9b3daf49dae",
+    "size": 507477
+  }
+]

@@ -1,0 +1,93 @@
+def sourceRoot = file("../../native/tailscale-java")
+def outputRoot = layout.buildDirectory.dir("tailscale-java").get().asFile
+def locked = new groovy.json.JsonSlurper().parse(new File(sourceRoot, "dependencies.json"))
+def standaloneJars = [new File(outputRoot, "tailscale-java.jar"),
+    new File(outputRoot, "bc-lightweight-subset-1.86.jar")]
+standaloneJars.addAll(locked.findAll { !it.file.startsWith("bcprov-") }.collect {
+    new File(sourceRoot, ".cache/dependencies/${it.file}")
+})
+
+def buildJavaTailscale = tasks.register("buildJavaTailscale", Exec) {
+    inputs.files(fileTree(sourceRoot) {
+        exclude "build/**", "dist/**", ".cache/**", "**/__pycache__/**"
+    })
+    inputs.property "javaVersion", provider { java.toolchain.languageVersion.get().asInt() }
+    outputs.files(standaloneJars)
+    outputs.dir new File(outputRoot, "test-classes")
+    workingDir sourceRoot
+    commandLine providers.gradleProperty("pythonExecutable").getOrElse("python3"),
+        "tools/build.py", "--profile", "standalone", "--build-dir", outputRoot.absolutePath
+    doFirst {
+        environment "JAVA_HOME", javaToolchains.launcherFor {
+            languageVersion = java.toolchain.languageVersion
+        }.get().metadata.installationPath.asFile.absolutePath
+    }
+}
+
+def configureIsolation = { task ->
+    task.configurations = []
+    task.relocate "io.netty", "com.monkeycraft.tailscale.internal.netty"
+    task.relocate "com.google.gson", "com.monkeycraft.tailscale.internal.gson"
+    task.relocate "org.bouncycastle", "com.monkeycraft.tailscale.internal.bouncycastle"
+    task.exclude "META-INF/MANIFEST.MF", "META-INF/INDEX.LIST", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class", "META-INF/versions/**/module-info.class"
+    task.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    task.filesMatching("META-INF/services/**") { duplicatesStrategy = DuplicatesStrategy.INCLUDE }
+    task.mergeServiceFiles()
+    task.preserveFileTimestamps = false
+    task.reproducibleFileOrder = true
+}
+
+def isolatedLibrary = tasks.register("isolateJavaTailscale", javaTailscaleShadowJarType) {
+    dependsOn buildJavaTailscale
+    archiveFileName = "tailscale-java-isolated.jar"
+    destinationDirectory = layout.buildDirectory.dir("tailscale-java/isolated")
+    from({ standaloneJars.collect { zipTree(it) } })
+    configureIsolation(delegate)
+}
+
+def isolatedTests = tasks.register("isolateJavaTailscaleTests", javaTailscaleShadowJarType) {
+    dependsOn buildJavaTailscale
+    archiveFileName = "tailscale-java-tests.jar"
+    destinationDirectory = layout.buildDirectory.dir("tailscale-java/isolated")
+    from(new File(outputRoot, "test-classes"))
+    configureIsolation(delegate)
+}
+
+dependencies {
+    implementation files(isolatedLibrary.flatMap { it.archiveFile }).builtBy(isolatedLibrary)
+}
+
+def protocolTest = tasks.register("testJavaTailscaleProtocol", JavaExec) {
+    dependsOn isolatedLibrary, isolatedTests
+    javaLauncher = javaToolchains.launcherFor { languageVersion = java.toolchain.languageVersion }
+    classpath = files(isolatedTests.flatMap { it.archiveFile }, isolatedLibrary.flatMap { it.archiveFile })
+    mainClass = "com.monkeycraft.tailscale.ProtocolTests"
+    args new File(sourceRoot, "tests/public-crypto-vectors.properties").absolutePath,
+        new File(outputRoot, "tmp").absolutePath
+}
+
+def dependencyTest = tasks.register("testJavaTailscaleDependencies", JavaExec) {
+    dependsOn isolatedLibrary, isolatedTests
+    javaLauncher = javaToolchains.launcherFor { languageVersion = java.toolchain.languageVersion }
+    classpath = files(isolatedTests.flatMap { it.archiveFile }, isolatedLibrary.flatMap { it.archiveFile })
+    mainClass = "com.monkeycraft.tailscale.DependencyChecks"
+}
+
+tasks.named("check") {
+    dependsOn protocolTest, dependencyTest
+}
+
+tasks.named("processResources") {
+    inputs.property "tailscaleBackend", providers.gradleProperty("tailscaleBackend").getOrElse("helper")
+    doLast {
+        new File(destinationDir, "monkeycraft-tailscale-backend.txt").text = inputs.properties.tailscaleBackend + "\n"
+    }
+}
+
+tasks.named("jar") {
+    dependsOn isolatedLibrary
+    from({ zipTree(isolatedLibrary.get().archiveFile.get().asFile) }) {
+        exclude "META-INF/MANIFEST.MF"
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}

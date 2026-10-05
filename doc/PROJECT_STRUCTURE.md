@@ -31,7 +31,8 @@ monkeycraft/
 │
 ├── flutter/monkeycraft/          # Maintained Flutter iOS / Android app
 ├── web/                          # Maintained TypeScript / Preact browser app
-├── native/tailscale-helper/       # Optional embedded desktop node
+├── native/tailscale-helper/       # Native embedded desktop node and fallback
+├── native/tailscale-java/         # Shared Java node, tests, and isolated legacy-version packaging
 ├── doc/                          # Documentation
 ├── .github/workflows/            # Build & release CI
 ├── AGENTS.md                     # Notes for AI agents

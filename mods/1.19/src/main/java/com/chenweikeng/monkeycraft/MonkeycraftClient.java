@@ -9,7 +9,7 @@ import com.chenweikeng.monkeycraft.mixin.MouseHandlerAccessor;
 import com.chenweikeng.monkeycraft.server.WebSocketApiProvider;
 import com.chenweikeng.monkeycraft.server.WebSocketServerHandler;
 import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscalePlatform;
-import com.chenweikeng.monkeycraft.tailscale.HelperTailscaleService;
+import com.chenweikeng.monkeycraft.tailscale.EmbeddedTailscaleService;
 import com.chenweikeng.monkeycraft.tailscale.TailscaleSnapshot;
 import com.chenweikeng.monkeycraft.utils.NetworkUtils;
 import com.chenweikeng.monkeycraft.utils.ScreenHelper;
@@ -62,6 +62,7 @@ public class MonkeycraftClient implements ClientModInitializer {
   @Override
   public void onInitializeClient() {
     LOGGER.info("Monkeycraft client initializing...");
+    LOGGER.info("Embedded Tailscale backend: {}", EmbeddedTailscaleService.backendName());
 
     MonkeycraftApiRegistration.register(new WebSocketApiProvider());
 
@@ -153,7 +154,7 @@ public class MonkeycraftClient implements ClientModInitializer {
   private void registerLifecycleEvents() {
     ClientLifecycleEvents.CLIENT_STOPPING.register(
         client -> {
-          HelperTailscaleService.get().shutdown();
+          EmbeddedTailscaleService.get().shutdown();
           WebSocketServerHandler.getInstance().shutdown();
         });
     ClientLifecycleEvents.CLIENT_STARTED.register(
@@ -168,7 +169,7 @@ public class MonkeycraftClient implements ClientModInitializer {
             if (actualPort > 0) {
               LOGGER.info("Monkeycraft server started at launch on port {}", actualPort);
               if (config.isEmbeddedTailscaleEnabled()) {
-                HelperTailscaleService.get().ensureRunning(actualPort);
+                EmbeddedTailscaleService.get().ensureRunning(actualPort);
               }
             } else {
               LOGGER.warn("Failed to start server at launch (no available port 9600-9700)");
@@ -186,7 +187,7 @@ public class MonkeycraftClient implements ClientModInitializer {
             int actualPort = startServerWithPortRange(config.getPort(), true);
             if (actualPort > 0) {
               if (config.isEmbeddedTailscaleEnabled()) {
-                HelperTailscaleService.get().ensureRunning(actualPort);
+                EmbeddedTailscaleService.get().ensureRunning(actualPort);
               }
               sendMonkeyMessage(Component.translatable("monkeycraft.server.autolaunch"));
               printLocalIps(actualPort);
@@ -281,7 +282,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                             .executes(
                                 context -> {
                                   if (!EmbeddedTailscalePlatform.isSupported()) {
-                                    sendTailscaleStatus(HelperTailscaleService.get().snapshot());
+                                    sendTailscaleStatus(EmbeddedTailscaleService.get().snapshot());
                                     return 0;
                                   }
                                   WebSocketServerHandler handler =
@@ -300,7 +301,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                                   ModConfig.getInstance().setEmbeddedTailscaleEnabled(true);
                                   ModConfig.getInstance().save();
                                   TailscaleSnapshot snapshot =
-                                      HelperTailscaleService.get().login(port);
+                                      EmbeddedTailscaleService.get().login(port);
                                   sendTailscaleStatus(snapshot);
                                   return snapshot.errorCode().isEmpty() ? 1 : 0;
                                 }))
@@ -308,14 +309,14 @@ public class MonkeycraftClient implements ClientModInitializer {
                         ClientCommandManager.literal("status")
                             .executes(
                                 context -> {
-                                  sendTailscaleStatus(HelperTailscaleService.get().status());
+                                  sendTailscaleStatus(EmbeddedTailscaleService.get().status());
                                   return 1;
                                 }))
                     .then(
                         ClientCommandManager.literal("logout")
                             .executes(
                                 context -> {
-                                  HelperTailscaleService.get().logout();
+                                  EmbeddedTailscaleService.get().logout();
                                   ModConfig.getInstance().setEmbeddedTailscaleEnabled(false);
                                   ModConfig.getInstance().save();
                                   sendMonkeyMessage(
@@ -326,7 +327,7 @@ public class MonkeycraftClient implements ClientModInitializer {
                         ClientCommandManager.literal("stop")
                             .executes(
                                 context -> {
-                                  HelperTailscaleService.get().stop();
+                                  EmbeddedTailscaleService.get().stop();
                                   sendMonkeyMessage(
                                       Component.literal("Built-in Tailscale stopped."));
                                   return 1;
@@ -337,13 +338,23 @@ public class MonkeycraftClient implements ClientModInitializer {
     if (!snapshot.errorCode().isEmpty()) {
       sendMonkeyMessage(
           Component.literal(
-              "Built-in Tailscale: " + snapshot.errorCode() + " — " + snapshot.error()));
+              "Built-in Tailscale ("
+                  + EmbeddedTailscaleService.backendName()
+                  + "): "
+                  + snapshot.errorCode()
+                  + " — "
+                  + snapshot.error()));
       return;
     }
     if (snapshot.isRunning()) {
       sendMonkeyMessage(
           Component.literal(
-              "Built-in Tailscale ready at " + snapshot.tailnetIp() + ":" + snapshot.port()));
+              "Built-in Tailscale ("
+                  + EmbeddedTailscaleService.backendName()
+                  + ") ready at "
+                  + snapshot.tailnetIp()
+                  + ":"
+                  + snapshot.port()));
       return;
     }
     if (snapshot.needsLogin()) {
@@ -352,7 +363,12 @@ public class MonkeycraftClient implements ClientModInitializer {
               "Complete Tailscale login in the browser window, then run /monkey tailscale status."));
       return;
     }
-    sendMonkeyMessage(Component.literal("Built-in Tailscale: " + snapshot.state()));
+    sendMonkeyMessage(
+        Component.literal(
+            "Built-in Tailscale ("
+                + EmbeddedTailscaleService.backendName()
+                + "): "
+                + snapshot.state()));
   }
 
   public static int startServerWithPortRange(int preferredPort) {

@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import net.fabricmc.loader.api.FabricLoader;
 
-public final class HelperTailscaleService {
+public final class HelperTailscaleService implements TailscaleBackend {
   private static final int PROTOCOL_VERSION = 1;
   private static final int MAX_DIAGNOSTIC_CHARS = 2048;
   private static final int MAX_PROTOCOL_LINE_CHARS = 65536;

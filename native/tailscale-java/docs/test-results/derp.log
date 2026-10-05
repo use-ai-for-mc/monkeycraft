@@ -1,0 +1,31 @@
+=== RUN   TestJavaClient
+    integration_test.go:46: DERP httpsrv listener: 127.0.0.1:61106
+    integration_test.go:170: java state=starting url=false error=
+    integration_test.go:170: java state=needsLogin url=true error=
+    integration_test.go:170: java state=needsApproval url=false error=
+    integration_test.go:170: java state=running url=false error=
+    integration_test.go:215: connection attempt 0: context deadline exceeded
+    integration_test.go:221: java state=running url=false error=
+    integration_test.go:236: verified Java path=derp traffic=map[connections:1 derpReceived:240 derpSent:282 directReceived:0 directSent:0]
+    integration_test.go:237: upstream tailscaled userspace SOCKS peer -> Java -> loopback passed: 61440 bytes
+    integration_test.go:239: STREAMS_OK 4 concurrent streams x 2097152 bytes, delayed/slow readers, half-close and EOF
+    integration_test.go:248: IPv6 TCP through Java userspace stack passed
+    integration_test.go:280: java state=stopped url=false error=
+    integration_test.go:282: java state=starting url=false error=
+    integration_test.go:282: java state=running url=false error=
+    integration_test.go:296: stop/restart identity and connection restore passed
+    integration_test.go:308: java state=starting url=false error=
+    integration_test.go:308: java state=running url=false error=
+    integration_test.go:322: new JVM restored identity from disk and TCP forwarding
+    integration_test.go:329: java state=needsLogin url=false error=
+    integration_test.go:329: java state=needsLogin url=true error=
+    integration_test.go:329: java state=running url=false error=
+    integration_test.go:334: expired key rotated and interactive reauthentication passed
+    integration_test.go:351: policy deny and restore passed
+    integration_test.go:353: java state=stopped url=false error=
+    integration_test.go:353: java state=needsLogin url=false error=
+    integration_test.go:367: JAVA_CLIENT_E2E_OK interactive approval TCP loopback policy restart expiry logout close
+    stuntest.go:65: STUN server shutdown
+--- PASS: TestJavaClient (20.79s)
+PASS
+ok  	tailscale-java-lab/internal/javatest	21.130s

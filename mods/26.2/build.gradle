@@ -33,7 +33,30 @@ repositories {
 	maven { url = "https://jitpack.io" }
 }
 
+def javaTailscaleRoot = file("../../native/tailscale-java")
+def buildJavaTailscale = tasks.register("buildJavaTailscale", Exec) {
+    inputs.files(fileTree(javaTailscaleRoot) {
+        exclude "build/**", "dist/**", ".cache/**", "**/__pycache__/**"
+    })
+    outputs.files(new File(javaTailscaleRoot, "build/tailscale-java.jar"),
+        new File(javaTailscaleRoot, "build/bc-lightweight-subset-1.86.jar"),
+        new File(javaTailscaleRoot, ".cache/dependencies/netty-codec-http2-4.2.18.Final.jar"))
+    workingDir javaTailscaleRoot
+    commandLine providers.gradleProperty("pythonExecutable").getOrElse("python3"), "tools/build.py"
+    doFirst {
+        environment "JAVA_HOME", javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(25)
+        }.get().metadata.installationPath.asFile.absolutePath
+    }
+}
+def javaTailscaleJars = files(
+    new File(javaTailscaleRoot, "build/tailscale-java.jar"),
+    new File(javaTailscaleRoot, "build/bc-lightweight-subset-1.86.jar"),
+    new File(javaTailscaleRoot, ".cache/dependencies/netty-codec-http2-4.2.18.Final.jar")
+).builtBy(buildJavaTailscale)
+
 dependencies {
+    implementation javaTailscaleJars
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	// No mappings needed - MC 26.2 is unobfuscated
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
@@ -114,6 +137,10 @@ processResources {
 		into "native/tailscale"
 	}
 	inputs.property "version", project.version
+    inputs.property "tailscaleBackend", providers.gradleProperty("tailscaleBackend").getOrElse("helper")
+    doLast {
+        new File(destinationDir, "monkeycraft-tailscale-backend.txt").text = inputs.properties.tailscaleBackend + "\n"
+    }
 	inputs.dir browserWeb
 	from(browserWeb) {
 		exclude "tailscale/**"
@@ -143,6 +170,7 @@ tasks.withType(JavaCompile).configureEach {
 
 test {
 	useJUnitPlatform()
+    systemProperty "monkeycraft.expectedVersion", project.version
 }
 
 java {
@@ -160,6 +188,11 @@ java {
 }
 
 jar {
+    dependsOn buildJavaTailscale
+    from({ javaTailscaleJars.collect { zipTree(it) } }) {
+        exclude "META-INF/MANIFEST.MF", "META-INF/INDEX.LIST", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA"
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 	inputs.property "archivesName", project.base.archivesName
 
 	from("LICENSE") {
